@@ -76,14 +76,14 @@ export default function BarcodeGenerator() {
     formData.append("total_frames", config.total_frames.toString());
     formData.append("frames_per_column", config.frames_per_column.toString());
 
+    const API_BASE =
+      process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:5000";
+
     try {
-      const response = await fetch(
-        "http://localhost:5000/api/generate-barcode",
-        {
-          method: "POST",
-          body: formData,
-        }
-      );
+      const response = await fetch(`${API_BASE}/api/generate-barcode`, {
+        method: "POST",
+        body: formData,
+      });
 
       const data = await response.json();
 
