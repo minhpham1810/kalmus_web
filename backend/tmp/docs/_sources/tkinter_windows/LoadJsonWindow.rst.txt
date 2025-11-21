@@ -1,7 +1,0 @@
-LoadJsonWindow Class
-*****************************
-
-.. automodule:: kalmus.tkinter_windows.LoadJsonWindow
-    :members: LoadJsonWindow
-    :undoc-members:
-    :show-inheritance:

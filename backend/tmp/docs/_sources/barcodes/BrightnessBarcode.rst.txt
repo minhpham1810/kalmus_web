@@ -1,8 +1,0 @@
-BrightnessBarcode Class
-**************************
-
-.. automodule:: kalmus.barcodes.Barcode
-    :members: BrightnessBarcode
-    :undoc-members:
-    :show-inheritance:
-    :noindex:

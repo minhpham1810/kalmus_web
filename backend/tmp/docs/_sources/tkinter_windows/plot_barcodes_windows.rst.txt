@@ -1,7 +1,0 @@
-Inspect Barcode Window Classes
------------------------------------
-.. toctree::
-   :maxdepth: 4
-
-   plot_barcodes_windows/WhichBarcodeInspectWindow
-   plot_barcodes_windows/PlotBarcodeWindow

@@ -1,7 +1,0 @@
-SaveImageWindow Class
-*******************************
-
-.. automodule:: kalmus.tkinter_windows.SaveImageWindow
-    :members: SaveImageWindow
-    :undoc-members:
-    :show-inheritance:

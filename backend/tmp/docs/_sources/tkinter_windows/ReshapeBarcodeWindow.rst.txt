@@ -1,7 +1,0 @@
-ReshapeBarcodeWindow Class
-*******************************
-
-.. automodule:: kalmus.tkinter_windows.ReshapeBarcodeWindow
-    :members: ReshapeBarcodeWindow
-    :undoc-members:
-    :show-inheritance:
