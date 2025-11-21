@@ -1,0 +1,412 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="python" >
+<head>
+  <meta charset="utf-8" />
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  
+  <title>kalmus.barcodes.BarcodeGenerator &mdash; KALMUS 1.3.14 documentation</title>
+  
+
+  
+  <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+
+  
+  
+    <link rel="shortcut icon" href="../../../_static/kalmus_icon.ico"/>
+  
+
+  
+  
+
+  
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+        <script src="../../../_static/jquery.js"></script>
+        <script src="../../../_static/underscore.js"></script>
+        <script src="../../../_static/doctools.js"></script>
+    
+    <script type="text/javascript" src="../../../_static/js/theme.js"></script>
+
+    
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../../../index.html" class="icon icon-home"> KALMUS
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                1.3.14
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../index.html">Home</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../install.html">Installation Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../kalmus.html">API Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../update_log.html">KALMUS Update Log</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../acknowledge.html">Acknowledgement</a></li>
+</ul>
+
+            
+          
+        </div>
+        
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">KALMUS</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../../index.html" class="icon icon-home"></a> &raquo;</li>
+        
+          <li><a href="../../index.html">Module code</a> &raquo;</li>
+        
+      <li>kalmus.barcodes.BarcodeGenerator</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <h1>Source code for kalmus.barcodes.BarcodeGenerator</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot; Barcode Generator Class&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">json</span>
+
+<span class="kn">from</span> <span class="nn">kalmus.barcodes.Barcode</span> <span class="k">import</span> <span class="n">ColorBarcode</span><span class="p">,</span> <span class="n">BrightnessBarcode</span>
+
+<span class="c1"># Available metrics for computing the color of a frame</span>
+<span class="n">color_metrics</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;Average&quot;</span><span class="p">,</span> <span class="s2">&quot;Median&quot;</span><span class="p">,</span> <span class="s2">&quot;Mode&quot;</span><span class="p">,</span> <span class="s2">&quot;Top-dominant&quot;</span><span class="p">,</span> <span class="s2">&quot;Weighted-dominant&quot;</span><span class="p">,</span>
+                 <span class="s2">&quot;Brightest&quot;</span><span class="p">,</span> <span class="s2">&quot;Bright&quot;</span><span class="p">]</span>
+
+<span class="c1"># Available types of sampling frame (which part of frame is region of interest)</span>
+<span class="n">frame_types</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;Whole_frame&quot;</span><span class="p">,</span> <span class="s2">&quot;High_contrast_region&quot;</span><span class="p">,</span> <span class="s2">&quot;Low_contrast_region&quot;</span><span class="p">,</span> <span class="s2">&quot;Foreground&quot;</span><span class="p">,</span> <span class="s2">&quot;Background&quot;</span><span class="p">]</span>
+
+<span class="c1"># Available types of barcode</span>
+<span class="n">barcode_types</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;Color&quot;</span><span class="p">,</span> <span class="s2">&quot;Brightness&quot;</span><span class="p">]</span>
+
+
+<div class="viewcode-block" id="build_barcode_from_json"><a class="viewcode-back" href="../../../barcodes/BarcodeGenerator.html#kalmus.barcodes.BarcodeGenerator.build_barcode_from_json">[docs]</a><span class="k">def</span> <span class="nf">build_barcode_from_json</span><span class="p">(</span><span class="n">path_to_json</span><span class="p">,</span> <span class="n">barcode_type</span><span class="o">=</span><span class="s2">&quot;Color&quot;</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Helper function that build a barcode object from the attributes stored in a json file</span>
+
+<span class="sd">    :param path_to_json: Path to the json file</span>
+<span class="sd">    :type path_to_json: str</span>
+<span class="sd">    :param barcode_type: Type of the barcode that stored in the json file</span>
+<span class="sd">    :type barcode_type: str</span>
+<span class="sd">    :return: The barcode built from the json file at given path</span>
+<span class="sd">    :rtype: class:`kalmus.barcodes.Barcode.ColorBarcode` or class:`kalmus.barcodes.Barcode.BrightnessBarcode`</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">assert</span> <span class="n">barcode_type</span> <span class="ow">in</span> <span class="n">barcode_types</span><span class="p">,</span> <span class="s2">&quot;Invalid barcode type. The available types of &quot;</span> \
+                                          <span class="s2">&quot;the barcode are </span><span class="si">{:s}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">barcode_types</span><span class="p">))</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">path_to_json</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">infile</span><span class="p">:</span>
+        <span class="n">object_dict</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">infile</span><span class="p">)</span>
+    <span class="n">infile</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+    <span class="c1"># Make sure the barcode_type is correctly capitalized</span>
+    <span class="n">barcode_type</span> <span class="o">=</span> <span class="n">barcode_type</span><span class="o">.</span><span class="n">capitalize</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="n">barcode_type</span> <span class="o">==</span> <span class="s2">&quot;Color&quot;</span><span class="p">:</span>
+        <span class="n">barcode</span> <span class="o">=</span> <span class="n">ColorBarcode</span><span class="p">(</span><span class="n">color_metric</span><span class="o">=</span><span class="n">object_dict</span><span class="p">[</span><span class="s2">&quot;color_metric&quot;</span><span class="p">],</span> <span class="n">frame_type</span><span class="o">=</span><span class="n">object_dict</span><span class="p">[</span><span class="s2">&quot;frame_type&quot;</span><span class="p">],</span>
+                               <span class="n">sampled_frame_rate</span><span class="o">=</span><span class="n">object_dict</span><span class="p">[</span><span class="s2">&quot;sampled_frame_rate&quot;</span><span class="p">],</span>
+                               <span class="n">skip_over</span><span class="o">=</span><span class="n">object_dict</span><span class="p">[</span><span class="s2">&quot;skip_over&quot;</span><span class="p">],</span> <span class="n">total_frames</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">object_dict</span><span class="p">[</span><span class="s2">&quot;total_frames&quot;</span><span class="p">]),</span>
+                               <span class="n">barcode_type</span><span class="o">=</span><span class="n">barcode_type</span><span class="p">)</span>
+
+        <span class="n">barcode</span><span class="o">.</span><span class="n">colors</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">object_dict</span><span class="p">[</span><span class="s2">&quot;colors&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">&quot;uint8&quot;</span><span class="p">)</span>
+
+    <span class="k">elif</span> <span class="n">barcode_type</span> <span class="o">==</span> <span class="s2">&quot;Brightness&quot;</span><span class="p">:</span>
+        <span class="n">barcode</span> <span class="o">=</span> <span class="n">BrightnessBarcode</span><span class="p">(</span><span class="n">color_metric</span><span class="o">=</span><span class="n">object_dict</span><span class="p">[</span><span class="s2">&quot;color_metric&quot;</span><span class="p">],</span> <span class="n">frame_type</span><span class="o">=</span><span class="n">object_dict</span><span class="p">[</span><span class="s2">&quot;frame_type&quot;</span><span class="p">],</span>
+                                    <span class="n">sampled_frame_rate</span><span class="o">=</span><span class="n">object_dict</span><span class="p">[</span><span class="s2">&quot;sampled_frame_rate&quot;</span><span class="p">],</span>
+                                    <span class="n">skip_over</span><span class="o">=</span><span class="n">object_dict</span><span class="p">[</span><span class="s2">&quot;skip_over&quot;</span><span class="p">],</span> <span class="n">total_frames</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">object_dict</span><span class="p">[</span><span class="s2">&quot;total_frames&quot;</span><span class="p">]),</span>
+                                    <span class="n">barcode_type</span><span class="o">=</span><span class="n">barcode_type</span><span class="p">)</span>
+
+        <span class="n">barcode</span><span class="o">.</span><span class="n">brightness</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">object_dict</span><span class="p">[</span><span class="s2">&quot;brightness&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">&quot;uint8&quot;</span><span class="p">)</span>
+
+    <span class="n">barcode</span><span class="o">.</span><span class="n">set_letterbox_bound</span><span class="p">(</span><span class="n">object_dict</span><span class="p">[</span><span class="s2">&quot;low_bound_ver&quot;</span><span class="p">],</span> <span class="n">object_dict</span><span class="p">[</span><span class="s2">&quot;high_bound_ver&quot;</span><span class="p">],</span>
+                                <span class="n">object_dict</span><span class="p">[</span><span class="s2">&quot;low_bound_hor&quot;</span><span class="p">],</span> <span class="n">object_dict</span><span class="p">[</span><span class="s2">&quot;high_bound_hor&quot;</span><span class="p">])</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="s2">&quot;meta_data&quot;</span> <span class="ow">in</span> <span class="n">object_dict</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="ow">and</span> <span class="p">(</span><span class="n">object_dict</span><span class="p">[</span><span class="s2">&quot;meta_data&quot;</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="n">barcode</span><span class="o">.</span><span class="n">meta_data</span> <span class="o">=</span> <span class="n">object_dict</span><span class="p">[</span><span class="s2">&quot;meta_data&quot;</span><span class="p">]</span>
+
+    <span class="n">barcode</span><span class="o">.</span><span class="n">barcode</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">object_dict</span><span class="p">[</span><span class="s2">&quot;barcode&quot;</span><span class="p">])</span>
+
+    <span class="n">barcode</span><span class="o">.</span><span class="n">video</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="s2">&quot;fps&quot;</span> <span class="ow">in</span> <span class="n">object_dict</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="ow">and</span> <span class="p">(</span><span class="n">object_dict</span><span class="p">[</span><span class="s2">&quot;fps&quot;</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="n">barcode</span><span class="o">.</span><span class="n">fps</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">object_dict</span><span class="p">[</span><span class="s2">&quot;fps&quot;</span><span class="p">])</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">barcode</span><span class="o">.</span><span class="n">fps</span> <span class="o">=</span> <span class="mi">30</span>
+
+    <span class="n">barcode</span><span class="o">.</span><span class="n">film_length_in_frames</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">object_dict</span><span class="p">[</span><span class="s2">&quot;film_length_in_frames&quot;</span><span class="p">])</span>
+
+    <span class="k">if</span> <span class="s2">&quot;save_frames_in_generation&quot;</span> <span class="ow">in</span> <span class="n">object_dict</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        <span class="k">if</span> <span class="n">object_dict</span><span class="p">[</span><span class="s2">&quot;save_frames_in_generation&quot;</span><span class="p">]:</span>
+            <span class="n">barcode</span><span class="o">.</span><span class="n">save_frames_in_generation</span> <span class="o">=</span> <span class="n">object_dict</span><span class="p">[</span><span class="s2">&quot;save_frames_in_generation&quot;</span><span class="p">]</span>
+            <span class="n">barcode</span><span class="o">.</span><span class="n">saved_frames</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">object_dict</span><span class="p">[</span><span class="s2">&quot;saved_frames&quot;</span><span class="p">])</span>
+
+    <span class="k">return</span> <span class="n">barcode</span></div>
+
+
+<div class="viewcode-block" id="BarcodeGenerator"><a class="viewcode-back" href="../../../barcodes/BarcodeGenerator.html#kalmus.barcodes.BarcodeGenerator.BarcodeGenerator">[docs]</a><span class="k">class</span> <span class="nc">BarcodeGenerator</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Barcode Generator Class</span>
+
+<span class="sd">    :param frame_type: The type of the frame sampling</span>
+<span class="sd">    :type frame_type: str</span>
+<span class="sd">    :param color_metric: The metric of computing the frame color</span>
+<span class="sd">    :type color_metric: str</span>
+<span class="sd">    :param barcode_type: The type of the generated barcode</span>
+<span class="sd">    :type barcode_type: str</span>
+<span class="sd">    :param sampled_frame_rate: The frame sample rate \</span>
+<span class="sd">    (one frame will be sampled from every sampled_frame_rate frames)</span>
+<span class="sd">    :type sampled_frame_rate: int</span>
+<span class="sd">    :param skip_over: How many frames to skip with at the beginning of the input video</span>
+<span class="sd">    :type skip_over: int</span>
+<span class="sd">    :param total_frames: Total number of frames that will be computed (included in the barcode/sampled frames)</span>
+<span class="sd">    :type total_frames: int</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">frame_type</span><span class="o">=</span><span class="s2">&quot;Whole_frame&quot;</span><span class="p">,</span> <span class="n">color_metric</span><span class="o">=</span><span class="s2">&quot;Average&quot;</span><span class="p">,</span> <span class="n">barcode_type</span><span class="o">=</span><span class="s2">&quot;Color&quot;</span><span class="p">,</span>
+                 <span class="n">sampled_frame_rate</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">skip_over</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">total_frames</span><span class="o">=</span><span class="mi">10</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Initialize the parameters for the barcode generator</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">assert</span> <span class="n">frame_type</span> <span class="ow">in</span> <span class="n">frame_types</span><span class="p">,</span> <span class="s2">&quot;Invalid frame acquisition method. Five types of frame acquisition&quot;</span> \
+                                          <span class="s2">&quot; methods are available including </span><span class="si">{:s}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">frame_types</span><span class="p">))</span>
+        <span class="k">assert</span> <span class="n">color_metric</span> <span class="ow">in</span> <span class="n">color_metrics</span><span class="p">,</span> <span class="s2">&quot;Invalid color metric. Seven color metrics are available &quot;</span> \
+                                              <span class="s2">&quot;including </span><span class="si">{:s}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">color_metrics</span><span class="p">))</span>
+        <span class="k">assert</span> <span class="n">barcode_type</span> <span class="ow">in</span> <span class="n">barcode_types</span><span class="p">,</span> <span class="s2">&quot;Invalid barcode type. Two types of barcode are available &quot;</span> \
+                                              <span class="s2">&quot;including </span><span class="si">{:s}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">barcode_types</span><span class="p">))</span>
+        <span class="k">assert</span> <span class="ow">not</span> <span class="p">(</span><span class="n">color_metric</span> <span class="o">==</span> <span class="s2">&quot;Bright&quot;</span> <span class="ow">and</span> <span class="n">frame_type</span> <span class="ow">in</span> <span class="n">frame_types</span><span class="p">[</span><span class="mi">1</span><span class="p">:]),</span> \
+            <span class="s2">&quot;Color metric Bright can not be used when the frame acquisition &quot;</span> \
+            <span class="s2">&quot;methods are </span><span class="si">{:s}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">frame_types</span><span class="p">[</span><span class="mi">1</span><span class="p">:]))</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">frame_type</span> <span class="o">=</span> <span class="n">frame_type</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">color_metric</span> <span class="o">=</span> <span class="n">color_metric</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">barcode_type</span> <span class="o">=</span> <span class="n">barcode_type</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sampled_frame_rate</span> <span class="o">=</span> <span class="n">sampled_frame_rate</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">skip_over</span> <span class="o">=</span> <span class="n">skip_over</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">total_frames</span> <span class="o">=</span> <span class="n">total_frames</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">barcode</span> <span class="o">=</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="BarcodeGenerator.instantiate_barcode_object"><a class="viewcode-back" href="../../../barcodes/BarcodeGenerator.html#kalmus.barcodes.BarcodeGenerator.BarcodeGenerator.instantiate_barcode_object">[docs]</a>    <span class="k">def</span> <span class="nf">instantiate_barcode_object</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Instantiate the barcode object using the given generation parameters</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">barcode_type</span> <span class="o">==</span> <span class="s2">&quot;Color&quot;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">barcode</span> <span class="o">=</span> <span class="n">ColorBarcode</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">color_metric</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">frame_type</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">sampled_frame_rate</span><span class="p">,</span>
+                                        <span class="bp">self</span><span class="o">.</span><span class="n">skip_over</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">total_frames</span><span class="p">,</span> <span class="n">barcode_type</span><span class="o">=</span><span class="s2">&quot;Color&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">barcode_type</span> <span class="o">==</span> <span class="s2">&quot;Brightness&quot;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">barcode</span> <span class="o">=</span> <span class="n">BrightnessBarcode</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">color_metric</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">frame_type</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">sampled_frame_rate</span><span class="p">,</span>
+                                             <span class="bp">self</span><span class="o">.</span><span class="n">skip_over</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">total_frames</span><span class="p">,</span> <span class="n">barcode_type</span><span class="o">=</span><span class="s2">&quot;Brightness&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="BarcodeGenerator.generate_barcode"><a class="viewcode-back" href="../../../barcodes/BarcodeGenerator.html#kalmus.barcodes.BarcodeGenerator.BarcodeGenerator.generate_barcode">[docs]</a>    <span class="k">def</span> <span class="nf">generate_barcode</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">video_file_path</span><span class="p">,</span> <span class="n">user_defined_letterbox</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                         <span class="n">low_ver</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">high_ver</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">left_hor</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">right_hor</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span>
+                         <span class="n">num_thread</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">save_frames</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">rescale_frames_factor</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span>
+                         <span class="n">save_frames_rate</span><span class="o">=</span><span class="mi">4</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Generate the barcode</span>
+
+<span class="sd">        :param video_file_path: The path to the video file</span>
+<span class="sd">        :type video_file_path: str</span>
+<span class="sd">        :param user_defined_letterbox: Whether use the user defined the letterbox, or use the \</span>
+<span class="sd">        automatically found letterbox</span>
+<span class="sd">        :type user_defined_letterbox: bool</span>
+<span class="sd">        :param low_ver: The lower vertical letterbox given by user</span>
+<span class="sd">        :type low_ver: int</span>
+<span class="sd">        :param high_ver: The higher vertical letterbox given by user</span>
+<span class="sd">        :type high_ver: int</span>
+<span class="sd">        :param left_hor: The left horizontal letterbox given by user</span>
+<span class="sd">        :type left_hor: int</span>
+<span class="sd">        :param right_hor: The right horizontal letterbox given by user</span>
+<span class="sd">        :type right_hor: int</span>
+<span class="sd">        :param num_thread: Number of thread for computation. None == Single thread. num_thread &gt; 1: multi-thread</span>
+<span class="sd">        :type num_thread: int</span>
+<span class="sd">        :param save_frames: Whether to save the frames during the barcode generation</span>
+<span class="sd">        :type save_frames: bool</span>
+<span class="sd">        :param save_frames_rate: The period of seconds of one frame being saved. In other words, save 1 frame every \</span>
+<span class="sd">        save_frame_rate seconds in the barcode generation</span>
+<span class="sd">        :type save_frames_rate: float</span>
+<span class="sd">        :param rescale_frames_factor: factor to rescale the input frames during the generation</span>
+<span class="sd">        :type rescale_frames_factor: float</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">instantiate_barcode_object</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">user_defined_letterbox</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">barcode</span><span class="o">.</span><span class="n">set_letterbox_bound</span><span class="p">(</span><span class="n">up_vertical_bound</span><span class="o">=</span><span class="n">high_ver</span><span class="p">,</span> <span class="n">down_vertical_bound</span><span class="o">=</span><span class="n">low_ver</span><span class="p">,</span>
+                                             <span class="n">left_horizontal_bound</span><span class="o">=</span><span class="n">left_hor</span><span class="p">,</span> <span class="n">right_horizontal_bound</span><span class="o">=</span><span class="n">right_hor</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">save_frames</span> <span class="ow">and</span> <span class="n">save_frames_rate</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">barcode</span><span class="o">.</span><span class="n">enable_save_frames</span><span class="p">(</span><span class="n">sampled_rate</span><span class="o">=</span><span class="n">save_frames_rate</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">rescale_frames_factor</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">barcode</span><span class="o">.</span><span class="n">enable_rescale_frames_in_generation</span><span class="p">(</span><span class="n">rescale_frames_factor</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">barcode_type</span> <span class="o">==</span> <span class="s2">&quot;Color&quot;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">num_thread</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">barcode</span><span class="o">.</span><span class="n">multi_thread_collect_colors</span><span class="p">(</span><span class="n">video_file_path</span><span class="p">,</span> <span class="n">num_thread</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">barcode</span><span class="o">.</span><span class="n">collect_colors</span><span class="p">(</span><span class="n">video_file_path</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">barcode_type</span> <span class="o">==</span> <span class="s2">&quot;Brightness&quot;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">num_thread</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">barcode</span><span class="o">.</span><span class="n">multi_thread_collect_brightness</span><span class="p">(</span><span class="n">video_file_path</span><span class="p">,</span> <span class="n">num_thread</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">barcode</span><span class="o">.</span><span class="n">collect_brightness</span><span class="p">(</span><span class="n">video_file_path</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="BarcodeGenerator.generate_barcode_from_json"><a class="viewcode-back" href="../../../barcodes/BarcodeGenerator.html#kalmus.barcodes.BarcodeGenerator.BarcodeGenerator.generate_barcode_from_json">[docs]</a>    <span class="k">def</span> <span class="nf">generate_barcode_from_json</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">json_file_path</span><span class="p">,</span> <span class="n">barcode_type</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Generate the barcode from a json file, which contain a dictionary representation of barcode object</span>
+
+<span class="sd">        :param json_file_path: the path to the json file</span>
+<span class="sd">        :type json_file_path: str</span>
+<span class="sd">        :param barcode_type: the type of the barcode saved in the json file</span>
+<span class="sd">        :type barcode_type: str</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">barcode_type</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">barcode_type</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">barcode_type</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">barcode</span> <span class="o">=</span> <span class="n">build_barcode_from_json</span><span class="p">(</span><span class="n">json_file_path</span><span class="p">,</span> <span class="n">barcode_type</span><span class="o">=</span><span class="n">barcode_type</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="BarcodeGenerator.get_barcode"><a class="viewcode-back" href="../../../barcodes/BarcodeGenerator.html#kalmus.barcodes.BarcodeGenerator.BarcodeGenerator.get_barcode">[docs]</a>    <span class="k">def</span> <span class="nf">get_barcode</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        return the barcode object stored in the Barcode generator</span>
+
+<span class="sd">        :return: The generated barcode</span>
+<span class="sd">        :rtype: class:`kalmus.barcodes.Barcode.ColorBarcode` or class:`kalmus.barcodes.Barcode.BrightnessBarcode`</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">barcode</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;There is not a generated barcode&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">barcode</span></div></div>
+</pre></div>
+
+           </div>
+           
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &#169; Copyright 2021, Yida Chen, Eric Faden, and Nathan Ryan.
+
+    </p>
+  </div>
+    
+    
+    
+    Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

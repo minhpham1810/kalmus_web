@@ -1,0 +1,25 @@
+pytest>=8.3.4
+matplotlib>=3.10.0
+numpy>=2.2.2
+pandas>=2.2.3
+pillow>=11.1.0
+opencv-python
+scikit-learn>=1.0.1
+scikit-image>=0.18.3
+scipy>=1.10.0
+--extra-index-url https://download.pytorch.org/whl/cu124
+torch==2.5.1+cu124
+--extra-index-url https://download.pytorch.org/whl/cu124
+torchaudio==2.5.1+cu124
+torchvision
+transformers
+prettytable
+tqdm
+biopython>=1.78
+timm
+huggingface_hub
+ipython>=7.16.3
+kornia
+einops
+opencv-python-headless>=4.5.3.56
+setuptools

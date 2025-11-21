@@ -1,0 +1,7 @@
+Barcode Classes
+*****************
+
+.. automodule:: kalmus.barcodes.Barcode
+    :members: Barcode, ColorBarcode, BrightnessBarcode, foreback_segmentation
+    :undoc-members:
+    :show-inheritance:
