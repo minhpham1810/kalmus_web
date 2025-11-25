@@ -45,6 +45,62 @@ export default function BarcodeGenerator() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [result, setResult] = useState<BarcodeResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [jobId, setJobId] = useState<string | null>(null);
+  const [jobStatus, setJobStatus] = useState<string | null>(null);
+  const [useSLURM, setUseSLURM] = useState(false);
+
+  const API_BASE =
+    process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:5000";
+
+  // Check if backend is in SLURM mode
+  const checkBackendMode = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/api/health`);
+      const data = await response.json();
+      if (data.mode === "SLURM") {
+        setUseSLURM(true);
+      }
+    } catch (err) {
+      console.log("Could not check backend mode");
+    }
+  };
+
+  // Check backend mode on mount
+  useState(() => {
+    checkBackendMode();
+  });
+
+  // Poll job status
+  const pollJobStatus = async (currentJobId: string) => {
+    try {
+      const response = await fetch(
+        `${API_BASE}/api/job-status/${currentJobId}`
+      );
+      const data = await response.json();
+
+      if (response.ok) {
+        setJobStatus(data.status);
+
+        if (data.status === "COMPLETED") {
+          const resultResponse = await fetch(
+            `${API_BASE}/api/job-result/${currentJobId}`
+          );
+          const resultData = await resultResponse.json();
+          setResult({ ...resultData, success: true, message: "Complete" });
+          setIsProcessing(false);
+          return true;
+        } else if (data.status === "FAILED") {
+          setError(data.error || "Job failed");
+          setIsProcessing(false);
+          return true;
+        }
+      }
+      return false;
+    } catch (err) {
+      console.error("Error polling status:", err);
+      return false;
+    }
+  };
 
   const handleFileSelect = (file: File) => {
     setSelectedFile(file);
@@ -65,6 +121,8 @@ export default function BarcodeGenerator() {
     setIsProcessing(true);
     setError(null);
     setResult(null);
+    setJobId(null);
+    setJobStatus(null);
 
     const formData = new FormData();
     formData.append("video", selectedFile);
@@ -75,9 +133,6 @@ export default function BarcodeGenerator() {
     formData.append("skip_over", config.skip_over.toString());
     formData.append("total_frames", config.total_frames.toString());
     formData.append("frames_per_column", config.frames_per_column.toString());
-
-    const API_BASE =
-      process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:5000";
 
     try {
       const response = await fetch(`${API_BASE}/api/generate-barcode`, {
@@ -91,10 +146,24 @@ export default function BarcodeGenerator() {
         throw new Error(data.error || "Failed to generate barcode");
       }
 
-      setResult(data);
+      // Check if SLURM mode (has job_id)
+      if (data.job_id) {
+        setJobId(data.job_id);
+        setJobStatus("PENDING");
+        // Start polling
+        const interval = setInterval(async () => {
+          const done = await pollJobStatus(data.job_id);
+          if (done) {
+            clearInterval(interval);
+          }
+        }, 5000);
+      } else {
+        // Local mode - immediate result
+        setResult(data);
+        setIsProcessing(false);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
-    } finally {
       setIsProcessing(false);
     }
   };
@@ -157,6 +226,16 @@ export default function BarcodeGenerator() {
       {error && (
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
           <p className="text-red-800 dark:text-red-200">{error}</p>
+        </div>
+      )}
+
+      {jobStatus && (
+        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+          <p className="text-blue-800 dark:text-blue-200">
+            {jobStatus === "PENDING" && "⏳ Job submitted to cluster queue..."}
+            {jobStatus === "PROCESSING" && "⚙️ Processing on compute node..."}
+            {jobStatus === "COMPLETED" && "✅ Processing complete!"}
+          </p>
         </div>
       )}
 
