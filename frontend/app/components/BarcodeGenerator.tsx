@@ -62,8 +62,7 @@ export default function BarcodeGenerator() {
   const [error, setError] = useState<string | null>(null);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  const API_BASE =
-    process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:5000";
+  const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
 
   // Poll for job status
   const pollJobStatus = async (jobId: string) => {
