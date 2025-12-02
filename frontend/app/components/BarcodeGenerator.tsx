@@ -60,107 +60,6 @@ export default function BarcodeGenerator() {
   const [jobStatus, setJobStatus] = useState<JobStatus | null>(null);
   const [result, setResult] = useState<BarcodeResult | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
-
-  const API_BASE =
-    process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:5000";
-
-  // Poll for job status
-  const pollJobStatus = async (jobId: string) => {
-    try {
-      const response = await fetch(`${API_BASE}/api/job-status/${jobId}`);
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to check job status");
-      }
-
-      setJobStatus(data);
-
-      // If job is completed, fetch the result
-      if (data.completed) {
-        if (pollingIntervalRef.current) {
-          clearInterval(pollingIntervalRef.current);
-          pollingIntervalRef.current = null;
-        }
-
-        if (data.status === "SUCCESS" || data.status.includes("COMPLETED")) {
-          await fetchJobResult(jobId);
-        } else {
-          setError(`Job failed with status: ${data.status}`);
-          setIsProcessing(false);
-        }
-      }
-    } catch (err) {
-      console.error("Error polling job status:", err);
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-        pollingIntervalRef.current = null;
-      }
-      setError(
-        err instanceof Error ? err.message : "Failed to check job status"
-      );
-      setIsProcessing(false);
-    }
-  };
-
-  // Fetch job result
-  const fetchJobResult = async (jobId: string) => {
-    try {
-      const response = await fetch(`${API_BASE}/api/job-result/${jobId}`);
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to get job result");
-      }
-
-      if (data.success) {
-        setResult(data);
-      } else {
-        setError(data.error || "Job processing failed");
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to get job result");
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  // Cancel job
-  const handleCancelJob = async () => {
-    if (!currentJobId) return;
-
-    try {
-      const response = await fetch(`${API_BASE}/api/job/${currentJobId}`, {
-        method: "DELETE",
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to cancel job");
-      }
-
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-        pollingIntervalRef.current = null;
-      }
-
-      setIsProcessing(false);
-      setJobStatus(null);
-      setCurrentJobId(null);
-      setError("Job cancelled by user");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to cancel job");
-    }
-  };
-
-  // Cleanup polling on unmount
-  useEffect(() => {
-    return () => {
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-      }
-    };
-  }, []);
 
   const handleFileSelect = (file: File) => {
     setSelectedFile(file);
@@ -183,7 +82,6 @@ export default function BarcodeGenerator() {
     setIsProcessing(true);
     setError(null);
     setResult(null);
-    setJobStatus(null);
 
     const formData = new FormData();
     formData.append("video", selectedFile);
@@ -195,13 +93,8 @@ export default function BarcodeGenerator() {
     formData.append("total_frames", config.total_frames.toString());
     formData.append("frames_per_column", config.frames_per_column.toString());
 
-    if (config.partition) {
-      formData.append("partition", config.partition);
-    }
-
-    if (config.email) {
-      formData.append("email", config.email);
-    }
+    const API_BASE =
+      process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:5000";
 
     try {
       const response = await fetch(`${API_BASE}/api/generate-barcode`, {
@@ -223,8 +116,7 @@ export default function BarcodeGenerator() {
         pollJobStatus(data.jobId);
       }, 5000);
 
-      // Poll immediately for initial status
-      await pollJobStatus(data.jobId);
+      setResult(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
       setIsProcessing(false);
@@ -392,6 +284,16 @@ export default function BarcodeGenerator() {
       {error && (
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
           <p className="text-red-800 dark:text-red-200">{error}</p>
+        </div>
+      )}
+
+      {jobStatus && (
+        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+          <p className="text-blue-800 dark:text-blue-200">
+            {jobStatus === "PENDING" && "⏳ Job submitted to cluster queue..."}
+            {jobStatus === "PROCESSING" && "⚙️ Processing on compute node..."}
+            {jobStatus === "COMPLETED" && "✅ Processing complete!"}
+          </p>
         </div>
       )}
 
