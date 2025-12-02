@@ -151,6 +151,41 @@ export default function ConfigPanel({
         </p>
       </div>
 
+      <div>
+        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+          SLURM Partition
+        </label>
+        <select
+          value={config.partition || "short"}
+          onChange={(e) => onConfigChange({ partition: e.target.value })}
+          className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        >
+          <option value="short">Short (1 day max)</option>
+          <option value="medium">Medium (7 days max)</option>
+          <option value="long">Long (30 days max)</option>
+          <option value="lowpriority">Low Priority (30 days max)</option>
+        </select>
+        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+          Job queue partition (affects priority and time limit)
+        </p>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+          Email (Optional)
+        </label>
+        <input
+          type="email"
+          placeholder="your.email@bucknell.edu"
+          value={config.email || ""}
+          onChange={(e) => onConfigChange({ email: e.target.value })}
+          className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        />
+        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+          Receive SLURM job notifications
+        </p>
+      </div>
+
       <div className="md:col-span-2">
         <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
           <h4 className="font-medium text-blue-900 dark:text-blue-300 mb-2">
@@ -159,7 +194,14 @@ export default function ConfigPanel({
           <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1">
             <li>• Higher sampled rates process faster but may miss details</li>
             <li>• "Bright" color metric only works with "Whole_frame" type</li>
-            <li>• Processing large videos may take several minutes</li>
+            <li>
+              • Video processing runs on HPC compute nodes - check job status
+              for progress
+            </li>
+            <li>
+              • Short partition is recommended for most videos (up to 1 hour
+              processing)
+            </li>
           </ul>
         </div>
       </div>
