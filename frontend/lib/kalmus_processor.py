@@ -11,6 +11,8 @@ import json
 import sys
 import os
 from pathlib import Path
+import numpy as np
+from PIL import Image
 
 try:
     from kalmus.barcodes.BarcodeGenerator import BarcodeGenerator
@@ -78,6 +80,21 @@ def main():
         json_path = os.path.join(args.output_dir, 'barcode.json')
         print(f"Saving barcode to {json_path}...")
         barcode_obj.save_as_json(filename=json_path)
+
+        # Save as PNG image for email attachment
+        image_path = os.path.join(args.output_dir, 'barcode.png')
+        print(f"Saving barcode image to {image_path}...")
+
+        # Get barcode data as numpy array
+        barcode_data = barcode_obj.get_barcode()
+
+        # Convert to uint8 if needed (KALMUS uses float values 0-255)
+        if barcode_data.dtype != np.uint8:
+            barcode_data = barcode_data.astype(np.uint8)
+
+        # Create PIL Image and save as PNG
+        img = Image.fromarray(barcode_data)
+        img.save(image_path, 'PNG')
 
         # Also save a summary with metadata
         summary_path = os.path.join(args.output_dir, 'summary.json')

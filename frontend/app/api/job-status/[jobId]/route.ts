@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5000';
+import { checkSlurmJobStatus } from '@/lib/slurm';
 
 export async function GET(
   request: NextRequest,
@@ -8,14 +7,20 @@ export async function GET(
 ) {
   try {
     const { jobId } = await params;
-    const response = await fetch(`${BACKEND_URL}/api/job-status/${jobId}`);
-    const data = await response.json();
+    const status = await checkSlurmJobStatus(jobId);
 
-    return NextResponse.json(data, { status: response.status });
+    return NextResponse.json({
+      success: true,
+      jobId,
+      ...status,
+    });
   } catch (error) {
-    console.error('Error proxying to backend:', error);
+    console.error('Error checking job status:', error);
     return NextResponse.json(
-      { error: 'Failed to connect to backend server' },
+      {
+        error: 'Failed to check job status',
+        details: (error as Error).message
+      },
       { status: 500 }
     );
   }

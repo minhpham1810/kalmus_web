@@ -4,16 +4,15 @@ import BarcodeGenerator from "./components/BarcodeGenerator";
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
-      <main className="container mx-auto px-4 py-8">
-        <div className="max-w-6xl mx-auto">
-          <header className="text-center mb-12">
-            <h1 className="text-5xl font-bold mb-4 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-              KALMUS Movie Barcode Generator
+    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-900">
+      <main className="container mx-auto px-4 py-12">
+        <div className="max-w-3xl mx-auto">
+          <header className="mb-8">
+            <h1 className="text-3xl font-light tracking-tight text-neutral-900 dark:text-neutral-100 mb-2">
+              KALMUS
             </h1>
-            <p className="text-lg text-slate-600 dark:text-slate-300">
-              Upload a movie file and generate a beautiful color barcode
-              visualization
+            <p className="text-sm text-neutral-500 dark:text-neutral-400 font-light">
+              Movie Barcode Generator
             </p>
           </header>
 
@@ -21,14 +20,14 @@ export default function Home() {
         </div>
       </main>
 
-      <footer className="py-8 text-center text-sm text-slate-500">
+      <footer className="py-6 text-center text-xs text-neutral-400 dark:text-neutral-600">
         <p>
           Powered by{" "}
           <a
             href="https://github.com/KALMUS-Color-Toolkit/KALMUS"
             target="_blank"
             rel="noopener noreferrer"
-            className="underline hover:text-blue-600"
+            className="underline hover:text-neutral-600 dark:hover:text-neutral-400"
           >
             KALMUS
           </a>

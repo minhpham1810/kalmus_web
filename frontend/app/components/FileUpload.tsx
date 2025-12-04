@@ -52,7 +52,7 @@ export default function FileUpload({
       <div
         onDragOver={handleDragOver}
         onDrop={handleDrop}
-        className="border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg p-12 text-center hover:border-blue-500 dark:hover:border-blue-400 transition-colors cursor-pointer"
+        className="border border-dashed border-neutral-300 dark:border-neutral-600 rounded p-10 text-center hover:border-neutral-400 dark:hover:border-neutral-500 transition-colors cursor-pointer"
       >
         <input
           type="file"
@@ -62,9 +62,9 @@ export default function FileUpload({
           className="hidden"
         />
         <label htmlFor="video-upload" className="cursor-pointer">
-          <div className="flex flex-col items-center gap-4">
+          <div className="flex flex-col items-center gap-3">
             <svg
-              className="w-16 h-16 text-slate-400 dark:text-slate-500"
+              className="w-12 h-12 text-neutral-400 dark:text-neutral-500"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -72,16 +72,16 @@ export default function FileUpload({
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                strokeWidth={2}
+                strokeWidth={1.5}
                 d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
               />
             </svg>
             <div>
-              <p className="text-lg font-medium text-slate-700 dark:text-slate-300">
-                Drop your video file here or click to browse
+              <p className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                Drop video or click to browse
               </p>
-              <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">
-                Supported formats: MP4, AVI, MOV, MKV, FLV, WMV
+              <p className="text-xs text-neutral-500 dark:text-neutral-500 mt-1">
+                MP4, AVI, MOV, MKV, FLV, WMV
               </p>
             </div>
           </div>
@@ -89,11 +89,11 @@ export default function FileUpload({
       </div>
 
       {selectedFile && (
-        <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+        <div className="mt-3 p-3 bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2.5">
               <svg
-                className="w-8 h-8 text-blue-600 dark:text-blue-400"
+                className="w-5 h-5 text-neutral-600 dark:text-neutral-400"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -106,21 +106,21 @@ export default function FileUpload({
                 />
               </svg>
               <div>
-                <p className="font-medium text-slate-800 dark:text-slate-200">
+                <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
                   {selectedFile.name}
                 </p>
-                <p className="text-sm text-slate-600 dark:text-slate-400">
+                <p className="text-xs text-neutral-500 dark:text-neutral-500">
                   {formatFileSize(selectedFile.size)}
                 </p>
               </div>
             </div>
             <button
               onClick={() => onFileSelect(null as any)}
-              className="text-slate-500 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+              className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors"
               title="Remove file"
             >
               <svg
-                className="w-6 h-6"
+                className="w-5 h-5"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"

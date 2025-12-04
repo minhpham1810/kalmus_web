@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5000';
+import { cancelSlurmJob } from '@/lib/slurm';
 
 export async function DELETE(
   request: NextRequest,
@@ -8,16 +7,20 @@ export async function DELETE(
 ) {
   try {
     const { jobId } = await params;
-    const response = await fetch(`${BACKEND_URL}/api/job/${jobId}`, {
-      method: 'DELETE',
-    });
-    const data = await response.json();
+    await cancelSlurmJob(jobId);
 
-    return NextResponse.json(data, { status: response.status });
+    return NextResponse.json({
+      success: true,
+      message: 'Job cancelled successfully',
+      jobId,
+    });
   } catch (error) {
-    console.error('Error proxying to backend:', error);
+    console.error('Error cancelling job:', error);
     return NextResponse.json(
-      { error: 'Failed to connect to backend server' },
+      {
+        error: 'Failed to cancel job',
+        details: (error as Error).message
+      },
       { status: 500 }
     );
   }
