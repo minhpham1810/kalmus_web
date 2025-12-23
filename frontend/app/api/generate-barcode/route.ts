@@ -7,11 +7,16 @@ import { pipeline } from 'stream/promises';
 import { Readable } from 'stream';
 
 // Configure route segment for large file uploads
-export const maxDuration = 300; // 5 minutes timeout for large uploads
+export const maxDuration = 600; // 10 minutes timeout for large uploads
+export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   try {
-    const formData = await request.formData();
+    // Parse formData with proper error handling for large files
+    const formData = await request.formData().catch((error) => {
+      console.error('FormData parsing error:', error);
+      throw new Error('Failed to parse upload data. File may be too large or connection interrupted.');
+    });
 
     // Get the video file
     const videoFile = formData.get('video') as File;

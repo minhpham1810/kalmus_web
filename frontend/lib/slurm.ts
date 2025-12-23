@@ -14,6 +14,7 @@ export const SLURM_CONFIG = {
   pythonEnv: process.env.PYTHON_ENV || 'source ~/kalmus_env/bin/activate',
   kalmusScript: process.env.KALMUS_SCRIPT || '/shared/kalmus/kalmus_processor.py',
   emailScript: process.env.EMAIL_SCRIPT || '/shared/kalmus/send_barcode_email.py',
+  websiteUrl: process.env.WEBSITE_URL || 'http://localhost:3000',
 };
 
 export interface JobConfig {
@@ -86,6 +87,9 @@ mkdir -p ${outputDir}
 
 # Activate Python environment
 ${SLURM_CONFIG.pythonEnv}
+
+# Set website URL for email links
+export WEBSITE_URL="${SLURM_CONFIG.websiteUrl}"
 
 # Run KALMUS processing
 echo "Processing video: ${videoFilename}"
@@ -174,7 +178,7 @@ export async function submitSlurmJob(
     await fs.writeFile(scriptPath, script, { mode: 0o755 });
 
     // Submit job using sbatch
-    const { stdout, stderr } = await execAsync(`sbatch ${scriptPath}`);
+    const { stdout } = await execAsync(`sbatch ${scriptPath}`);
 
     // Parse SLURM job ID from output (format: "Submitted batch job 12345")
     const slurmJobIdMatch = stdout.match(/Submitted batch job (\d+)/);

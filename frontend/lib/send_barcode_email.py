@@ -7,6 +7,7 @@ import argparse
 import sys
 import json
 import smtplib
+import os
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.image import MIMEImage
@@ -23,6 +24,10 @@ def send_email(to_email, job_id, results_dir, video_filename):
     summary_path = Path(results_dir) / 'summary.json'
     with open(summary_path) as f:
         summary = json.load(f)
+
+    # Get website URL from environment variable
+    website_url = os.getenv('WEBSITE_URL', 'http://localhost:3000')
+    results_url = f"{website_url}/results/{job_id}"
 
     # Email configuration
     from_email = "noreply@bucknell.edu"
@@ -52,6 +57,11 @@ def send_email(to_email, job_id, results_dir, video_filename):
           .footer {{ text-align: center; color: #6b7280; font-size: 12px; margin-top: 30px; }}
           .button {{ display: inline-block; padding: 12px 24px; background: #667eea;
                      color: white; text-decoration: none; border-radius: 6px; margin: 10px 0; }}
+          .cta-box {{ background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                      padding: 25px; border-radius: 8px; text-align: center; margin: 25px 0; }}
+          .cta-button {{ display: inline-block; padding: 14px 28px; background: white;
+                         color: #667eea; text-decoration: none; border-radius: 6px;
+                         font-weight: bold; font-size: 16px; }}
         </style>
       </head>
       <body>
@@ -66,6 +76,16 @@ def send_email(to_email, job_id, results_dir, video_filename):
             <p>Hello!</p>
 
             <p>Your KALMUS movie barcode has been successfully generated and is attached to this email.</p>
+
+            <div class="cta-box">
+              <h2 style="color: white; margin: 0 0 10px 0; font-size: 20px;">Analyze Your Barcode Online</h2>
+              <p style="color: rgba(255,255,255,0.9); margin: 0 0 20px 0; font-size: 14px;">
+                View interactive visualizations, color statistics, and advanced analytics
+              </p>
+              <a href="{results_url}" class="cta-button">
+                View Analysis Dashboard →
+              </a>
+            </div>
 
             <div class="stats">
               <h3 style="margin-top: 0; color: #111827;">Processing Summary</h3>
@@ -99,15 +119,23 @@ def send_email(to_email, job_id, results_dir, video_filename):
               </div>
             </div>
 
-            <h3>Attached Files:</h3>
+            <h3>What's Included:</h3>
             <ul>
               <li><strong>barcode.png</strong> - Your barcode visualization (high resolution)</li>
               <li><strong>barcode.json</strong> - Raw barcode data for further analysis</li>
             </ul>
 
+            <h3 style="margin-top: 25px;">Online Dashboard Features:</h3>
+            <ul>
+              <li>📊 <strong>Color Statistics</strong> - Average color, dominant colors, brightness metrics</li>
+              <li>📈 <strong>Hue Distribution</strong> - Interactive histogram of color distribution</li>
+              <li>🎨 <strong>3D Color Cube</strong> - Explore RGB color space (drag to rotate)</li>
+              <li>⚖️ <strong>Compare Barcodes</strong> - Analyze similarities with other videos</li>
+            </ul>
+
             <p style="margin-top: 30px; padding: 20px; background: #dbeafe; border-left: 4px solid #3b82f6; border-radius: 4px;">
-              <strong>💡 Tip:</strong> The PNG image can be used directly in presentations or publications.
-              The JSON file contains the raw color data and can be imported into analysis tools.
+              <strong>💡 Tip:</strong> The online dashboard provides advanced visualizations beyond what's possible in static images.
+              You can also download the data as CSV for custom analysis.
             </p>
 
             <div class="footer">

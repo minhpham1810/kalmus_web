@@ -33,6 +33,7 @@ export default function BarcodeGenerator() {
   const [submitted, setSubmitted] = useState(false);
   const [jobId, setJobId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
 
@@ -60,33 +61,131 @@ export default function BarcodeGenerator() {
 
     setIsSubmitting(true);
     setError(null);
-
-    const formData = new FormData();
-    formData.append("video", selectedFile);
-    formData.append("color_metric", config.color_metric);
-    formData.append("frame_type", config.frame_type);
-    formData.append("barcode_type", config.barcode_type);
-    formData.append("sampled_rate", config.sampled_rate.toString());
-    formData.append("skip_over", config.skip_over.toString());
-    formData.append("total_frames", config.total_frames.toString());
-    formData.append("frames_per_column", config.frames_per_column.toString());
-    formData.append("partition", config.partition || "short");
-    formData.append("email", config.email);
+    setUploadProgress(0);
 
     try {
-      const response = await fetch(`${API_BASE}/api/generate-barcode`, {
-        method: "POST",
-        body: formData,
-      });
+      // Use chunked upload for files larger than 50MB
+      const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunks
+      const useChunkedUpload = selectedFile.size > 50 * 1024 * 1024;
 
-      const data = await response.json();
+      if (useChunkedUpload) {
+        // Chunked upload
+        const totalChunks = Math.ceil(selectedFile.size / CHUNK_SIZE);
+        const uploadId = crypto.randomUUID();
 
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to submit job");
+        for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+          const start = chunkIndex * CHUNK_SIZE;
+          const end = Math.min(start + CHUNK_SIZE, selectedFile.size);
+          const chunk = selectedFile.slice(start, end);
+
+          const chunkFormData = new FormData();
+          chunkFormData.append("chunk", chunk);
+          chunkFormData.append("uploadId", uploadId);
+          chunkFormData.append("chunkIndex", chunkIndex.toString());
+          chunkFormData.append("totalChunks", totalChunks.toString());
+          chunkFormData.append("filename", selectedFile.name);
+
+          const response = await fetch(`${API_BASE}/api/upload-chunk`, {
+            method: "POST",
+            body: chunkFormData,
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || "Failed to upload chunk");
+          }
+
+          // Update progress
+          const progress = Math.round(((chunkIndex + 1) / totalChunks) * 100);
+          setUploadProgress(progress);
+        }
+
+        // After all chunks uploaded, assemble and submit job
+        const assembleResponse = await fetch(`${API_BASE}/api/assemble-file`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            uploadId,
+            filename: selectedFile.name,
+            config: {
+              color_metric: config.color_metric,
+              frame_type: config.frame_type,
+              barcode_type: config.barcode_type,
+              sampled_rate: config.sampled_rate.toString(),
+              skip_over: config.skip_over.toString(),
+              total_frames: config.total_frames.toString(),
+              frames_per_column: config.frames_per_column.toString(),
+              partition: config.partition || "short",
+              email: config.email,
+            },
+          }),
+        });
+
+        if (!assembleResponse.ok) {
+          const errorData = await assembleResponse.json();
+          throw new Error(errorData.error || "Failed to assemble file and submit job");
+        }
+
+        const data = await assembleResponse.json();
+        setJobId(data.jobId);
+        setSubmitted(true);
+      } else {
+        // Regular upload for smaller files
+        const formData = new FormData();
+        formData.append("video", selectedFile);
+        formData.append("color_metric", config.color_metric);
+        formData.append("frame_type", config.frame_type);
+        formData.append("barcode_type", config.barcode_type);
+        formData.append("sampled_rate", config.sampled_rate.toString());
+        formData.append("skip_over", config.skip_over.toString());
+        formData.append("total_frames", config.total_frames.toString());
+        formData.append("frames_per_column", config.frames_per_column.toString());
+        formData.append("partition", config.partition || "short");
+        formData.append("email", config.email);
+
+        // Use XMLHttpRequest for upload progress tracking
+        const xhr = new XMLHttpRequest();
+
+        xhr.upload.addEventListener("progress", (e) => {
+          if (e.lengthComputable) {
+            const percentComplete = Math.round((e.loaded / e.total) * 100);
+            setUploadProgress(percentComplete);
+          }
+        });
+
+        await new Promise<void>((resolve, reject) => {
+          xhr.addEventListener("load", () => {
+            if (xhr.status === 200) {
+              try {
+                const data = JSON.parse(xhr.responseText);
+                setJobId(data.jobId);
+                setSubmitted(true);
+                resolve();
+              } catch (err) {
+                reject(new Error("Invalid response from server"));
+              }
+            } else {
+              try {
+                const data = JSON.parse(xhr.responseText);
+                reject(new Error(data.error || "Failed to submit job"));
+              } catch {
+                reject(new Error(`Upload failed with status ${xhr.status}`));
+              }
+            }
+          });
+
+          xhr.addEventListener("error", () => {
+            reject(new Error("Network error occurred during upload"));
+          });
+
+          xhr.addEventListener("abort", () => {
+            reject(new Error("Upload was cancelled"));
+          });
+
+          xhr.open("POST", `${API_BASE}/api/generate-barcode`);
+          xhr.send(formData);
+        });
       }
-
-      setJobId(data.jobId);
-      setSubmitted(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
@@ -99,6 +198,7 @@ export default function BarcodeGenerator() {
     setSubmitted(false);
     setJobId(null);
     setError(null);
+    setUploadProgress(0);
     setConfig({
       ...config,
       email: config.email, // Keep email
@@ -128,6 +228,30 @@ export default function BarcodeGenerator() {
                 <ConfigPanel config={config} onConfigChange={handleConfigChange} />
               </div>
 
+              {isSubmitting && uploadProgress > 0 && (
+                <div className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded p-6">
+                  <div className="mb-2 flex justify-between items-center">
+                    <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                      Uploading video...
+                    </span>
+                    <span className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
+                      {uploadProgress}%
+                    </span>
+                  </div>
+                  <div className="w-full bg-neutral-200 dark:bg-neutral-700 rounded-full h-2.5">
+                    <div
+                      className="bg-neutral-900 dark:bg-neutral-100 h-2.5 rounded-full transition-all duration-300"
+                      style={{ width: `${uploadProgress}%` }}
+                    ></div>
+                  </div>
+                  <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
+                    {uploadProgress < 100
+                      ? "Please wait while your video is being uploaded..."
+                      : "Upload complete! Processing job submission..."}
+                  </p>
+                </div>
+              )}
+
               <div className="flex justify-end">
                 <button
                   onClick={handleSubmit}
@@ -152,7 +276,7 @@ export default function BarcodeGenerator() {
                           d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                         />
                       </svg>
-                      Submitting...
+                      {uploadProgress < 100 ? `Uploading ${uploadProgress}%` : "Submitting..."}
                     </span>
                   ) : (
                     "Submit Job"
