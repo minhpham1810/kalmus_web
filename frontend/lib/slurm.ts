@@ -42,6 +42,7 @@ export interface JobMetadata {
     email?: string;
     fullName?: string;
   };
+  movie?: Record<string, unknown>;
 }
 
 /**
@@ -158,7 +159,8 @@ export async function submitSlurmJob(
   videoPath: string,
   videoFilename: string,
   config: JobConfig,
-  user?: { username?: string; email?: string; fullName?: string }
+  user?: { username?: string; email?: string; fullName?: string },
+  movie?: Record<string, unknown>
 ): Promise<{ jobId: string; slurmJobId: string; estimatedTime?: string }> {
   const jobId = uuidv4();
 
@@ -198,6 +200,7 @@ export async function submitSlurmJob(
       submittedAt: new Date().toISOString(),
       status: 'PENDING',
       user: user || undefined,
+      movie: movie || undefined,
     };
 
     await fs.writeFile(
@@ -385,6 +388,7 @@ export async function getSlurmJobResult(jobId: string) {
         ...metadata.config,
         submittedAt: metadata.submittedAt,
         videoFilename: metadata.videoFilename,
+        movie: metadata.movie,
       },
     };
   } catch (error) {

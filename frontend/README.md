@@ -4,316 +4,83 @@ A Next.js application for generating movie color barcodes using the KALMUS libra
 
 ## Features
 
-- 🎬 **Video Upload & Processing**: Upload videos and process them on HPC compute nodes
-- 🎨 **Color Barcode Generation**: Create visual timeline representations of movies
-- ⚡ **SLURM Integration**: Direct job submission to HPC clusters
-- 📊 **Real-time Monitoring**: Track job status with live updates
-- 🔐 **Authentication Ready**: Supports header-based auth (Shibboleth, CAS)
-- 📱 **Modern UI**: React 19 with Tailwind CSS
+- **Video Upload & Processing**: Upload videos and process them on HPC compute nodes
+- **Color Barcode Generation**: Create visual timeline representations and statistic visualizations of movies
+- **SLURM Integration**: Direct job submission to HPC clusters
+- **Real-time Monitoring**: Track job status with live updates
+- **Authentication Ready**: Supports header-based auth (Shibboleth, CAS)
+- **Modern UI**: React 19 with Tailwind CSS
 
 ## Quick Start
 
-```bash
-# 1. Install dependencies
-npm install
+Run the following command to deploy the project to Kalmus's domain:
 
-# 2. Run setup script
-./setup-dev.sh
-
-# 3. Configure environment
-cp .env.local.example .env.local
-# Edit .env.local with your paths
-
-# 4. Start development server
-npm run dev
 ```
-
-Open [http://localhost:3000](http://localhost:3000) 🚀
-
-## Documentation
-
-- **[QUICKSTART.md](./QUICKSTART.md)** - Get running in 5 minutes
-- **[SETUP.md](./SETUP.md)** - Complete setup and configuration guide
-- **[MIGRATION_SUMMARY.md](./MIGRATION_SUMMARY.md)** - Architecture changes explained
+cd app
+bash deploy.sh
+```
 
 ## Architecture
 
-This is a **self-contained Next.js application** that handles both frontend and backend operations:
+**Stack:** Next.js 16 (React 19, TypeScript, Tailwind CSS 4) + Python on SLURM HPC
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    Next.js Application                      │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  ┌──────────────────┐         ┌──────────────────┐        │
-│  │  React           │         │  API Routes      │        │
-│  │  Components      │────────▶│  (Server-side)   │        │
-│  │  (Client-side)   │  fetch  │                  │        │
-│  └──────────────────┘         └─────────┬────────┘        │
-│                                          │                  │
-└──────────────────────────────────────────┼──────────────────┘
-                                           │
-                                           ▼
-                                    ┌──────────────┐
-                                    │    SLURM     │
-                                    │   Commands   │
-                                    └──────┬───────┘
-                                           │
-                                           ▼
-                                  ┌────────────────┐
-                                  │ Compute Nodes  │
-                                  │ (KALMUS runs)  │
-                                  └────────────────┘
-```
-
-**Key Components:**
-
-- **Frontend** (`app/`, `app/components/`): React UI for uploads and monitoring
-- **API Routes** (`app/api/`): Next.js server endpoints that handle SLURM
-- **SLURM Utilities** (`lib/slurm.ts`): Job submission and management logic
-- **Processor Script** (`lib/kalmus_processor.py`): Runs on compute nodes
-
-## Project Structure
+### Structure
 
 ```
 frontend/
 ├── app/
-│   ├── api/                    # Next.js API routes (SLURM integration)
-│   │   ├── generate-barcode/   # Submit jobs
-│   │   ├── job-status/         # Check status
-│   │   ├── job-result/         # Get results
-│   │   ├── job/                # Cancel jobs
-│   │   ├── health/             # Health check
-│   │   └── options/            # Get config options
-│   ├── components/             # React components
-│   │   ├── BarcodeGenerator.tsx
-│   │   ├── BarcodeDisplay.tsx
-│   │   ├── ConfigPanel.tsx
-│   │   └── FileUpload.tsx
-│   ├── page.tsx               # Main page
-│   ├── layout.tsx             # App layout
-│   └── globals.css            # Styles
-├── lib/
-│   ├── slurm.ts               # SLURM integration logic
-│   └── kalmus_processor.py    # Python script for compute nodes
-├── .env.local.example         # Environment config template
-├── package.json               # Dependencies
-├── tsconfig.json              # TypeScript config
-├── tailwind.config.ts         # Tailwind config
-├── setup-dev.sh               # Development setup script
-├── QUICKSTART.md              # Quick start guide
-├── SETUP.md                   # Detailed setup guide
-└── MIGRATION_SUMMARY.md       # Architecture documentation
+│   ├── page.tsx                  # Home — upload + config
+│   ├── results/[jobId]/page.tsx  # Results — visualizations
+│   ├── api/                      # Backend API routes
+│   │   ├── generate-barcode/     # Direct upload (<50MB)
+│   │   ├── upload-chunk/         # Chunked upload (large files)
+│   │   ├── assemble-file/        # Assemble chunks → submit job
+│   │   ├── job-status/[jobId]/   # Poll SLURM job status
+│   │   ├── job-result/[jobId]/   # Fetch completed results
+│   │   ├── visualization/        # Hue histogram, RGB cube, scatter, 3D bar, compare
+│   │   └── omdb/                 # Movie metadata search
+│   ├── components/               # React UI components
+│   └── lib/
+│       ├── slurm.ts              # SLURM job submission/status
+│       └── barcode-utils.ts      # Color math, histograms, CSV export
+└── package.json
 ```
 
-## Environment Configuration
+### Workflow
 
-Create `.env.local`:
-
-```env
-# API Base (leave empty for local API routes)
-NEXT_PUBLIC_API_BASE_URL=
-
-# Shared filesystem paths (accessible by web server and compute nodes)
-UPLOAD_DIR=/shared/kalmus/uploads
-RESULTS_DIR=/shared/kalmus/results
-SCRIPTS_DIR=/shared/kalmus/scripts
-
-# Python environment on compute nodes
-PYTHON_ENV=source ~/kalmus_env/bin/activate
-
-# KALMUS processor script location
-KALMUS_SCRIPT=/shared/kalmus/kalmus_processor.py
+```
+Upload video → Configure options → Submit
+        │
+        ▼
+  Next.js API route writes SLURM batch script
+        │
+        ▼
+  sbatch → compute node runs kalmus_processor.py
+        │
+        ▼
+  Outputs barcode.png, barcode.json, summary.json
+  to /shared/kalmus/results/[jobId]/
+        │
+        ▼
+  Results page polls status, then renders visualizations
+  (hue histogram, RGB cube, hue/light scatter, 3D bar, comparison)
 ```
 
-## Requirements
+### Key details
 
-### Web Server (where Next.js runs)
-- Node.js 18+
-- Access to SLURM commands (`sbatch`, `squeue`, `sacct`, `scancel`)
-- Read/write access to shared filesystem
-
-### Compute Nodes
-- Python 3.8+
-- KALMUS library (`pip install kalmus`)
-- Dependencies: numpy, opencv-python, matplotlib, pillow, scikit-image
-- Access to shared filesystem
-
-### Shared Filesystem
-- NFS or similar distributed filesystem
-- Accessible from both web server and compute nodes
-- Paths for uploads, results, and scripts
-
-## API Endpoints
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/generate-barcode` | POST | Submit new video processing job |
-| `/api/job-status/[jobId]` | GET | Get current job status |
-| `/api/job-result/[jobId]` | GET | Get completed job results |
-| `/api/job/[jobId]` | DELETE | Cancel running job |
-| `/api/health` | GET | Check service health and SLURM availability |
-| `/api/options` | GET | Get available configuration options |
-
-## Development
-
-```bash
-# Install dependencies
-npm install
-
-# Run development server
-npm run dev
-
-# Type checking
-npm run build
-
-# Lint code
-npm run lint
-```
-
-## Production Deployment
-
-```bash
-# Build for production
-npm run build
-
-# Start production server
-npm start
-
-# Or use PM2
-pm2 start npm --name "kalmus" -- start
-
-# Or use systemd
-sudo systemctl start kalmus
-```
-
-### With Nginx
-
-```nginx
-server {
-    listen 80;
-    server_name kalmus.yourdomain.edu;
-
-    location / {
-        proxy_pass http://localhost:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_cache_bypass $http_upgrade;
-    }
-}
-```
-
-## Configuration Options
-
-### Color Metrics
-- Average, Median, Mode, Top-dominant, Weighted-dominant, Brightest, Bright
-
-### Frame Types
-- Whole_frame, High_contrast_region, Low_contrast_region, Foreground, Background
-
-### Barcode Types
-- Color, Brightness
-
-### SLURM Partitions
-Configure in `app/api/options/route.ts`:
-```typescript
-partitions: ['short', 'medium', 'long', 'gpu']
-```
-
-## Customization
-
-### Adjust SLURM Resources
-
-Edit `lib/slurm.ts`:
-
-```typescript
-#SBATCH --cpus-per-task=4    // CPU cores
-#SBATCH --mem=16GB            // Memory
-#SBATCH --time=01:00:00       // Time limit
-```
-
-### File Size Limits
-
-Create `next.config.js`:
-
-```javascript
-module.exports = {
-  api: {
-    bodyParser: {
-      sizeLimit: '500mb',
-    },
-  },
-};
-```
-
-## Troubleshooting
-
-### SLURM Not Available
-
-```bash
-# Check SLURM installation
-which sbatch squeue sacct
-
-# Add to PATH if needed
-export PATH=$PATH:/usr/local/slurm/bin
-```
-
-### Permission Errors
-
-```bash
-# Check filesystem permissions
-ls -la /shared/kalmus/
-chmod 755 /shared/kalmus/{uploads,results,scripts}
-```
-
-### Jobs Failing
-
-```bash
-# Check job logs
-cat /shared/kalmus/results/[job-id]/slurm_*.stderr.txt
-
-# Test on compute node
-srun --partition=short bash -c "source ~/kalmus_env/bin/activate && python -c 'import kalmus'"
-```
-
-## Security
-
-- File upload validation
-- Filename sanitization
-- User input sanitization
-- Header-based authentication support
-- SLURM resource limits
-- Job isolation (separate directories)
-
-## Performance
-
-- **Local API**: No network hop between frontend and backend
-- **Async Processing**: Jobs run on compute nodes
-- **Polling**: 5-second intervals for status updates
-- **Caching**: Results stored on shared filesystem
-
-## Future Enhancements
-
-- [ ] SQLite database for job history
-- [ ] User dashboard with job management
-- [ ] Email notifications
-- [ ] Barcode comparison tools
-- [ ] Batch processing
-- [ ] Video thumbnails
-- [ ] Advanced analytics
-
-## Support & Resources
-
-- **KALMUS Library**: https://github.com/KALMUS-Color-Toolkit/KALMUS
-- **Next.js Docs**: https://nextjs.org/docs
-- **SLURM Documentation**: https://slurm.schedmd.com/
-
-## License
-
-Follows KALMUS library licensing.
+- Large files use chunked parallel upload (4 concurrent, 5–25MB chunks), then server-side assembly
+- SLURM jobs get 4 CPUs, 16GB RAM, 1hr limit
+- Python side uses the KALMUS library for color extraction from video frames
+- Visualizations rendered client-side with Plotly.js
+- Shared NFS filesystem bridges the web server and compute nodes
+- Optional email notification on job completion
 
 ---
 
-**Built with** Next.js 16 • React 19 • TypeScript • Tailwind CSS • SLURM
+
+All frontend-backend communication is standard HTTP (fetch/XHR) to Next.js API routes. File uploads use `FormData`; everything else is JSON.
+
+For OMDB: the frontend already proxies all OMDb calls through its own API routes (`/api/omdb/search` and `/api/omdb/get`), with in-memory caching (5min for search, 30min for details). When a job is submitted, only the selected movie's metadata is sent along (`imdb_id`, `title`, `year`, `genre`, `director`, `plot`, `poster_url`) — plus the full raw OMDb response is included in a `raw` field. This all gets saved into the job's `metadata.json` which can be seen in the `results` folder (we should move this and route all future outputs to the backend later on), so the full OMDb snapshot is already persisted per-job. Since the API routes run server-side in Next.js, OMDB queries are effectively already on the backend, there's no reason to move them elsewhere.
+
+
+If a job has completed successfully, it returns the full barcode JSON (colors array, brightness array, processing params), the summary stats, and the metadata (which includes the cached OMDB data from submission time). So yes, the processed barcode JSON is the primary return, and the OMDB data comes back with it for free since it was stored in `metadata.json` at submission.

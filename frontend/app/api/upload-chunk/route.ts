@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { mkdir, writeFile } from 'fs/promises';
+import { mkdir } from 'fs/promises';
+import { createWriteStream } from 'fs';
+import { Readable } from 'stream';
+import { pipeline } from 'stream/promises';
 import path from 'path';
 
 export const maxDuration = 600;
@@ -28,10 +31,12 @@ export async function POST(request: NextRequest) {
         const uploadDir = path.join(CHUNKS_DIR, uploadId);
         await mkdir(uploadDir, { recursive: true });
 
-        // Save chunk
+        // Stream chunk directly to disk (no memory buffering)
         const chunkPath = path.join(uploadDir, `chunk_${chunkIndex.toString().padStart(6, '0')}`);
-        const buffer = Buffer.from(await chunk.arrayBuffer());
-        await writeFile(chunkPath, buffer);
+        const writeStream = createWriteStream(chunkPath);
+        const readStream = Readable.fromWeb(chunk.stream() as any);
+
+        await pipeline(readStream, writeStream);
 
         return NextResponse.json({
             success: true,
