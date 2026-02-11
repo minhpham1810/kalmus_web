@@ -3,6 +3,7 @@
 import { useState } from "react";
 import FileUpload from "./FileUpload";
 import ConfigPanel from "./ConfigPanel";
+import MovieSearchInput, { MovieInfo } from "./MovieSearchInput";
 
 export interface BarcodeConfig {
   color_metric: string;
@@ -34,11 +35,14 @@ export default function BarcodeGenerator() {
   const [jobId, setJobId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [movieInfo, setMovieInfo] = useState<MovieInfo | null>(null);
 
+  const movieStepComplete = movieInfo !== null;
   const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
 
   const handleFileSelect = (file: File) => {
     setSelectedFile(file);
+    setMovieInfo(null);
     setSubmitted(false);
     setError(null);
     setJobId(null);
@@ -46,6 +50,90 @@ export default function BarcodeGenerator() {
 
   const handleConfigChange = (newConfig: Partial<BarcodeConfig>) => {
     setConfig((prev) => ({ ...prev, ...newConfig }));
+  };
+
+  // Helper: Determine optimal chunk size based on file size
+  const getOptimalChunkSize = (fileSize: number): number => {
+    if (fileSize > 1 * 1024 * 1024 * 1024) return 25 * 1024 * 1024; // >1GB: 25MB chunks
+    if (fileSize > 500 * 1024 * 1024) return 15 * 1024 * 1024;      // >500MB: 15MB chunks
+    if (fileSize > 100 * 1024 * 1024) return 10 * 1024 * 1024;      // >100MB: 10MB chunks
+    return 5 * 1024 * 1024;                                          // default: 5MB chunks
+  };
+
+  // Helper: Upload a single chunk with retry logic
+  const uploadChunkWithRetry = async (
+    chunkFormData: FormData,
+    chunkIndex: number,
+    maxRetries = 3
+  ): Promise<void> => {
+    let lastError: Error | null = null;
+
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        const response = await fetch(`${API_BASE}/api/upload-chunk`, {
+          method: "POST",
+          body: chunkFormData,
+        });
+
+        if (response.ok) return;
+
+        // Don't retry client errors (4xx)
+        if (response.status >= 400 && response.status < 500) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || `Failed to upload chunk ${chunkIndex}`);
+        }
+      } catch (error) {
+        lastError = error as Error;
+      }
+
+      // Exponential backoff: 1s, 2s, 4s
+      if (attempt < maxRetries - 1) {
+        await new Promise(r => setTimeout(r, Math.pow(2, attempt) * 1000));
+      }
+    }
+
+    throw lastError || new Error(`Failed to upload chunk ${chunkIndex} after ${maxRetries} retries`);
+  };
+
+  // Helper: Upload chunks in parallel with concurrency limit
+  const uploadChunksParallel = async (
+    file: File,
+    uploadId: string,
+    onProgress: (progress: number) => void
+  ): Promise<number> => {
+    const CHUNK_SIZE = getOptimalChunkSize(file.size);
+    const CONCURRENT_UPLOADS = 4; // Upload 4 chunks at a time
+
+    const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+    let completedChunks = 0;
+
+    const uploadChunk = async (chunkIndex: number): Promise<void> => {
+      const start = chunkIndex * CHUNK_SIZE;
+      const end = Math.min(start + CHUNK_SIZE, file.size);
+      const chunk = file.slice(start, end);
+
+      const chunkFormData = new FormData();
+      chunkFormData.append("chunk", chunk);
+      chunkFormData.append("uploadId", uploadId);
+      chunkFormData.append("chunkIndex", chunkIndex.toString());
+      chunkFormData.append("totalChunks", totalChunks.toString());
+      chunkFormData.append("filename", file.name);
+
+      await uploadChunkWithRetry(chunkFormData, chunkIndex);
+
+      completedChunks++;
+      onProgress(Math.round((completedChunks / totalChunks) * 100));
+    };
+
+    // Process chunks in batches
+    const chunkIndices = Array.from({ length: totalChunks }, (_, i) => i);
+
+    for (let i = 0; i < chunkIndices.length; i += CONCURRENT_UPLOADS) {
+      const batch = chunkIndices.slice(i, i + CONCURRENT_UPLOADS);
+      await Promise.all(batch.map(uploadChunk));
+    }
+
+    return totalChunks;
   };
 
   const handleSubmit = async () => {
@@ -65,40 +153,13 @@ export default function BarcodeGenerator() {
 
     try {
       // Use chunked upload for files larger than 50MB
-      const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunks
       const useChunkedUpload = selectedFile.size > 50 * 1024 * 1024;
 
       if (useChunkedUpload) {
-        // Chunked upload
-        const totalChunks = Math.ceil(selectedFile.size / CHUNK_SIZE);
+        // Chunked upload with parallel processing
         const uploadId = crypto.randomUUID();
 
-        for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
-          const start = chunkIndex * CHUNK_SIZE;
-          const end = Math.min(start + CHUNK_SIZE, selectedFile.size);
-          const chunk = selectedFile.slice(start, end);
-
-          const chunkFormData = new FormData();
-          chunkFormData.append("chunk", chunk);
-          chunkFormData.append("uploadId", uploadId);
-          chunkFormData.append("chunkIndex", chunkIndex.toString());
-          chunkFormData.append("totalChunks", totalChunks.toString());
-          chunkFormData.append("filename", selectedFile.name);
-
-          const response = await fetch(`${API_BASE}/api/upload-chunk`, {
-            method: "POST",
-            body: chunkFormData,
-          });
-
-          if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error || "Failed to upload chunk");
-          }
-
-          // Update progress
-          const progress = Math.round(((chunkIndex + 1) / totalChunks) * 100);
-          setUploadProgress(progress);
-        }
+        await uploadChunksParallel(selectedFile, uploadId, setUploadProgress);
 
         // After all chunks uploaded, assemble and submit job
         const assembleResponse = await fetch(`${API_BASE}/api/assemble-file`, {
@@ -118,6 +179,7 @@ export default function BarcodeGenerator() {
               partition: config.partition || "short",
               email: config.email,
             },
+            movie: movieInfo,
           }),
         });
 
@@ -142,6 +204,7 @@ export default function BarcodeGenerator() {
         formData.append("frames_per_column", config.frames_per_column.toString());
         formData.append("partition", config.partition || "short");
         formData.append("email", config.email);
+        formData.append("movie", JSON.stringify(movieInfo));
 
         // Use XMLHttpRequest for upload progress tracking
         const xhr = new XMLHttpRequest();
@@ -195,6 +258,7 @@ export default function BarcodeGenerator() {
 
   const handleNewUpload = () => {
     setSelectedFile(null);
+    setMovieInfo(null);
     setSubmitted(false);
     setJobId(null);
     setError(null);
@@ -222,67 +286,81 @@ export default function BarcodeGenerator() {
           {selectedFile && (
             <>
               <div className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded p-6">
-                <h2 className="text-sm font-medium mb-4 text-neutral-700 dark:text-neutral-300 uppercase tracking-wide">
-                  Configuration
+                <h2 className="text-sm font-medium mb-1 text-neutral-700 dark:text-neutral-300 uppercase tracking-wide">
+                  Movie Title <span className="text-neutral-900 dark:text-neutral-100">*</span>
                 </h2>
-                <ConfigPanel config={config} onConfigChange={handleConfigChange} />
+                <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-3">
+                  Search by title or enter an IMDb ID to attach metadata to your barcode.
+                </p>
+                <MovieSearchInput key={selectedFile.name} onChange={setMovieInfo} />
               </div>
 
-              {isSubmitting && uploadProgress > 0 && (
-                <div className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded p-6">
-                  <div className="mb-2 flex justify-between items-center">
-                    <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
-                      Uploading video...
-                    </span>
-                    <span className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
-                      {uploadProgress}%
-                    </span>
+              {movieStepComplete && (
+                <>
+                  <div className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded p-6">
+                    <h2 className="text-sm font-medium mb-4 text-neutral-700 dark:text-neutral-300 uppercase tracking-wide">
+                      Configuration
+                    </h2>
+                    <ConfigPanel config={config} onConfigChange={handleConfigChange} />
                   </div>
-                  <div className="w-full bg-neutral-200 dark:bg-neutral-700 rounded-full h-2.5">
-                    <div
-                      className="bg-neutral-900 dark:bg-neutral-100 h-2.5 rounded-full transition-all duration-300"
-                      style={{ width: `${uploadProgress}%` }}
-                    ></div>
-                  </div>
-                  <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
-                    {uploadProgress < 100
-                      ? "Please wait while your video is being uploaded..."
-                      : "Upload complete! Processing job submission..."}
-                  </p>
-                </div>
-              )}
 
-              <div className="flex justify-end">
-                <button
-                  onClick={handleSubmit}
-                  disabled={isSubmitting || !config.email}
-                  className="px-6 py-2.5 bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 text-sm font-medium rounded hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-neutral-900 dark:disabled:hover:bg-neutral-100"
-                >
-                  {isSubmitting ? (
-                    <span className="flex items-center gap-2">
-                      <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                        <circle
-                          className="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                          fill="none"
-                        />
-                        <path
-                          className="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                        />
-                      </svg>
-                      {uploadProgress < 100 ? `Uploading ${uploadProgress}%` : "Submitting..."}
-                    </span>
-                  ) : (
-                    "Submit Job"
+                  {isSubmitting && uploadProgress > 0 && (
+                    <div className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded p-6">
+                      <div className="mb-2 flex justify-between items-center">
+                        <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                          Uploading video...
+                        </span>
+                        <span className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
+                          {uploadProgress}%
+                        </span>
+                      </div>
+                      <div className="w-full bg-neutral-200 dark:bg-neutral-700 rounded-full h-2.5">
+                        <div
+                          className="bg-neutral-900 dark:bg-neutral-100 h-2.5 rounded-full transition-all duration-300"
+                          style={{ width: `${uploadProgress}%` }}
+                        ></div>
+                      </div>
+                      <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
+                        {uploadProgress < 100
+                          ? "Please wait while your video is being uploaded..."
+                          : "Upload complete! Processing job submission..."}
+                      </p>
+                    </div>
                   )}
-                </button>
-              </div>
+
+                  <div className="flex justify-end">
+                    <button
+                      onClick={handleSubmit}
+                      disabled={isSubmitting || !config.email}
+                      className="px-6 py-2.5 bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 text-sm font-medium rounded hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-neutral-900 dark:disabled:hover:bg-neutral-100"
+                    >
+                      {isSubmitting ? (
+                        <span className="flex items-center gap-2">
+                          <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                            <circle
+                              className="opacity-25"
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                              fill="none"
+                            />
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                            />
+                          </svg>
+                          {uploadProgress < 100 ? `Uploading ${uploadProgress}%` : "Submitting..."}
+                        </span>
+                      ) : (
+                        "Submit Job"
+                      )}
+                    </button>
+                  </div>
+                </>
+              )}
             </>
           )}
         </>
@@ -314,6 +392,14 @@ export default function BarcodeGenerator() {
             </div>
 
             <div className="border-l-2 border-neutral-300 dark:border-neutral-600 pl-4 mb-6 space-y-3">
+              {movieInfo && (
+                <div className="text-sm">
+                  <span className="text-neutral-500 dark:text-neutral-400">Movie:</span>{" "}
+                  <span className="text-neutral-900 dark:text-neutral-100">
+                    {movieInfo.title}{"year" in movieInfo ? ` (${movieInfo.year})` : ""}
+                  </span>
+                </div>
+              )}
               <div className="text-sm">
                 <span className="text-neutral-500 dark:text-neutral-400">Partition:</span>{" "}
                 <span className="text-neutral-900 dark:text-neutral-100">{config.partition}</span>

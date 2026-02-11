@@ -40,6 +40,13 @@ export async function POST(request: NextRequest) {
       email: (formData.get('email') as string) || undefined,
     };
 
+    // Parse movie metadata (JSON-encoded form field)
+    let movie: Record<string, unknown> | undefined;
+    const movieRaw = formData.get('movie') as string | null;
+    if (movieRaw) {
+      try { movie = JSON.parse(movieRaw); } catch { /* ignore malformed */ }
+    }
+
     // Extract user info from headers (if available from upstream auth)
     const username = request.headers.get('x-username');
     const email = request.headers.get('x-mail');
@@ -67,7 +74,7 @@ export async function POST(request: NextRequest) {
     await pipeline(nodeStream, writeStream);
 
     // Submit SLURM job
-    const result = await submitSlurmJob(videoPath, videoFile.name, config, user);
+    const result = await submitSlurmJob(videoPath, videoFile.name, config, user, movie);
 
     return NextResponse.json({
       success: true,

@@ -13,6 +13,11 @@ interface JobMetadata {
     color_metric: string;
     frame_type: string;
     barcode_type: string;
+    movie?: {
+      title: string;
+      year?: string;
+      imdb_id?: string;
+    };
   };
   summary?: {
     total_frames: number;
@@ -145,7 +150,9 @@ export default function ResultsPage() {
                 Barcode Analysis
               </h1>
               <p className="text-sm text-neutral-500 dark:text-neutral-400 font-light">
-                {jobData.metadata?.videoFilename || "Video Analysis Results"}
+                {jobData.metadata?.movie?.title
+                  ? `${jobData.metadata.movie.title}${jobData.metadata.movie.year ? ` (${jobData.metadata.movie.year})` : ""}`
+                  : jobData.metadata?.videoFilename || "Video Analysis Results"}
               </p>
             </div>
             <button
@@ -222,7 +229,11 @@ export default function ResultsPage() {
           {/* Visualization Panel */}
           <VisualizationPanel
             jobId={jobId}
-            videoFilename={jobData.metadata?.videoFilename || "Video"}
+            videoFilename={
+              jobData.metadata?.movie?.title
+                ? `${jobData.metadata.movie.title}${jobData.metadata.movie.year ? ` (${jobData.metadata.movie.year})` : ""}`
+                : jobData.metadata?.videoFilename || "Video"
+            }
           />
         </div>
       </main>

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { readdir, readFile, unlink, rmdir } from 'fs/promises';
-import { createWriteStream } from 'fs';
+import { readdir, unlink, rmdir } from 'fs/promises';
+import { createWriteStream, createReadStream } from 'fs';
 import { mkdir } from 'fs/promises';
 import path from 'path';
 import { submitSlurmJob, SLURM_CONFIG, JobConfig } from '@/lib/slurm';
@@ -13,7 +13,7 @@ const CHUNKS_DIR = '/tmp/kalmus-chunks';
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
-        const { uploadId, filename, config } = body;
+        const { uploadId, filename, config, movie } = body;
 
         if (!uploadId || !filename || !config) {
             return NextResponse.json(
@@ -40,23 +40,33 @@ export async function POST(request: NextRequest) {
         const finalFilename = `${timestamp}_${sanitizedName}`;
         const videoPath = path.join(SLURM_CONFIG.uploadDir, finalFilename);
 
-        // Assemble chunks into final file
+        // Assemble chunks into final file using streaming
         const writeStream = createWriteStream(videoPath);
 
         for (const chunkFile of chunkFiles) {
             const chunkPath = path.join(uploadDir, chunkFile);
-            const chunkData = await readFile(chunkPath);
-            writeStream.write(chunkData);
-            // Delete chunk after writing
-            await unlink(chunkPath);
+            const readStream = createReadStream(chunkPath);
+
+            // Stream chunk to output without loading into memory
+            await new Promise<void>((resolve, reject) => {
+                readStream.pipe(writeStream, { end: false });
+                readStream.on('end', async () => {
+                    try {
+                        await unlink(chunkPath); // Delete chunk after streaming
+                        resolve();
+                    } catch (err) {
+                        reject(err);
+                    }
+                });
+                readStream.on('error', reject);
+            });
         }
 
         // Close the write stream
-        await new Promise((resolve, reject) => {
-            writeStream.end((err: Error | null) => {
-                if (err) reject(err);
-                else resolve(null);
-            });
+        writeStream.end();
+        await new Promise<void>((resolve, reject) => {
+            writeStream.on('finish', resolve);
+            writeStream.on('error', reject);
         });
 
         // Clean up chunks directory
@@ -92,7 +102,7 @@ export async function POST(request: NextRequest) {
         } : undefined;
 
         // Submit SLURM job
-        const result = await submitSlurmJob(videoPath, filename, jobConfig, user);
+        const result = await submitSlurmJob(videoPath, filename, jobConfig, user, movie as Record<string, unknown> | undefined);
 
         return NextResponse.json({
             success: true,
