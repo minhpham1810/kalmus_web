@@ -13,3 +13,6 @@ api_doc_source
 .pytest_cache
 coverage.xml
 kalmus.egg-info
+
+# Database
+databases/
