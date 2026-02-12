@@ -19,7 +19,7 @@ from pathlib import Path
 # Import KALMUS visualization utilities
 try:
     # Add the KALMUS backend to the path
-    kalmus_path = Path('/home/kalmus/backend/tmp')
+    kalmus_path = Path('/home/kalmus/kalmus/backend')
     if str(kalmus_path) not in sys.path:
         sys.path.insert(0, str(kalmus_path))
 
