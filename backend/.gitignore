@@ -1,0 +1,15 @@
+# Generated Python files
+**/__pycache__/
+__pycache__
+kalmus/__pycache__/
+.ipynb_checkpoints
+
+# Generated KALMUS files
+build
+dist
+past_dist
+api_doc_source
+.coverage
+.pytest_cache
+coverage.xml
+kalmus.egg-info
