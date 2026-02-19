@@ -56,7 +56,7 @@ export default function ResultsPage() {
   };
 
   const handleProcessAnother = () => {
-    router.push("/");
+    router.push("/upload");
   };
 
   if (loading) {
@@ -124,12 +124,20 @@ export default function ResultsPage() {
                   <p className="text-xs text-neutral-600 dark:text-neutral-400">
                     Job ID: <code className="font-mono">{jobId}</code>
                   </p>
-                  <button
-                    onClick={handleProcessAnother}
-                    className="px-5 py-2 bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 text-sm font-medium rounded hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-colors"
-                  >
-                    Go to Home
-                  </button>
+                  <div className="flex items-center justify-center gap-3">
+                    <button
+                      onClick={() => router.push("/")}
+                      className="px-5 py-2 border border-neutral-300 dark:border-neutral-600 text-neutral-700 dark:text-neutral-300 text-sm font-medium rounded hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
+                    >
+                      Back to Search
+                    </button>
+                    <button
+                      onClick={handleProcessAnother}
+                      className="px-5 py-2 bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 text-sm font-medium rounded hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-colors"
+                    >
+                      Upload New Video
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -155,25 +163,46 @@ export default function ResultsPage() {
                   : jobData.metadata?.videoFilename || "Video Analysis Results"}
               </p>
             </div>
-            <button
-              onClick={handleProcessAnother}
-              className="px-5 py-2.5 bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 text-sm font-medium rounded hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-colors flex items-center gap-2"
-            >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => router.push("/")}
+                className="px-5 py-2.5 border border-neutral-300 dark:border-neutral-600 text-neutral-700 dark:text-neutral-300 text-sm font-medium rounded hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors flex items-center gap-2"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 4v16m8-8H4"
-                />
-              </svg>
-              Process Another Video
-            </button>
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M10 19l-7-7m0 0l7-7m-7 7h18"
+                  />
+                </svg>
+                Back to Search
+              </button>
+              <button
+                onClick={handleProcessAnother}
+                className="px-5 py-2.5 bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 text-sm font-medium rounded hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-colors flex items-center gap-2"
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 4v16m8-8H4"
+                  />
+                </svg>
+                Process Another Video
+              </button>
+            </div>
           </div>
 
           {/* Job Metadata Card */}
