@@ -153,25 +153,6 @@ export default function ConfigPanel({
 
       <div>
         <label className="block text-xs font-medium text-neutral-600 dark:text-neutral-400 mb-1.5 uppercase tracking-wide">
-          Partition
-        </label>
-        <select
-          value={config.partition || "short"}
-          onChange={(e) => onConfigChange({ partition: e.target.value })}
-          className="w-full px-3 py-2 text-sm border border-neutral-300 dark:border-neutral-600 rounded bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:border-neutral-500 dark:focus:border-neutral-400"
-        >
-          <option value="short">Short (1 day)</option>
-          <option value="medium">Medium (7 days)</option>
-          <option value="long">Long (30 days)</option>
-          <option value="lowpriority">Low Priority</option>
-        </select>
-        <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-500">
-          Job queue partition
-        </p>
-      </div>
-
-      <div>
-        <label className="block text-xs font-medium text-neutral-600 dark:text-neutral-400 mb-1.5 uppercase tracking-wide">
           Email <span className="text-neutral-900 dark:text-neutral-100">*</span>
         </label>
         <input

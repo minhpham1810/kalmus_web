@@ -24,7 +24,7 @@ export default function BarcodeGenerator() {
     color_metric: "Average",
     frame_type: "Whole_frame",
     barcode_type: "Color",
-    sampled_rate: 2,
+    sampled_rate: 1,
     skip_over: 0,
     total_frames: 100000000,
     seconds_per_column: 2,
