@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
+import { useRouter } from "next/navigation";
 import FileUpload from "./FileUpload";
 import ConfigPanel from "./ConfigPanel";
 import MovieSearchInput, { MovieInfo } from "./MovieSearchInput";
@@ -12,7 +13,7 @@ export interface BarcodeConfig {
   sampled_rate: number;
   skip_over: number;
   total_frames: number;
-  frames_per_column: number;
+  seconds_per_column: number;
   partition?: string;
   email?: string;
 }
@@ -26,7 +27,7 @@ export default function BarcodeGenerator() {
     sampled_rate: 2,
     skip_over: 0,
     total_frames: 100000000,
-    frames_per_column: 50,
+    seconds_per_column: 2,
     partition: "short",
     email: "",
   });
@@ -36,6 +37,9 @@ export default function BarcodeGenerator() {
   const [error, setError] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [movieInfo, setMovieInfo] = useState<MovieInfo | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const xhrRef = useRef<XMLHttpRequest | null>(null);
+  const router = useRouter();
 
   const movieStepComplete = movieInfo !== null;
   const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
@@ -64,7 +68,8 @@ export default function BarcodeGenerator() {
   const uploadChunkWithRetry = async (
     chunkFormData: FormData,
     chunkIndex: number,
-    maxRetries = 3
+    maxRetries = 3,
+    signal?: AbortSignal
   ): Promise<void> => {
     let lastError: Error | null = null;
 
@@ -73,6 +78,7 @@ export default function BarcodeGenerator() {
         const response = await fetch(`${API_BASE}/api/upload-chunk`, {
           method: "POST",
           body: chunkFormData,
+          signal,
         });
 
         if (response.ok) return;
@@ -99,7 +105,8 @@ export default function BarcodeGenerator() {
   const uploadChunksParallel = async (
     file: File,
     uploadId: string,
-    onProgress: (progress: number) => void
+    onProgress: (progress: number) => void,
+    signal: AbortSignal
   ): Promise<number> => {
     const CHUNK_SIZE = getOptimalChunkSize(file.size);
     const CONCURRENT_UPLOADS = 4; // Upload 4 chunks at a time
@@ -119,7 +126,7 @@ export default function BarcodeGenerator() {
       chunkFormData.append("totalChunks", totalChunks.toString());
       chunkFormData.append("filename", file.name);
 
-      await uploadChunkWithRetry(chunkFormData, chunkIndex);
+      await uploadChunkWithRetry(chunkFormData, chunkIndex, 3, signal);
 
       completedChunks++;
       onProgress(Math.round((completedChunks / totalChunks) * 100));
@@ -129,6 +136,7 @@ export default function BarcodeGenerator() {
     const chunkIndices = Array.from({ length: totalChunks }, (_, i) => i);
 
     for (let i = 0; i < chunkIndices.length; i += CONCURRENT_UPLOADS) {
+      if (signal.aborted) throw new Error("Upload was cancelled");
       const batch = chunkIndices.slice(i, i + CONCURRENT_UPLOADS);
       await Promise.all(batch.map(uploadChunk));
     }
@@ -151,6 +159,9 @@ export default function BarcodeGenerator() {
     setError(null);
     setUploadProgress(0);
 
+    const abortController = new AbortController();
+    abortRef.current = abortController;
+
     try {
       // Use chunked upload for files larger than 50MB
       const useChunkedUpload = selectedFile.size > 50 * 1024 * 1024;
@@ -159,7 +170,7 @@ export default function BarcodeGenerator() {
         // Chunked upload with parallel processing
         const uploadId = crypto.randomUUID();
 
-        await uploadChunksParallel(selectedFile, uploadId, setUploadProgress);
+        await uploadChunksParallel(selectedFile, uploadId, setUploadProgress, abortController.signal);
 
         // After all chunks uploaded, assemble and submit job
         const assembleResponse = await fetch(`${API_BASE}/api/assemble-file`, {
@@ -175,7 +186,7 @@ export default function BarcodeGenerator() {
               sampled_rate: config.sampled_rate.toString(),
               skip_over: config.skip_over.toString(),
               total_frames: config.total_frames.toString(),
-              frames_per_column: config.frames_per_column.toString(),
+              frames_per_column: Math.round(config.seconds_per_column * 24 / config.sampled_rate).toString(),
               partition: config.partition || "short",
               email: config.email,
             },
@@ -191,6 +202,7 @@ export default function BarcodeGenerator() {
         const data = await assembleResponse.json();
         setJobId(data.jobId);
         setSubmitted(true);
+        router.push(`/submitted/${data.jobId}`);
       } else {
         // Regular upload for smaller files
         const formData = new FormData();
@@ -201,7 +213,7 @@ export default function BarcodeGenerator() {
         formData.append("sampled_rate", config.sampled_rate.toString());
         formData.append("skip_over", config.skip_over.toString());
         formData.append("total_frames", config.total_frames.toString());
-        formData.append("frames_per_column", config.frames_per_column.toString());
+        formData.append("frames_per_column", Math.round(config.seconds_per_column * 24 / config.sampled_rate).toString());
         formData.append("partition", config.partition || "short");
         formData.append("email", config.email);
         formData.append("movie", JSON.stringify(movieInfo));
@@ -223,6 +235,7 @@ export default function BarcodeGenerator() {
                 const data = JSON.parse(xhr.responseText);
                 setJobId(data.jobId);
                 setSubmitted(true);
+                router.push(`/submitted/${data.jobId}`);
                 resolve();
               } catch (err) {
                 reject(new Error("Invalid response from server"));
@@ -246,14 +259,29 @@ export default function BarcodeGenerator() {
           });
 
           xhr.open("POST", `${API_BASE}/api/generate-barcode`);
+          xhrRef.current = xhr;
           xhr.send(formData);
         });
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred");
+      if ((err as Error)?.name === "AbortError" || (err as Error)?.message === "Upload was cancelled") {
+        // Cancelled — do not show error
+      } else {
+        setError(err instanceof Error ? err.message : "An error occurred");
+      }
     } finally {
       setIsSubmitting(false);
+      setUploadProgress(0);
+      abortRef.current = null;
+      xhrRef.current = null;
     }
+  };
+
+  const handleCancel = () => {
+    abortRef.current?.abort();
+    xhrRef.current?.abort();
+    setIsSubmitting(false);
+    setUploadProgress(0);
   };
 
   const handleNewUpload = () => {
@@ -320,11 +348,21 @@ export default function BarcodeGenerator() {
                           style={{ width: `${uploadProgress}%` }}
                         ></div>
                       </div>
-                      <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
-                        {uploadProgress < 100
-                          ? "Please wait while your video is being uploaded..."
-                          : "Upload complete! Processing job submission..."}
-                      </p>
+                      <div className="mt-2 flex items-center justify-between">
+                        <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                          {uploadProgress < 100
+                            ? "Please wait while your video is being uploaded..."
+                            : "Upload complete! Processing job submission..."}
+                        </p>
+                        {uploadProgress < 100 && (
+                          <button
+                            onClick={handleCancel}
+                            className="ml-4 px-3 py-1 text-xs border border-neutral-300 dark:border-neutral-600 rounded text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
+                          >
+                            Cancel Upload
+                          </button>
+                        )}
+                      </div>
                     </div>
                   )}
 

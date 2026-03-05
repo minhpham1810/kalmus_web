@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { readdir, unlink, rmdir } from 'fs/promises';
-import { createWriteStream, createReadStream } from 'fs';
-import { mkdir } from 'fs/promises';
+import { createReadStream } from 'fs';
+import { PassThrough } from 'stream';
 import path from 'path';
-import { submitSlurmJob, SLURM_CONFIG, JobConfig } from '@/lib/slurm';
+import { submitSlurmJob, JobConfig } from '@/lib/slurm';
+import { streamToHPC } from '@/lib/hpc-transfer';
 
 export const maxDuration = 600;
 export const dynamic = 'force-dynamic';
@@ -22,7 +23,7 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Get all chunks
+        // Get all chunks from /tmp
         const uploadDir = path.join(CHUNKS_DIR, uploadId);
         const chunkFiles = await readdir(uploadDir);
 
@@ -33,41 +34,45 @@ export async function POST(request: NextRequest) {
             return aIndex - bIndex;
         });
 
-        // Prepare final file path
-        await mkdir(SLURM_CONFIG.uploadDir, { recursive: true });
+        // Build the remote filename
         const timestamp = Date.now();
         const sanitizedName = filename.replace(/[^a-zA-Z0-9.-]/g, '_');
         const finalFilename = `${timestamp}_${sanitizedName}`;
-        const videoPath = path.join(SLURM_CONFIG.uploadDir, finalFilename);
 
-        // Assemble chunks into final file using streaming
-        const writeStream = createWriteStream(videoPath);
+        // Create a PassThrough that we feed chunks into; streamToHPC reads from it
+        const passThrough = new PassThrough();
 
-        for (const chunkFile of chunkFiles) {
-            const chunkPath = path.join(uploadDir, chunkFile);
-            const readStream = createReadStream(chunkPath);
+        // Start the HPC transfer (consumes the PassThrough stream)
+        const transferPromise = streamToHPC(passThrough, finalFilename);
 
-            // Stream chunk to output without loading into memory
-            await new Promise<void>((resolve, reject) => {
-                readStream.pipe(writeStream, { end: false });
-                readStream.on('end', async () => {
-                    try {
-                        await unlink(chunkPath); // Delete chunk after streaming
-                        resolve();
-                    } catch (err) {
-                        reject(err);
-                    }
-                });
-                readStream.on('error', reject);
-            });
-        }
+        // Feed each chunk into the PassThrough sequentially, deleting as we go
+        (async () => {
+            try {
+                for (const chunkFile of chunkFiles) {
+                    const chunkPath = path.join(uploadDir, chunkFile);
+                    const readStream = createReadStream(chunkPath);
 
-        // Close the write stream
-        writeStream.end();
-        await new Promise<void>((resolve, reject) => {
-            writeStream.on('finish', resolve);
-            writeStream.on('error', reject);
-        });
+                    await new Promise<void>((resolve, reject) => {
+                        readStream.on('end', async () => {
+                            try {
+                                await unlink(chunkPath);
+                                resolve();
+                            } catch (err) {
+                                reject(err);
+                            }
+                        });
+                        readStream.on('error', reject);
+                        readStream.pipe(passThrough, { end: false });
+                    });
+                }
+                passThrough.end();
+            } catch (err) {
+                passThrough.destroy(err instanceof Error ? err : new Error(String(err)));
+            }
+        })();
+
+        // Wait for the full transfer to complete
+        const { remotePath: videoPath } = await transferPromise;
 
         // Clean up chunks directory
         try {
@@ -89,7 +94,7 @@ export async function POST(request: NextRequest) {
             email: config.email || undefined,
         };
 
-        // Extract user info from headers (if available from upstream auth)
+        // Extract user info from headers
         const username = request.headers.get('x-username');
         const email = request.headers.get('x-mail');
         const givenname = request.headers.get('x-givenname');

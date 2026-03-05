@@ -24,7 +24,7 @@ export default function InteractiveHistogram({
   barcodeType,
   title = "Distribution",
 }: InteractiveHistogramProps) {
-  const [binStep, setBinStep] = useState(5);
+  const [binStep, setBinStep] = useState(1);
 
   const histogramData = useMemo(() => {
     if (barcodeType === "Color" && colors) {

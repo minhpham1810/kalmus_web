@@ -20,10 +20,10 @@ const SAMPLE_SIZE_OPTIONS = [1000, 3000, 6000, 10000];
 export default function InteractiveHueLightScatter({
   colors,
   title = "Hue vs Lightness Scatter Plot",
-  maxSamples = 6000,
+  maxSamples = 10000,
 }: InteractiveHueLightScatterProps) {
-  const [saturationThreshold, setSaturationThreshold] = useState(0.15);
-  const [sampleSize, setSampleSize] = useState(Math.min(maxSamples, colors.length));
+  const [saturationThreshold, setSaturationThreshold] = useState(0);
+  const [sampleSize, setSampleSize] = useState(Math.min(10000, colors.length));
 
   const scatterData = useMemo(() => {
     const sampled = deterministicSample(colors, sampleSize);

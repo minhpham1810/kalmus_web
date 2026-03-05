@@ -205,6 +205,16 @@ export default function ResultsPage() {
             </div>
           </div>
 
+
+          {/* Visualization Panel */}
+          <VisualizationPanel
+            jobId={jobId}
+            videoFilename={
+              jobData.metadata?.movie?.title
+                ? `${jobData.metadata.movie.title}${jobData.metadata.movie.year ? ` (${jobData.metadata.movie.year})` : ""}`
+                : jobData.metadata?.videoFilename || "Video"
+            }
+          />
           {/* Job Metadata Card */}
           <div className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded p-6 mb-6">
             <h2 className="text-sm font-medium mb-4 text-neutral-700 dark:text-neutral-300 uppercase tracking-wide">
@@ -254,17 +264,9 @@ export default function ResultsPage() {
               </code>
             </div>
           </div>
-
-          {/* Visualization Panel */}
-          <VisualizationPanel
-            jobId={jobId}
-            videoFilename={
-              jobData.metadata?.movie?.title
-                ? `${jobData.metadata.movie.title}${jobData.metadata.movie.year ? ` (${jobData.metadata.movie.year})` : ""}`
-                : jobData.metadata?.videoFilename || "Video"
-            }
-          />
         </div>
+
+
       </main>
 
       <footer className="py-6 text-center text-xs text-neutral-400 dark:text-neutral-600">

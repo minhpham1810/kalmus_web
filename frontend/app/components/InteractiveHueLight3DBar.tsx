@@ -23,9 +23,9 @@ export default function InteractiveHueLight3DBar({
   colors,
   title = "Hue vs Light 3D Distribution",
 }: InteractiveHueLight3DBarProps) {
-  const [hueResolution, setHueResolution] = useState(10);
-  const [lightResolution, setLightResolution] = useState(0.02);
-  const [saturationThreshold, setSaturationThreshold] = useState(0.15);
+  const [hueResolution, setHueResolution] = useState(5);
+  const [lightResolution, setLightResolution] = useState(0.01);
+  const [saturationThreshold, setSaturationThreshold] = useState(0);
   const [showGrid, setShowGrid] = useState(false);
   const [showAxis, setShowAxis] = useState(true);
   const [cameraPreset, setCameraPreset] = useState<CameraPreset>("Diag View 1");
@@ -288,6 +288,7 @@ export default function InteractiveHueLight3DBar({
               camera: camera,
               aspectmode: "manual",
               aspectratio: { x: 1.5, y: 1, z: 0.8 },
+              dragmode: "turntable",
             },
             margin: { l: 0, r: 0, t: 50, b: 0 },
             paper_bgcolor: "transparent",

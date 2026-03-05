@@ -132,22 +132,22 @@ export default function ConfigPanel({
 
       <div>
         <label className="block text-xs font-medium text-neutral-600 dark:text-neutral-400 mb-1.5 uppercase tracking-wide">
-          Frames Per Column
+          Seconds Per Column
         </label>
         <input
           type="number"
-          min="10"
-          max="200"
-          value={config.frames_per_column}
+          min="1"
+          max="30"
+          value={config.seconds_per_column}
           onChange={(e) =>
             onConfigChange({
-              frames_per_column: parseInt(e.target.value) || 50,
+              seconds_per_column: parseInt(e.target.value) || 2,
             })
           }
           className="w-full px-3 py-2 text-sm border border-neutral-300 dark:border-neutral-600 rounded bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:border-neutral-500 dark:focus:border-neutral-400"
         />
         <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-500">
-          Frames per column in visualization
+          Seconds of video per barcode column (assumes 24 fps)
         </p>
       </div>
 
