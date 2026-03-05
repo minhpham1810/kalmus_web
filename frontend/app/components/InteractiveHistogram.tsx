@@ -17,6 +17,7 @@ interface InteractiveHistogramProps {
 }
 
 const BIN_STEP_OPTIONS = [1, 2, 5, 10, 15, 20, 30];
+const SATURATION_THRESHOLDS = [0, 0.05, 0.10, 0.15, 0.20, 0.30];
 
 export default function InteractiveHistogram({
   colors,
@@ -25,11 +26,12 @@ export default function InteractiveHistogram({
   title = "Distribution",
 }: InteractiveHistogramProps) {
   const [binStep, setBinStep] = useState(1);
+  const [satThreshold, setSatThreshold] = useState(0.1);
 
   const histogramData = useMemo(() => {
     if (barcodeType === "Color" && colors) {
-      // Hue histogram (0-360)
-      const hues = getHueValues(colors, 0);
+      // Hue histogram (0-360), filter near-achromatic colors whose hue is unreliable
+      const hues = getHueValues(colors, satThreshold);
       const { binCenters, counts } = computeHistogram(hues, binStep, 360);
 
       // Generate colors for each bin based on hue
@@ -66,7 +68,7 @@ export default function InteractiveHistogram({
     }
 
     return null;
-  }, [colors, brightness, barcodeType, binStep]);
+  }, [colors, brightness, barcodeType, binStep, satThreshold]);
 
   if (!histogramData) {
     return (
@@ -98,6 +100,24 @@ export default function InteractiveHistogram({
             ))}
           </select>
         </div>
+        {barcodeType === "Color" && (
+          <div className="flex items-center gap-2">
+            <label className="text-xs text-neutral-600 dark:text-neutral-400">
+              Saturation Filter:
+            </label>
+            <select
+              value={satThreshold}
+              onChange={(e) => setSatThreshold(Number(e.target.value))}
+              className="px-2 py-1 text-xs border border-neutral-300 dark:border-neutral-600 rounded bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100"
+            >
+              {SATURATION_THRESHOLDS.map((t) => (
+                <option key={t} value={t}>
+                  {t === 0 ? "No filter" : `> ${t}`}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         <span className="text-xs text-neutral-500 dark:text-neutral-400">
           Total samples: {histogramData.y.reduce((a, b) => a + b, 0).toLocaleString()}
         </span>
@@ -167,7 +187,7 @@ export default function InteractiveHistogram({
 
       <p className="text-xs text-neutral-500 dark:text-neutral-400">
         {barcodeType === "Color"
-          ? "Distribution of hue values (0-360°) across all sampled frames. Bars are colored by their corresponding hue."
+          ? `Distribution of hue values (0-360°) across all sampled frames. Bars are colored by their corresponding hue.${satThreshold > 0 ? ` Only colors with saturation > ${satThreshold} are included.` : ""}`
           : "Distribution of brightness values (0-255) across all sampled frames."}
       </p>
     </div>
