@@ -153,7 +153,7 @@ export function getHueValues(colors: RGB[], saturationThreshold: number = 0): nu
   const hues: number[] = [];
   for (const [r, g, b] of colors) {
     const [h, s] = rgbToHsv(r, g, b);
-    if (s >= saturationThreshold) {
+    if (s > 0 && s >= saturationThreshold) {
       hues.push(h);
     }
   }
