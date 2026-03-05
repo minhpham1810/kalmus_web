@@ -37,19 +37,40 @@ export default function BarcodeGenerator() {
   const [error, setError] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [movieInfo, setMovieInfo] = useState<MovieInfo | null>(null);
+  const [existingAnalyses, setExistingAnalyses] = useState<
+    { id: string; barcode_type: string; frame_type: string; metric: string }[]
+  >([]);
   const abortRef = useRef<AbortController | null>(null);
   const xhrRef = useRef<XMLHttpRequest | null>(null);
   const router = useRouter();
 
-  const movieStepComplete = movieInfo !== null;
+  const movieStepComplete = movieInfo !== null && existingAnalyses.length === 0;
   const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
 
   const handleFileSelect = (file: File) => {
     setSelectedFile(file);
     setMovieInfo(null);
+    setExistingAnalyses([]);
     setSubmitted(false);
     setError(null);
     setJobId(null);
+  };
+
+  const handleMovieChange = async (movie: MovieInfo | null) => {
+    setMovieInfo(movie);
+    setExistingAnalyses([]);
+    if (!movie || !("imdb_id" in movie) || !movie.imdb_id) return;
+    try {
+      const res = await fetch(
+        `/api/search-films?q=${encodeURIComponent(movie.imdb_id)}`
+      );
+      const data = await res.json();
+      if (data.results?.length > 0) {
+        setExistingAnalyses(data.results);
+      }
+    } catch {
+      // silently ignore — don't block the upload flow
+    }
   };
 
   const handleConfigChange = (newConfig: Partial<BarcodeConfig>) => {
@@ -320,8 +341,44 @@ export default function BarcodeGenerator() {
                 <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-3">
                   Search by title or enter an IMDb ID to attach metadata to your barcode.
                 </p>
-                <MovieSearchInput key={selectedFile.name} onChange={setMovieInfo} />
+                <MovieSearchInput key={selectedFile.name} onChange={handleMovieChange} />
               </div>
+
+              {/* Already-in-DB prompt */}
+              {movieInfo && existingAnalyses.length > 0 && (
+                <div className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded p-6">
+                  <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100 mb-1">
+                    This film has already been analyzed.
+                  </p>
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-4">
+                    Would you like to view its analytics dashboard, or continue uploading?
+                  </p>
+                  <div className="space-y-2 mb-5">
+                    {existingAnalyses.map((a) => (
+                      <div key={a.id} className="flex items-center justify-between text-xs text-neutral-600 dark:text-neutral-400">
+                        <span>
+                          <span className="px-1.5 py-0.5 bg-neutral-100 dark:bg-neutral-700 rounded mr-2">
+                            {a.barcode_type}
+                          </span>
+                          {a.frame_type.replace(/_/g, " ")} · {a.metric}
+                        </span>
+                        <button
+                          onClick={() => router.push(`/results/${a.id}`)}
+                          className="underline text-neutral-900 dark:text-neutral-100 hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors"
+                        >
+                          View
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    onClick={() => setExistingAnalyses([])}
+                    className="text-xs text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 underline"
+                  >
+                    Upload anyway
+                  </button>
+                </div>
+              )}
 
               {movieStepComplete && (
                 <>
