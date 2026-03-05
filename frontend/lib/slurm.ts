@@ -148,6 +148,12 @@ else
   echo "FAILED" > ${outputDir}/status.txt
 fi
 
+# Clean up uploaded video to free storage space
+if [ -f "${videoPath}" ]; then
+  rm -f "${videoPath}"
+  echo "Cleaned up uploaded video: ${videoPath}"
+fi
+
 exit $EXIT_CODE
 `;
 }

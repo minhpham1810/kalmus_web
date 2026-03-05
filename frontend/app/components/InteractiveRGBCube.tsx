@@ -15,9 +15,9 @@ const SAMPLE_SIZE_OPTIONS = [1000, 3000, 6000, 10000];
 export default function InteractiveRGBCube({
   colors,
   title = "RGB Color Cube",
-  maxSamples = 6000,
+  maxSamples = 10000,
 }: InteractiveRGBCubeProps) {
-  const [sampleSize, setSampleSize] = useState(Math.min(maxSamples, colors.length));
+  const [sampleSize, setSampleSize] = useState(Math.min(10000, colors.length));
 
   const cubeData = useMemo(() => {
     const sampled = deterministicSample(colors, sampleSize);
@@ -101,6 +101,7 @@ export default function InteractiveRGBCube({
               camera: {
                 eye: { x: 1.5, y: 1.5, z: 1.0 },
               },
+              dragmode: "turntable",
             },
             margin: { l: 0, r: 0, t: 50, b: 0 },
             paper_bgcolor: "transparent",

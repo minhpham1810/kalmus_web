@@ -7,14 +7,12 @@ interface BarcodePreviewProps {
   barcode: RGB[][] | number[][];
   barcodeType: "Color" | "Brightness";
   title?: string;
-  onClose?: () => void;
 }
 
 export default function BarcodePreview({
   barcode,
   barcodeType,
   title = "Barcode Preview",
-  onClose,
 }: BarcodePreviewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -144,30 +142,13 @@ export default function BarcodePreview({
             </svg>
           </button>
 
-          {/* Close Button */}
-          {onClose && (
-            <button
-              onClick={onClose}
-              className="p-2 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded transition-colors"
-              title="Hide barcode"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
-          )}
         </div>
       </div>
 
       {/* Canvas Container */}
       <div
         ref={containerRef}
-        className="overflow-auto bg-neutral-100 dark:bg-neutral-900 p-4"
+        className="overflow-x-auto overflow-y-hidden bg-neutral-100 dark:bg-neutral-900 p-4"
         style={{ maxHeight: "400px" }}
       >
         <div

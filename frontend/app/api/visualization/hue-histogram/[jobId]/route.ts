@@ -13,7 +13,7 @@ export async function GET(
   try {
     const { jobId } = await params;
     const { searchParams } = new URL(request.url);
-    const binStep = searchParams.get('binStep') || '5';
+    const binStep = searchParams.get('binStep') || '1';
 
     // Path to the barcode JSON file
     const resultsDir = path.join(SLURM_CONFIG.resultsDir, jobId);

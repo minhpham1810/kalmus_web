@@ -18,12 +18,11 @@ interface VisualizationPanelProps {
 }
 
 type VisualizationTab =
-  | "stats"
   | "histogram"
   | "colorcube"
   | "huelightscatter"
   | "huelight3d"
-  | "comparison";
+  | "stats";
 
 interface LoadedBarcodeData {
   colors?: RGB[];
@@ -43,9 +42,7 @@ export default function VisualizationPanel({
   videoFilename = "Video",
   compareJobId,
 }: VisualizationPanelProps) {
-  const [activeTab, setActiveTab] = useState<VisualizationTab>("stats");
-  const [showComparison, setShowComparison] = useState(false);
-  const [showBarcodePreview, setShowBarcodePreview] = useState(false);
+  const [activeTab, setActiveTab] = useState<VisualizationTab>("histogram");
   const [barcodeData, setBarcodeData] = useState<LoadedBarcodeData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -94,17 +91,17 @@ export default function VisualizationPanel({
   const isColorBarcode = barcodeData?.barcode_type === "Color";
 
   const tabs: Array<{ id: VisualizationTab; label: string; icon: string; colorOnly?: boolean }> = [
-    { id: "stats", label: "Statistics", icon: "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" },
     { id: "histogram", label: isColorBarcode ? "Hue Histogram" : "Brightness Histogram", icon: "M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" },
     { id: "colorcube", label: "RGB Cube", icon: "M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4", colorOnly: true },
     { id: "huelightscatter", label: "Hue/Light Scatter", icon: "M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01", colorOnly: true },
     { id: "huelight3d", label: "Hue/Light 3D", icon: "M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5", colorOnly: true },
+    { id: "stats", label: "Statistics", icon: "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" },
   ];
 
-  // Add comparison tab if needed
-  if (compareJobId || showComparison) {
-    tabs.push({ id: "comparison", label: "Comparison", icon: "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" });
-  }
+  // // Add comparison tab if needed
+  // if (compareJobId || showComparison) {
+  //   tabs.push({ id: "comparison", label: "Comparison", icon: "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" });
+  // }
 
   // Filter tabs based on barcode type
   const availableTabs = tabs.filter((tab) => !tab.colorOnly || isColorBarcode);
@@ -177,34 +174,6 @@ export default function VisualizationPanel({
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Toggle Barcode Preview */}
-            <button
-              onClick={() => setShowBarcodePreview(!showBarcodePreview)}
-              className={`inline-flex items-center gap-2 px-4 py-2 text-sm border rounded transition-colors ${
-                showBarcodePreview
-                  ? "bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 border-neutral-900 dark:border-neutral-100"
-                  : "border-neutral-300 dark:border-neutral-600 hover:bg-neutral-100 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-300"
-              }`}
-            >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d={showBarcodePreview
-                    ? "M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"
-                    : "M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                  }
-                />
-              </svg>
-              {showBarcodePreview ? "Hide Barcode" : "Show Barcode"}
-            </button>
-
             {barcodeData && (
               <CSVExportButton
                 barcodeData={barcodeData as BarcodeData}
@@ -212,25 +181,16 @@ export default function VisualizationPanel({
               />
             )}
 
-            {!compareJobId && (
-              <button
-                onClick={() => setShowComparison(!showComparison)}
-                className="px-4 py-2 text-sm border border-neutral-300 dark:border-neutral-600 rounded hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors text-neutral-700 dark:text-neutral-300"
-              >
-                {showComparison ? "Hide Comparison" : "Compare with Another"}
-              </button>
-            )}
           </div>
         </div>
       </div>
 
       {/* Barcode Preview (Collapsible) */}
-      {showBarcodePreview && barcodeData?.barcodeImage && (
+      {barcodeData?.barcodeImage && (
         <BarcodePreview
           barcode={barcodeData.barcodeImage}
           barcodeType={barcodeData.barcode_type}
           title={`${barcodeData.barcode_type} Barcode - ${videoFilename}`}
-          onClose={() => setShowBarcodePreview(false)}
         />
       )}
 
@@ -272,9 +232,6 @@ export default function VisualizationPanel({
 
         {/* Tab Content */}
         <div className="p-6">
-          {activeTab === "stats" && (
-            <ColorStatsDashboard jobId={jobId} title={`Statistics for ${videoFilename}`} />
-          )}
 
           {activeTab === "histogram" && barcodeData && (
             <InteractiveHistogram
@@ -293,7 +250,7 @@ export default function VisualizationPanel({
             <InteractiveRGBCube
               colors={barcodeData.colors}
               title={`RGB Color Cube - ${videoFilename}`}
-              maxSamples={6000}
+              maxSamples={10000}
             />
           )}
 
@@ -301,7 +258,7 @@ export default function VisualizationPanel({
             <InteractiveHueLightScatter
               colors={barcodeData.colors}
               title={`Hue vs Lightness - ${videoFilename}`}
-              maxSamples={6000}
+              maxSamples={10000}
             />
           )}
 
@@ -312,16 +269,18 @@ export default function VisualizationPanel({
             />
           )}
 
-          {activeTab === "comparison" && compareJobId && (
+          {/* {activeTab === "comparison" && compareJobId && (
             <BarcodeComparison
               jobId1={jobId}
               jobId2={compareJobId}
               title1={videoFilename}
               title2="Comparison Video"
             />
+          )} */}
+          {activeTab === "stats" && (
+            <ColorStatsDashboard jobId={jobId} title={`Statistics for ${videoFilename}`} />
           )}
-
-          {activeTab === "comparison" && !compareJobId && showComparison && (
+          {/* {activeTab === "comparison" && !compareJobId && showComparison && (
             <div className="bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded p-6 text-center">
               <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-4">
                 Enter a job ID to compare with:
@@ -334,7 +293,7 @@ export default function VisualizationPanel({
                 }}
               />
             </div>
-          )}
+          )} */}
         </div>
       </div>
 
@@ -380,45 +339,45 @@ export default function VisualizationPanel({
   );
 }
 
-function ComparisonInput({
-  currentJobId,
-  onCompare,
-}: {
-  currentJobId: string;
-  onCompare: (jobId: string) => void;
-}) {
-  const [inputJobId, setInputJobId] = useState("");
+// function ComparisonInput({
+//   currentJobId,
+//   onCompare,
+// }: {
+//   currentJobId: string;
+//   onCompare: (jobId: string) => void;
+// }) {
+//   const [inputJobId, setInputJobId] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (inputJobId && inputJobId !== currentJobId) {
-      onCompare(inputJobId);
-    }
-  };
+//   const handleSubmit = (e: React.FormEvent) => {
+//     e.preventDefault();
+//     if (inputJobId && inputJobId !== currentJobId) {
+//       onCompare(inputJobId);
+//     }
+//   };
 
-  return (
-    <form onSubmit={handleSubmit} className="max-w-md mx-auto">
-      <div className="flex gap-2">
-        <input
-          type="text"
-          value={inputJobId}
-          onChange={(e) => setInputJobId(e.target.value)}
-          placeholder="Enter Job ID (e.g., a1b2c3d4-...)"
-          className="flex-1 px-3 py-2 text-sm border border-neutral-300 dark:border-neutral-600 rounded bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:border-neutral-500 dark:focus:border-neutral-400"
-        />
-        <button
-          type="submit"
-          disabled={!inputJobId || inputJobId === currentJobId}
-          className="px-4 py-2 bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 text-sm font-medium rounded hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          Compare
-        </button>
-      </div>
-      {inputJobId === currentJobId && (
-        <p className="text-xs text-red-600 dark:text-red-400 mt-2">
-          Cannot compare a barcode with itself
-        </p>
-      )}
-    </form>
-  );
-}
+//   return (
+//     <form onSubmit={handleSubmit} className="max-w-md mx-auto">
+//       <div className="flex gap-2">
+//         <input
+//           type="text"
+//           value={inputJobId}
+//           onChange={(e) => setInputJobId(e.target.value)}
+//           placeholder="Enter Job ID (e.g., a1b2c3d4-...)"
+//           className="flex-1 px-3 py-2 text-sm border border-neutral-300 dark:border-neutral-600 rounded bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:border-neutral-500 dark:focus:border-neutral-400"
+//         />
+//         <button
+//           type="submit"
+//           disabled={!inputJobId || inputJobId === currentJobId}
+//           className="px-4 py-2 bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 text-sm font-medium rounded hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+//         >
+//           Compare
+//         </button>
+//       </div>
+//       {inputJobId === currentJobId && (
+//         <p className="text-xs text-red-600 dark:text-red-400 mt-2">
+//           Cannot compare a barcode with itself
+//         </p>
+//       )}
+//     </form>
+//   );
+// }
