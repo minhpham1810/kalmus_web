@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useState, useEffect, useRef } from "react";
 
 interface FilmSearchResult {
@@ -93,15 +94,32 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-900">
+      {/* Top-right About link — sits left of the theme toggle */}
+      <div className="fixed top-4 right-14 z-50">
+        <Link
+          href="/about"
+          className="text-m text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 transition-colors"
+        >
+          About
+        </Link>
+      </div>
+
       <main className="container mx-auto px-4 py-12">
         <div className="max-w-3xl mx-auto">
           {/* Header */}
           <header className="text-center mb-10">
-            <h1 className="text-4xl font-light tracking-tight text-neutral-900 dark:text-neutral-100 mb-3">
-              KALMUS
-            </h1>
+            <div className="flex justify-center mb-3">
+              <Image
+                src="/kalmus-logo.png"
+                alt="KALMUS"
+                width={360}
+                height={120}
+                className="dark:invert"
+                priority
+              />
+            </div>
             <p className="text-sm text-neutral-500 dark:text-neutral-400 font-light">
-              Explore movie color barcodes or generate a new one
+              Explore movie color barcodes, or generate a new one
             </p>
           </header>
 
