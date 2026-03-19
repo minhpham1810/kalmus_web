@@ -131,7 +131,7 @@ export default function ColorStatsDashboard({
   };
 
   return (
-    <div className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded p-6">
+    <div className="panel-bg border border-neutral-200 dark:border-neutral-700 rounded p-6">
       <h3 className="text-sm font-medium mb-6 text-neutral-700 dark:text-neutral-300 uppercase tracking-wide">
         {title}
       </h3>

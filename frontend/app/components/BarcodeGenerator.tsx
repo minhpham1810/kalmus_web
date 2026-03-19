@@ -27,7 +27,7 @@ export default function BarcodeGenerator() {
     sampled_rate: 1,
     skip_over: 0,
     total_frames: 100000000,
-    seconds_per_column: 2,
+    seconds_per_column: 8,
     partition: "short",
     email: "",
   });
@@ -322,7 +322,7 @@ export default function BarcodeGenerator() {
     <div className="space-y-6">
       {!submitted ? (
         <>
-          <div className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded p-6">
+          <div className="panel-bg border border-neutral-200 dark:border-neutral-700 rounded p-6">
             <h2 className="text-sm font-medium mb-4 text-neutral-700 dark:text-neutral-300 uppercase tracking-wide">
               Video Upload
             </h2>
@@ -334,7 +334,7 @@ export default function BarcodeGenerator() {
 
           {selectedFile && (
             <>
-              <div className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded p-6">
+              <div className="panel-bg border border-neutral-200 dark:border-neutral-700 rounded p-6">
                 <h2 className="text-sm font-medium mb-1 text-neutral-700 dark:text-neutral-300 uppercase tracking-wide">
                   Movie Title <span className="text-neutral-900 dark:text-neutral-100">*</span>
                 </h2>
@@ -346,7 +346,7 @@ export default function BarcodeGenerator() {
 
               {/* Already-in-DB prompt */}
               {movieInfo && existingAnalyses.length > 0 && (
-                <div className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded p-6">
+                <div className="panel-bg border border-neutral-200 dark:border-neutral-700 rounded p-6">
                   <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100 mb-1">
                     This film has already been analyzed.
                   </p>
@@ -382,7 +382,7 @@ export default function BarcodeGenerator() {
 
               {movieStepComplete && (
                 <>
-                  <div className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded p-6">
+                  <div className="panel-bg border border-neutral-200 dark:border-neutral-700 rounded p-6">
                     <h2 className="text-sm font-medium mb-4 text-neutral-700 dark:text-neutral-300 uppercase tracking-wide">
                       Configuration
                     </h2>
@@ -390,7 +390,7 @@ export default function BarcodeGenerator() {
                   </div>
 
                   {isSubmitting && uploadProgress > 0 && (
-                    <div className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded p-6">
+                    <div className="panel-bg border border-neutral-200 dark:border-neutral-700 rounded p-6">
                       <div className="mb-2 flex justify-between items-center">
                         <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
                           Uploading video...
@@ -460,7 +460,7 @@ export default function BarcodeGenerator() {
           )}
         </>
       ) : (
-        <div className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded p-8">
+        <div className="panel-bg border border-neutral-200 dark:border-neutral-700 rounded p-8">
           <div>
             <div className="mb-6">
               <div className="inline-flex items-center justify-center w-10 h-10 bg-neutral-900 dark:bg-neutral-100 rounded-full mb-4">

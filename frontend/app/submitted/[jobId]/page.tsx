@@ -21,7 +21,7 @@ export default function SubmittedPage() {
     <div className="min-h-screen bg-neutral-50 dark:bg-neutral-900 flex items-center justify-center p-4">
       <div className="w-full max-w-xl space-y-6">
         {/* Success Card */}
-        <div className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg p-8 text-center">
+        <div className="panel-bg border border-neutral-200 dark:border-neutral-700 rounded-lg p-8 text-center">
           {/* Icon */}
           <div className="inline-flex items-center justify-center w-14 h-14 bg-neutral-100 dark:bg-neutral-700 rounded-full mb-5">
             <svg

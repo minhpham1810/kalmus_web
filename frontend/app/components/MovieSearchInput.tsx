@@ -287,7 +287,7 @@ export default function MovieSearchInput({ onChange }: MovieSearchInputProps) {
 
       {/* Result rows */}
       {showDropdown && results.length > 0 && (
-        <div className="absolute top-full mt-1 left-0 right-0 z-10 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded shadow-lg max-h-56 overflow-y-auto">
+        <div className="absolute top-full mt-1 left-0 right-0 z-10 panel-bg border border-neutral-200 dark:border-neutral-700 rounded shadow-lg max-h-56 overflow-y-auto">
           {results.map((r) => (
             <button
               key={r.imdbID}
@@ -324,7 +324,7 @@ export default function MovieSearchInput({ onChange }: MovieSearchInputProps) {
         !loading &&
         query.trim().length >= 2 &&
         !error && (
-          <div className="absolute top-full mt-1 left-0 right-0 z-10 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded shadow-lg px-3 py-2">
+          <div className="absolute top-full mt-1 left-0 right-0 z-10 panel-bg border border-neutral-200 dark:border-neutral-700 rounded shadow-lg px-3 py-2">
             <p className="text-xs text-neutral-500 dark:text-neutral-400">
               No results found.
             </p>

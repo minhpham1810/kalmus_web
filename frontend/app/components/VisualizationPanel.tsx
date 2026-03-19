@@ -33,6 +33,7 @@ interface LoadedBarcodeData {
   color_metric?: string;
   frame_type?: string;
   total_frames?: number;
+  fps?: number;
   barcodeImageUrl?: string;
   barcodeImage?: RGB[][] | number[][];  // 2D array for rendering
 }
@@ -75,6 +76,7 @@ export default function VisualizationPanel({
           color_metric: barcode.color_metric,
           frame_type: barcode.frame_type,
           total_frames: barcode.total_frames,
+          fps: barcode.fps,
           barcodeImage: barcode.barcode as RGB[][] | number[][],  // 2D barcode array
         });
       } else {
@@ -109,7 +111,7 @@ export default function VisualizationPanel({
   if (loading) {
     return (
       <div className="space-y-6">
-        <div className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded p-6">
+        <div className="panel-bg border border-neutral-200 dark:border-neutral-700 rounded p-6">
           <div className="flex items-center justify-center py-12">
             <div className="flex items-center gap-3">
               <svg
@@ -144,7 +146,7 @@ export default function VisualizationPanel({
   if (error) {
     return (
       <div className="space-y-6">
-        <div className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded p-6">
+        <div className="panel-bg border border-neutral-200 dark:border-neutral-700 rounded p-6">
           <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded p-4 text-center">
             <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
             <button
@@ -162,7 +164,7 @@ export default function VisualizationPanel({
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded p-6">
+      <div className="panel-bg border border-neutral-200 dark:border-neutral-700 rounded p-6">
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
             <h2 className="text-xl font-light text-neutral-900 dark:text-neutral-100 mb-1">
@@ -178,6 +180,7 @@ export default function VisualizationPanel({
               <CSVExportButton
                 barcodeData={barcodeData as BarcodeData}
                 jobId={jobId}
+                title={`${barcodeData.barcode_type}_barcode_${videoFilename}`}
               />
             )}
 
@@ -191,11 +194,15 @@ export default function VisualizationPanel({
           barcode={barcodeData.barcodeImage}
           barcodeType={barcodeData.barcode_type}
           title={`${barcodeData.barcode_type} Barcode - ${videoFilename}`}
+          fps={barcodeData.fps}
+          sampledFrameRate={barcodeData.sampled_frame_rate}
+          skipOver={barcodeData.skip_over}
+          totalFrames={barcodeData.total_frames}
         />
       )}
 
       {/* Tab Navigation */}
-      <div className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded">
+      <div className="panel-bg border border-neutral-200 dark:border-neutral-700 rounded">
         <div className="border-b border-neutral-200 dark:border-neutral-700 overflow-x-auto">
           <nav className="flex -mb-px min-w-max" aria-label="Tabs">
             {availableTabs.map((tab) => (

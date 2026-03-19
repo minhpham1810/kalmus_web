@@ -5,7 +5,7 @@ import BarcodeGenerator from "../components/BarcodeGenerator";
 
 export default function UploadPage() {
   return (
-    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-900">
+    <div className="min-h-screen">
       <main className="container mx-auto px-4 py-12">
         <div className="max-w-3xl mx-auto">
           <header className="mb-8">
@@ -31,7 +31,7 @@ export default function UploadPage() {
         </div>
       </main>
 
-      <footer className="py-6 text-center text-xs text-neutral-400 dark:text-neutral-600">
+      <footer className="py-6 text-center text-xs text-neutral-600 dark:text-neutral-400">
         <p>
           Powered by{" "}
           <a

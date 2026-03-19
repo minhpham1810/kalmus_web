@@ -61,9 +61,9 @@ export default function ResultsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-neutral-50 dark:bg-neutral-900 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-full mb-4">
+          <div className="inline-flex items-center justify-center w-16 h-16 panel-bg border border-neutral-200 dark:border-neutral-700 rounded-full mb-4">
             <svg
               className="animate-spin h-8 w-8 text-neutral-600 dark:text-neutral-400"
               viewBox="0 0 24 24"
@@ -94,10 +94,10 @@ export default function ResultsPage() {
 
   if (error || !jobData?.success) {
     return (
-      <div className="min-h-screen bg-neutral-50 dark:bg-neutral-900">
+      <div className="min-h-screen">
         <main className="container mx-auto px-4 py-12">
           <div className="max-w-2xl mx-auto">
-            <div className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded p-8">
+            <div className="panel-bg border border-neutral-200 dark:border-neutral-700 rounded p-8">
               <div className="text-center">
                 <div className="inline-flex items-center justify-center w-12 h-12 bg-red-100 dark:bg-red-900/20 rounded-full mb-4">
                   <svg
@@ -148,7 +148,7 @@ export default function ResultsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-900">
+    <div className="min-h-screen">
       <main className="container mx-auto px-4 py-12">
         <div className="max-w-6xl mx-auto">
           {/* Header with "Process Another Video" button */}
@@ -216,7 +216,7 @@ export default function ResultsPage() {
             }
           />
           {/* Job Metadata Card */}
-          <div className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded p-6 mb-6">
+          <div className="panel-bg border border-neutral-200 dark:border-neutral-700 rounded p-6 mb-6">
             <h2 className="text-sm font-medium mb-4 text-neutral-700 dark:text-neutral-300 uppercase tracking-wide">
               Job Information
             </h2>
@@ -269,7 +269,7 @@ export default function ResultsPage() {
 
       </main>
 
-      <footer className="py-6 text-center text-xs text-neutral-400 dark:text-neutral-600">
+      <footer className="py-6 text-center text-xs text-neutral-600 dark:text-neutral-400">
         <p>
           Powered by{" "}
           <a

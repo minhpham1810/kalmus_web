@@ -93,9 +93,9 @@ export default function Home() {
   const grouped = groupResults(results);
 
   return (
-    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-900">
+    <div className="min-h-screen">
       {/* Top-right About link — sits left of the theme toggle */}
-      <div className="fixed top-4 right-14 z-50">
+      <div className="fixed top-5 right-24 z-50">
         <Link
           href="/about"
           className="text-m text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 transition-colors"
@@ -144,7 +144,7 @@ export default function Home() {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search by movie title or IMDb ID..."
-                className="w-full pl-11 pr-4 py-3 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded text-sm text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-neutral-300 dark:focus:ring-neutral-600 transition-colors"
+                className="w-full pl-11 pr-4 py-3 panel-bg border border-neutral-200 dark:border-neutral-700 rounded text-sm text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-neutral-300 dark:focus:ring-neutral-600 transition-colors"
               />
               {loading && (
                 <div className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -207,7 +207,7 @@ export default function Home() {
                   {grouped.map((film) => (
                     <div
                       key={`${film.title}::${film.imdb_id ?? ""}`}
-                      className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded p-5"
+                      className="panel-bg border border-neutral-200 dark:border-neutral-700 rounded p-5"
                     >
                       <div className="mb-3">
                         <h3 className="text-base font-medium text-neutral-900 dark:text-neutral-100">
@@ -287,7 +287,7 @@ export default function Home() {
         </div>
       </main>
 
-      <footer className="py-6 text-center text-xs text-neutral-400 dark:text-neutral-600">
+      <footer className="py-6 text-center text-xs text-neutral-600 dark:text-neutral-400">
         <p>
           Powered by{" "}
           <a

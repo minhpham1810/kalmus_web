@@ -79,7 +79,7 @@ export default function InteractiveHueLightScatter({
       </div>
 
       {/* Chart */}
-      <div className="bg-white dark:bg-neutral-800 rounded border border-neutral-200 dark:border-neutral-700">
+      <div className="panel-bg rounded border border-neutral-200 dark:border-neutral-700">
         <PlotlyWrapper
           data={[
             {

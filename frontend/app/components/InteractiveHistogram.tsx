@@ -26,7 +26,7 @@ export default function InteractiveHistogram({
   title = "Distribution",
 }: InteractiveHistogramProps) {
   const [binStep, setBinStep] = useState(1);
-  const [satThreshold, setSatThreshold] = useState(0.1);
+  const [satThreshold, setSatThreshold] = useState(0);
 
   const histogramData = useMemo(() => {
     if (barcodeType === "Color" && colors) {
@@ -124,7 +124,7 @@ export default function InteractiveHistogram({
       </div>
 
       {/* Chart */}
-      <div className="bg-white dark:bg-neutral-800 rounded border border-neutral-200 dark:border-neutral-700">
+      <div className="panel-bg rounded border border-neutral-200 dark:border-neutral-700">
         <PlotlyWrapper
           data={[
             {
