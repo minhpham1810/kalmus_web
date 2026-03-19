@@ -99,7 +99,7 @@ export default function InteractiveRGBCube({
               },
               aspectmode: "cube",
               camera: {
-                eye: { x: -1.5, y: -1.5, z: 1.0 },
+                eye: { x: -2.0, y: 2.0, z: 1.3 },
               },
               dragmode: "turntable",
             },
