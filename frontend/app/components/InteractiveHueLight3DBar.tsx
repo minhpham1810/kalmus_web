@@ -31,7 +31,7 @@ export default function InteractiveHueLight3DBar({
   const [cameraPreset, setCameraPreset] = useState<CameraPreset>("Diag View 2");
   const [rotationSpeed, setRotationSpeed] = useState(5);
   const [camera, setCamera] = useState<{ eye: { x: number; y: number; z: number } }>({
-    eye: { x: -1.5, y: -1.5, z: 1.0 },
+    eye: { x: -2.0, y: -2.0, z: 1.3 },
   });
 
   const containerRef = useRef<HTMLDivElement>(null);
