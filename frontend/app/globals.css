@@ -7,10 +7,6 @@
   --foreground: #171717;
 }
 
-:root.dark {
-  --background: #0a0a0a;
-  --foreground: #ededed;
-}
 
 @theme inline {
   --color-background: var(--background);
@@ -23,4 +19,70 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* ── Per-theme colour overrides ─────────────────────────────────────────────
+   Tailwind v4 resolves utilities through CSS vars (bg-neutral-800 →
+   var(--color-neutral-800)), so overriding them here cascades automatically
+   to every panel, button, border, and hover that uses those tokens.
+
+   Dark modes (grey10/grey40/grey60): override the dark: palette slots.
+     neutral-800 → panel bg | neutral-900 → inset panel bg
+     neutral-700 → hover bg | neutral-600 → secondary borders
+
+   Light mode (grey90 only): override the base palette slots.
+     white       → primary panel bg   | neutral-50  → alt panel bg
+     neutral-100 → inset panels+hover | neutral-200 → dividers/borders
+     neutral-300 → dashed/sec borders | neutral-400/500/600 → text
+
+   panel-bg utility applies --panel-gradient as the panel background.
+   ──────────────────────────────────────────────────────────────────────── */
+
+@utility panel-bg {
+  background: var(--panel-gradient);
+}
+
+:root {
+  /* Default (pre-hydration): match grey10 */
+  --panel-gradient: linear-gradient(135deg, #1e1e1e 0%, #2e2e2e 100%);
+}
+
+/* grey10 — near-black; barely-visible panel lift above the dark background */
+[data-bg-level="grey10"] {
+  --color-neutral-800: #1e1e1e;
+  --color-neutral-900: #111111;
+  --color-neutral-700: #2a2a2a;
+  --color-neutral-600: #363636;
+  --panel-gradient: linear-gradient(135deg, #1e1e1e 0%, #2e2e2e 100%);
+}
+
+/* grey40 — dark gradient; panels clearly elevated */
+[data-bg-level="grey40"] {
+  --color-neutral-800: #2e2e2e;
+  --color-neutral-900: #1f1f1f;
+  --color-neutral-700: #3c3c3c;
+  --color-neutral-600: #4a4a4a;
+  --panel-gradient: linear-gradient(135deg, #2a2a2a 0%, #454545 100%);
+}
+
+/* grey60 — dark-to-mid gradient; DARK MODE — panels elevated to mid-dark */
+[data-bg-level="grey60"] {
+  --color-neutral-800: #4a4a4a;
+  --color-neutral-900: #383838;
+  --color-neutral-700: #5a5a5a;
+  --color-neutral-600: #6a6a6a;
+  --panel-gradient: linear-gradient(135deg, #3a3a3a 0%, #575757 100%);
+}
+
+/* grey90 — near-white; light mode — panels stay light */
+[data-bg-level="grey90"] {
+  --color-white: #eeeeee;
+  --color-neutral-50: #e6e6e6;
+  --color-neutral-100: #dadada;
+  --color-neutral-200: #cccccc;
+  --color-neutral-300: #c0c0c0;
+  --color-neutral-400: #666666;
+  --color-neutral-500: #555555;
+  --color-neutral-600: #404040;
+  --panel-gradient: linear-gradient(135deg, #d8d8d8 0%, #f0f0f0 100%);
 }
