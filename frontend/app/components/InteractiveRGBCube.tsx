@@ -55,7 +55,7 @@ export default function InteractiveRGBCube({
       </div>
 
       {/* 3D Chart */}
-      <div className="bg-white dark:bg-neutral-800 rounded border border-neutral-200 dark:border-neutral-700">
+      <div className="panel-bg rounded border border-neutral-200 dark:border-neutral-700">
         <PlotlyWrapper
           data={[
             {
@@ -99,7 +99,7 @@ export default function InteractiveRGBCube({
               },
               aspectmode: "cube",
               camera: {
-                eye: { x: 1.5, y: 1.5, z: 1.0 },
+                eye: { x: -1.5, y: -1.5, z: 1.0 },
               },
               dragmode: "turntable",
             },
