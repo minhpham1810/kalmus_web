@@ -44,7 +44,7 @@ class BarcodeData:
     """
     def __init__(self, colors, metadata):
         self.colors = np.array(colors)
-        self.barcode_type = metadata.get('barcode_type', 'color')
+        self.barcode_type = metadata.get('barcode_type', 'color').lower()
         self.color_metric = metadata.get('color_metric', 'Average')
         self.frame_type = metadata.get('frame_type', 'Whole_frame')
         self.total_frames = metadata.get('total_frames', len(colors))

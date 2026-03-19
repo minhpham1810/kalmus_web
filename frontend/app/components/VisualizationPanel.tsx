@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import InteractiveHistogram from "./InteractiveHistogram";
 import InteractiveRGBCube from "./InteractiveRGBCube";
 import InteractiveHueLightScatter from "./InteractiveHueLightScatter";
@@ -10,6 +10,17 @@ import ColorStatsDashboard from "./ColorStatsDashboard";
 import CSVExportButton from "./CSVExportButton";
 import BarcodePreview from "./BarcodePreview";
 import { RGB, BarcodeData } from "@/lib/barcode-utils";
+
+interface FilmSearchResult {
+  id: string;
+  title: string;
+  imdb_id: string | null;
+  released: string | null;
+  barcode_type: string;
+  frame_type: string;
+  metric: string;
+  process_date: string;
+}
 
 interface VisualizationPanelProps {
   jobId: string;
@@ -22,7 +33,8 @@ type VisualizationTab =
   | "colorcube"
   | "huelightscatter"
   | "huelight3d"
-  | "stats";
+  | "stats"
+  | "comparison";
 
 interface LoadedBarcodeData {
   colors?: RGB[];
@@ -35,20 +47,159 @@ interface LoadedBarcodeData {
   total_frames?: number;
   fps?: number;
   barcodeImageUrl?: string;
-  barcodeImage?: RGB[][] | number[][];  // 2D array for rendering
+  barcodeImage?: RGB[][] | number[][];
+}
+
+function FilmSearch({
+  currentJobId,
+  compareJobId,
+  onSelect,
+  onClear,
+}: {
+  currentJobId: string;
+  compareJobId: string | null;
+  onSelect: (id: string, title: string) => void;
+  onClear: () => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<FilmSearchResult[]>([]);
+  const [open, setOpen] = useState(false);
+  const [searching, setSearching] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  const search = (q: string) => {
+    if (!q.trim()) {
+      setResults([]);
+      setOpen(false);
+      return;
+    }
+    setSearching(true);
+    fetch(`/api/search-films?q=${encodeURIComponent(q)}`)
+      .then((r) => r.json())
+      .then((data) => {
+        setResults(data.results || []);
+        setOpen(true);
+      })
+      .catch(() => setResults([]))
+      .finally(() => setSearching(false));
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const v = e.target.value;
+    setQuery(v);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => search(v), 300);
+  };
+
+  const handleSelect = (r: FilmSearchResult) => {
+    setQuery(r.title);
+    setOpen(false);
+    onSelect(r.id, r.title);
+  };
+
+  const handleClear = () => {
+    setQuery("");
+    setResults([]);
+    setOpen(false);
+    onClear();
+  };
+
+  return (
+    <div ref={containerRef} className="relative">
+      <label className="block text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wide mb-2">
+        Compare with another film
+      </label>
+      <div className="flex gap-2">
+        <div className="relative flex-1">
+          <input
+            type="text"
+            value={query}
+            onChange={handleChange}
+            onFocus={() => results.length > 0 && setOpen(true)}
+            placeholder="Search films in database…"
+            className="w-full px-3 py-2 text-sm border border-neutral-300 dark:border-neutral-600 rounded bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:border-neutral-500 dark:focus:border-neutral-400"
+          />
+          {searching && (
+            <div className="absolute right-3 top-1/2 -translate-y-1/2">
+              <svg className="animate-spin h-4 w-4 text-neutral-400" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              </svg>
+            </div>
+          )}
+        </div>
+        {compareJobId && (
+          <button
+            onClick={handleClear}
+            className="px-3 py-2 text-sm border border-neutral-300 dark:border-neutral-600 rounded bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 transition-colors"
+            title="Clear comparison"
+          >
+            ✕
+          </button>
+        )}
+      </div>
+
+      {open && results.length > 0 && (
+        <div className="absolute z-50 mt-1 w-full bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded shadow-lg max-h-64 overflow-y-auto">
+          {results.map((r) => (
+            <button
+              key={r.id}
+              onClick={() => handleSelect(r)}
+              className={`w-full text-left px-4 py-3 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors border-b border-neutral-100 dark:border-neutral-700 last:border-0 ${r.id === currentJobId ? "opacity-50" : ""}`}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm font-medium text-neutral-900 dark:text-neutral-100 truncate">
+                  {r.title}
+                </span>
+                <span className="text-xs text-neutral-500 dark:text-neutral-400 shrink-0">
+                  {r.released ? r.released.slice(0, 4) : ""}
+                </span>
+              </div>
+              <div className="flex gap-2 mt-0.5">
+                <span className="text-xs text-neutral-500 dark:text-neutral-400">{r.barcode_type}</span>
+                <span className="text-xs text-neutral-400 dark:text-neutral-500">·</span>
+                <span className="text-xs text-neutral-500 dark:text-neutral-400">{r.frame_type}</span>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {open && results.length === 0 && !searching && query.trim() && (
+        <div className="absolute z-50 mt-1 w-full bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded shadow-lg px-4 py-3">
+          <p className="text-sm text-neutral-500 dark:text-neutral-400">No films found.</p>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function VisualizationPanel({
   jobId,
   videoFilename = "Video",
-  compareJobId,
+  compareJobId: initialCompareJobId,
 }: VisualizationPanelProps) {
   const [activeTab, setActiveTab] = useState<VisualizationTab>("histogram");
   const [barcodeData, setBarcodeData] = useState<LoadedBarcodeData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Load barcode data on mount
+  const [compareJobId, setCompareJobId] = useState<string | null>(initialCompareJobId || null);
+  const [compareTitle, setCompareTitle] = useState<string>("");
+  const [compareData, setCompareData] = useState<LoadedBarcodeData | null>(null);
+  const [compareLoading, setCompareLoading] = useState(false);
+
   useEffect(() => {
     loadBarcodeData();
   }, [jobId]);
@@ -77,7 +228,7 @@ export default function VisualizationPanel({
           frame_type: barcode.frame_type,
           total_frames: barcode.total_frames,
           fps: barcode.fps,
-          barcodeImage: barcode.barcode as RGB[][] | number[][],  // 2D barcode array
+          barcodeImage: barcode.barcode as RGB[][] | number[][],
         });
       } else {
         throw new Error("Invalid barcode data");
@@ -89,7 +240,35 @@ export default function VisualizationPanel({
     }
   };
 
-  // Define tabs based on barcode type
+  const loadCompareData = async (cJobId: string) => {
+    setCompareLoading(true);
+    setCompareData(null);
+    try {
+      const res = await fetch(`/api/job-result/${cJobId}`);
+      if (!res.ok) throw new Error("Failed to load comparison barcode");
+      const data = await res.json();
+      if (data.success && data.barcode) {
+        const b = data.barcode;
+        setCompareData({
+          colors: b.colors as RGB[],
+          brightness: b.brightness,
+          barcode_type: b.barcode_type || "Color",
+          sampled_frame_rate: b.sampled_frame_rate || 1,
+          skip_over: b.skip_over || 0,
+          color_metric: b.color_metric,
+          frame_type: b.frame_type,
+          total_frames: b.total_frames,
+          fps: b.fps,
+          barcodeImage: b.barcode as RGB[][] | number[][],
+        });
+      }
+    } catch {
+      // compareData stays null
+    } finally {
+      setCompareLoading(false);
+    }
+  };
+
   const isColorBarcode = barcodeData?.barcode_type === "Color";
 
   const tabs: Array<{ id: VisualizationTab; label: string; icon: string; colorOnly?: boolean }> = [
@@ -98,14 +277,9 @@ export default function VisualizationPanel({
     { id: "huelightscatter", label: "Hue/Light Scatter", icon: "M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01", colorOnly: true },
     { id: "huelight3d", label: "Hue/Light 3D", icon: "M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5", colorOnly: true },
     { id: "stats", label: "Statistics", icon: "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" },
+    { id: "comparison", label: "Compare", icon: "M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18" },
   ];
 
-  // // Add comparison tab if needed
-  // if (compareJobId || showComparison) {
-  //   tabs.push({ id: "comparison", label: "Comparison", icon: "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" });
-  // }
-
-  // Filter tabs based on barcode type
   const availableTabs = tabs.filter((tab) => !tab.colorOnly || isColorBarcode);
 
   if (loading) {
@@ -183,13 +357,12 @@ export default function VisualizationPanel({
                 title={`${barcodeData.barcode_type}_barcode_${videoFilename}`}
               />
             )}
-
           </div>
         </div>
       </div>
 
       {/* Barcode Preview (Collapsible) */}
-      {barcodeData?.barcodeImage && (
+      {barcodeData?.barcodeImage && activeTab !== "comparison" && (
         <BarcodePreview
           barcode={barcodeData.barcodeImage}
           barcodeType={barcodeData.barcode_type}
@@ -276,31 +449,79 @@ export default function VisualizationPanel({
             />
           )}
 
-          {/* {activeTab === "comparison" && compareJobId && (
-            <BarcodeComparison
-              jobId1={jobId}
-              jobId2={compareJobId}
-              title1={videoFilename}
-              title2="Comparison Video"
-            />
-          )} */}
           {activeTab === "stats" && (
             <ColorStatsDashboard jobId={jobId} title={`Statistics for ${videoFilename}`} />
           )}
-          {/* {activeTab === "comparison" && !compareJobId && showComparison && (
-            <div className="bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded p-6 text-center">
-              <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-4">
-                Enter a job ID to compare with:
-              </p>
-              <ComparisonInput
+
+          {activeTab === "comparison" && barcodeData && (
+            <div className="space-y-6">
+              <FilmSearch
                 currentJobId={jobId}
-                onCompare={(newJobId) => {
-                  // Navigate to comparison page or update state
-                  window.location.href = `/results/${jobId}?compare=${newJobId}`;
+                compareJobId={compareJobId}
+                onSelect={(id, title) => {
+                  setCompareJobId(id);
+                  setCompareTitle(title);
+                  loadCompareData(id);
+                }}
+                onClear={() => {
+                  setCompareJobId(null);
+                  setCompareData(null);
+                  setCompareTitle("");
                 }}
               />
+
+              {barcodeData.barcodeImage && (
+                <BarcodePreview
+                  barcode={barcodeData.barcodeImage}
+                  barcodeType={barcodeData.barcode_type}
+                  title={`${barcodeData.barcode_type} Barcode — ${videoFilename}`}
+                  fps={barcodeData.fps}
+                  sampledFrameRate={barcodeData.sampled_frame_rate}
+                  skipOver={barcodeData.skip_over}
+                  totalFrames={barcodeData.total_frames}
+                />
+              )}
+
+              {compareLoading && (
+                <div className="flex items-center justify-center py-8">
+                  <div className="flex items-center gap-3">
+                    <svg className="animate-spin h-5 w-5 text-neutral-600 dark:text-neutral-400" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    <span className="text-sm text-neutral-600 dark:text-neutral-400">Loading comparison barcode...</span>
+                  </div>
+                </div>
+              )}
+
+              {!compareLoading && compareData?.barcodeImage && (
+                <BarcodePreview
+                  barcode={compareData.barcodeImage}
+                  barcodeType={compareData.barcode_type}
+                  title={`${compareData.barcode_type} Barcode — ${compareTitle}`}
+                  fps={compareData.fps}
+                  sampledFrameRate={compareData.sampled_frame_rate}
+                  skipOver={compareData.skip_over}
+                  totalFrames={compareData.total_frames}
+                />
+              )}
+
+              {compareJobId && (
+                <BarcodeComparison
+                  jobId1={jobId}
+                  jobId2={compareJobId}
+                  title1={videoFilename}
+                  title2={compareTitle}
+                />
+              )}
+
+              {!compareJobId && (
+                <p className="text-sm text-center text-neutral-500 dark:text-neutral-400 py-6">
+                  Search for a film above to compare barcodes side by side.
+                </p>
+              )}
             </div>
-          )} */}
+          )}
         </div>
       </div>
 
@@ -337,6 +558,10 @@ export default function VisualizationPanel({
             </>
           )}
           <li>
+            <strong>Compare:</strong> Side-by-side barcode comparison with similarity metrics
+            (SSIM, NRMSE, cross-correlation, sequence alignment)
+          </li>
+          <li>
             <strong>Export CSV:</strong> Download per-frame color/brightness data with frame
             indices
           </li>
@@ -345,46 +570,3 @@ export default function VisualizationPanel({
     </div>
   );
 }
-
-// function ComparisonInput({
-//   currentJobId,
-//   onCompare,
-// }: {
-//   currentJobId: string;
-//   onCompare: (jobId: string) => void;
-// }) {
-//   const [inputJobId, setInputJobId] = useState("");
-
-//   const handleSubmit = (e: React.FormEvent) => {
-//     e.preventDefault();
-//     if (inputJobId && inputJobId !== currentJobId) {
-//       onCompare(inputJobId);
-//     }
-//   };
-
-//   return (
-//     <form onSubmit={handleSubmit} className="max-w-md mx-auto">
-//       <div className="flex gap-2">
-//         <input
-//           type="text"
-//           value={inputJobId}
-//           onChange={(e) => setInputJobId(e.target.value)}
-//           placeholder="Enter Job ID (e.g., a1b2c3d4-...)"
-//           className="flex-1 px-3 py-2 text-sm border border-neutral-300 dark:border-neutral-600 rounded bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:border-neutral-500 dark:focus:border-neutral-400"
-//         />
-//         <button
-//           type="submit"
-//           disabled={!inputJobId || inputJobId === currentJobId}
-//           className="px-4 py-2 bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 text-sm font-medium rounded hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-//         >
-//           Compare
-//         </button>
-//       </div>
-//       {inputJobId === currentJobId && (
-//         <p className="text-xs text-red-600 dark:text-red-400 mt-2">
-//           Cannot compare a barcode with itself
-//         </p>
-//       )}
-//     </form>
-//   );
-// }
