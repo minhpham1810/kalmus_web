@@ -61,10 +61,19 @@ def ssim_similarity(image_1, image_2, window_size=None):
     image_1 = image_1.astype("float64")
     image_2 = image_2.astype("float64")
 
+    if window_size is None:
+        min_side = min(image_1.shape[0], image_1.shape[1])
+        safe = min(7, min_side)
+        if safe % 2 == 0:
+            safe -= 1
+        window_size = max(safe, 1)
+
+    data_range = image_1.max() - image_1.min() if image_1.max() != image_1.min() else 1.0
+
     if len(image_1.shape) == 2:
-        score = structural_similarity(image_1, image_2, win_size=window_size, multichannel=False)
+        score = structural_similarity(image_1, image_2, win_size=window_size, data_range=data_range, channel_axis=None)
     elif len(image_1.shape) > 2:
-        score = structural_similarity(image_1, image_2, win_size=window_size, multichannel=True)
+        score = structural_similarity(image_1, image_2, win_size=window_size, data_range=data_range, channel_axis=-1)
 
     # Renormalize [-1, 1] score to [0, 1] range
     score += 1
