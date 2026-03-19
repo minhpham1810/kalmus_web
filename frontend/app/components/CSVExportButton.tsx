@@ -6,17 +6,21 @@ import { BarcodeData, generateCSV, downloadCSV } from "@/lib/barcode-utils";
 interface CSVExportButtonProps {
   barcodeData: BarcodeData;
   jobId: string;
+  title?: string;
 }
 
 export default function CSVExportButton({
   barcodeData,
   jobId,
+  title,
 }: CSVExportButtonProps) {
   const handleExport = useCallback(() => {
     const csvContent = generateCSV(barcodeData);
-    const filename = `barcode_${jobId}_${barcodeData.barcode_type.toLowerCase()}.csv`;
-    downloadCSV(csvContent, filename);
-  }, [barcodeData, jobId]);
+    const slug = title
+      ? title.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "")
+      : `barcode_${jobId}_${barcodeData.barcode_type.toLowerCase()}`;
+    downloadCSV(csvContent, `${slug}.csv`);
+  }, [barcodeData, jobId, title]);
 
   const isDisabled =
     (barcodeData.barcode_type === "Color" && !barcodeData.colors?.length) ||
