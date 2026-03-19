@@ -7,6 +7,10 @@ interface BarcodePreviewProps {
   barcode: RGB[][] | number[][];
   barcodeType: "Color" | "Brightness";
   title?: string;
+  fps?: number;
+  sampledFrameRate?: number;
+  skipOver?: number;
+  totalFrames?: number;
 }
 
 export default function BarcodePreview({
@@ -18,6 +22,16 @@ export default function BarcodePreview({
   const containerRef = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState(1);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
+  const [isDark, setIsDark] = useState(false);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const check = () => setIsDark(root.classList.contains('dark'));
+    check();
+    const obs = new MutationObserver(check);
+    obs.observe(root, { attributes: true, attributeFilter: ['class'] });
+    return () => obs.disconnect();
+  }, []);
 
   // Render barcode to canvas
   useEffect(() => {
@@ -69,8 +83,12 @@ export default function BarcodePreview({
 
   const handleDownload = () => {
     if (!canvasRef.current) return;
+    const slug = title
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_|_$/g, "");
     const link = document.createElement("a");
-    link.download = `barcode_${barcodeType.toLowerCase()}.png`;
+    link.download = `${slug}.png`;
     link.href = canvasRef.current.toDataURL("image/png");
     link.click();
   };
@@ -78,7 +96,7 @@ export default function BarcodePreview({
   const zoomLevels = [0.5, 1, 2, 4, 8];
 
   return (
-    <div className="bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg overflow-hidden">
+    <div className="panel-bg border border-neutral-200 dark:border-neutral-700 rounded-lg overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900">
         <div className="flex items-center gap-3">
