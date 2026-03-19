@@ -28,10 +28,10 @@ export default function InteractiveHueLight3DBar({
   const [saturationThreshold, setSaturationThreshold] = useState(0);
   const [showGrid, setShowGrid] = useState(false);
   const [showAxis, setShowAxis] = useState(true);
-  const [cameraPreset, setCameraPreset] = useState<CameraPreset>("Diag View 1");
+  const [cameraPreset, setCameraPreset] = useState<CameraPreset>("Diag View 2");
   const [rotationSpeed, setRotationSpeed] = useState(5);
   const [camera, setCamera] = useState<{ eye: { x: number; y: number; z: number } }>({
-    eye: { x: 1.5, y: 1.5, z: 1.0 },
+    eye: { x: -1.5, y: -1.5, z: 1.0 },
   });
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -235,7 +235,7 @@ export default function InteractiveHueLight3DBar({
       </div>
 
       {/* 3D Chart */}
-      <div className="bg-white dark:bg-neutral-800 rounded border border-neutral-200 dark:border-neutral-700">
+      <div className="panel-bg rounded border border-neutral-200 dark:border-neutral-700">
         <PlotlyWrapper
           data={[
             {
