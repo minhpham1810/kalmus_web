@@ -96,12 +96,18 @@ export default function BarcodePreview({
   const zoomLevels = [0.5, 1, 2, 4, 8];
 
   return (
-    <div className="panel-bg border border-neutral-200 dark:border-neutral-700 rounded-lg overflow-hidden">
+    <div className="panel border border-amber-500/20 rounded-lg overflow-hidden relative">
+      {/* Decorative corners */}
+      <div className="absolute top-0 left-0 w-4 h-4 border-t border-l border-amber-500/40 z-10" />
+      <div className="absolute top-0 right-0 w-4 h-4 border-t border-r border-amber-500/40 z-10" />
+      <div className="absolute bottom-0 left-0 w-4 h-4 border-b border-l border-amber-500/40 z-10" />
+      <div className="absolute bottom-0 right-0 w-4 h-4 border-b border-r border-amber-500/40 z-10" />
+      
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-amber-500/20 bg-black/40">
         <div className="flex items-center gap-3">
           <svg
-            className="w-5 h-5 text-neutral-600 dark:text-neutral-400"
+            className="w-5 h-5 text-amber-500/70"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -109,16 +115,16 @@ export default function BarcodePreview({
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
-              strokeWidth={2}
+              strokeWidth={1.5}
               d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
             />
           </svg>
           <div>
-            <h3 className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
-              {title}
+            <h3 className="text-sm font-mono text-amber-100/90">
+              {title.toUpperCase().replace(/ /g, '_')}
             </h3>
-            <p className="text-xs text-neutral-500 dark:text-neutral-400">
-              {dimensions.width} x {dimensions.height} pixels
+            <p className="text-xs text-amber-500/50 font-mono">
+              {dimensions.width} x {dimensions.height} px
             </p>
           </div>
         </div>
@@ -126,17 +132,17 @@ export default function BarcodePreview({
         <div className="flex items-center gap-2">
           {/* Zoom Controls */}
           <div className="flex items-center gap-1 mr-2">
-            <span className="text-xs text-neutral-500 dark:text-neutral-400 mr-1">
-              Zoom:
+            <span className="text-xs text-amber-500/50 font-mono mr-1">
+              ZOOM:
             </span>
             {zoomLevels.map((level) => (
               <button
                 key={level}
                 onClick={() => setZoom(level)}
-                className={`px-2 py-1 text-xs rounded transition-colors ${
+                className={`px-2 py-1 text-xs font-mono rounded transition-all duration-200 ${
                   zoom === level
-                    ? "bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900"
-                    : "bg-neutral-200 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-300 dark:hover:bg-neutral-600"
+                    ? "bg-amber-500/20 text-amber-400 border border-amber-500/40"
+                    : "bg-black/40 text-neutral-400 border border-amber-500/10 hover:border-amber-500/30 hover:text-amber-400/80"
                 }`}
               >
                 {level}x
@@ -147,14 +153,14 @@ export default function BarcodePreview({
           {/* Download Button */}
           <button
             onClick={handleDownload}
-            className="p-2 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded transition-colors"
+            className="p-2 text-cyan-400/60 hover:text-cyan-400 hover:bg-cyan-500/10 border border-transparent hover:border-cyan-500/30 rounded transition-all duration-200"
             title="Download PNG"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                strokeWidth={2}
+                strokeWidth={1.5}
                 d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
               />
             </svg>
@@ -166,11 +172,11 @@ export default function BarcodePreview({
       {/* Canvas Container */}
       <div
         ref={containerRef}
-        className="overflow-x-auto overflow-y-hidden bg-neutral-100 dark:bg-neutral-900 p-4"
+        className="overflow-x-auto overflow-y-hidden bg-black/60 p-4"
         style={{ maxHeight: "400px" }}
       >
         <div
-          className="inline-block border border-neutral-300 dark:border-neutral-600 shadow-sm"
+          className="inline-block border border-amber-500/20 shadow-[0_0_20px_rgba(212,165,116,0.1)]"
           style={{
             imageRendering: zoom >= 2 ? "pixelated" : "auto",
           }}
@@ -188,11 +194,11 @@ export default function BarcodePreview({
       </div>
 
       {/* Footer Info */}
-      <div className="px-4 py-2 border-t border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900">
-        <p className="text-xs text-neutral-500 dark:text-neutral-400">
-          {barcodeType === "Color"
-            ? "Color barcode showing the temporal color distribution of the video. Each column represents frames, each row a time segment."
-            : "Brightness barcode showing the temporal brightness distribution of the video."}
+      <div className="px-4 py-2 border-t border-amber-500/20 bg-black/40">
+        <p className="text-xs text-neutral-500 font-mono">
+          // {barcodeType === "Color"
+            ? "Color barcode showing temporal color distribution. Each column = frames, each row = time segment."
+            : "Brightness barcode showing temporal brightness distribution."}
         </p>
       </div>
     </div>

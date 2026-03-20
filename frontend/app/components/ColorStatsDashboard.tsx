@@ -131,16 +131,25 @@ export default function ColorStatsDashboard({
   };
 
   return (
-    <div className="panel-bg border border-neutral-200 dark:border-neutral-700 rounded p-6">
-      <h3 className="text-sm font-medium mb-6 text-neutral-700 dark:text-neutral-300 uppercase tracking-wide">
-        {title}
+    <div className="panel border border-amber-500/20 rounded p-6 relative overflow-hidden">
+      {/* Decorative corners */}
+      <div className="absolute top-0 left-0 w-4 h-4 border-t border-l border-amber-500/40" />
+      <div className="absolute top-0 right-0 w-4 h-4 border-t border-r border-amber-500/40" />
+      <div className="absolute bottom-0 left-0 w-4 h-4 border-b border-l border-amber-500/40" />
+      <div className="absolute bottom-0 right-0 w-4 h-4 border-b border-r border-amber-500/40" />
+      
+      <h3 className="text-xs font-mono mb-6 text-amber-500/80 uppercase tracking-widest flex items-center gap-2">
+        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+        </svg>
+        {title.toUpperCase().replace(/ /g, '_')}
       </h3>
 
       {loading && (
         <div className="flex items-center justify-center py-12">
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col items-center gap-4">
             <svg
-              className="animate-spin h-5 w-5 text-neutral-600 dark:text-neutral-400"
+              className="animate-spin h-8 w-8 text-amber-500"
               viewBox="0 0 24 24"
             >
               <circle
@@ -158,51 +167,51 @@ export default function ColorStatsDashboard({
                 d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
               />
             </svg>
-            <span className="text-sm text-neutral-600 dark:text-neutral-400">
-              Computing statistics...
+            <span className="text-sm text-amber-500/80 font-mono tracking-wider">
+              COMPUTING_STATISTICS...
             </span>
           </div>
         </div>
       )}
 
       {error && (
-        <div className="bg-neutral-100 dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-700 rounded p-4">
-          <p className="text-sm text-neutral-900 dark:text-neutral-100">{error}</p>
+        <div className="bg-black/40 border border-red-500/30 rounded p-4">
+          <p className="text-sm text-red-400/90 font-mono">// ERROR: {error}</p>
         </div>
       )}
 
       {!loading && !error && stats && (
         <div className="space-y-6">
           {/* Basic Info */}
-          <div className="grid grid-cols-2 gap-4">
-            <StatCard label="Total Frames" value={formatNumber(stats.totalFrames)} />
-            <StatCard label="Film Length" value={`${formatNumber(stats.filmLengthInFrames)} frames`} />
-            <StatCard label="Barcode Size" value={`${stats.barcodeShape[0]} × ${stats.barcodeShape[1]}`} />
-            <StatCard label="Color Metric" value={stats.colorMetric} />
+          <div className="grid grid-cols-2 gap-3">
+            <StatCard label="TOTAL_FRAMES" value={formatNumber(stats.totalFrames)} />
+            <StatCard label="FILM_LENGTH" value={`${formatNumber(stats.filmLengthInFrames)} frames`} />
+            <StatCard label="BARCODE_SIZE" value={`${stats.barcodeShape[0]} x ${stats.barcodeShape[1]}`} />
+            <StatCard label="COLOR_METRIC" value={stats.colorMetric} />
           </div>
 
           {/* Average Color */}
-          <div className="border-t border-neutral-200 dark:border-neutral-700 pt-4">
-            <h4 className="text-xs font-medium text-neutral-600 dark:text-neutral-400 mb-3 uppercase tracking-wide">
-              Average Color
+          <div className="border-t border-amber-500/10 pt-4">
+            <h4 className="text-xs font-mono text-amber-500/70 mb-3 uppercase tracking-widest">
+              AVERAGE_COLOR
             </h4>
             <div className="flex items-center gap-4">
               <div
-                className="w-20 h-20 rounded border border-neutral-300 dark:border-neutral-600"
+                className="w-20 h-20 rounded border border-amber-500/20"
                 style={{
                   backgroundColor: `rgb(${stats.averageColor[0]}, ${stats.averageColor[1]}, ${stats.averageColor[2]})`,
                 }}
               />
-              <div className="flex-1 space-y-1">
-                <div className="text-sm">
-                  <span className="text-neutral-500 dark:text-neutral-400">RGB:</span>{" "}
-                  <code className="text-neutral-900 dark:text-neutral-100 font-mono text-xs">
+              <div className="flex-1 space-y-2">
+                <div className="text-sm font-mono">
+                  <span className="text-neutral-500">RGB:</span>{" "}
+                  <code className="text-cyan-400/80 text-xs">
                     ({stats.averageColor.join(", ")})
                   </code>
                 </div>
-                <div className="text-sm">
-                  <span className="text-neutral-500 dark:text-neutral-400">HEX:</span>{" "}
-                  <code className="text-neutral-900 dark:text-neutral-100 font-mono text-xs">
+                <div className="text-sm font-mono">
+                  <span className="text-neutral-500">HEX:</span>{" "}
+                  <code className="text-cyan-400/80 text-xs">
                     {rgbToHex(stats.averageColor)}
                   </code>
                 </div>
@@ -211,31 +220,31 @@ export default function ColorStatsDashboard({
           </div>
 
           {/* Dominant Colors */}
-          <div className="border-t border-neutral-200 dark:border-neutral-700 pt-4">
-            <h4 className="text-xs font-medium text-neutral-600 dark:text-neutral-400 mb-3 uppercase tracking-wide">
-              Top 5 Dominant Colors
+          <div className="border-t border-amber-500/10 pt-4">
+            <h4 className="text-xs font-mono text-amber-500/70 mb-3 uppercase tracking-widest">
+              DOMINANT_COLORS [TOP_5]
             </h4>
             <div className="space-y-2">
               {stats.dominantColors.map((color, index) => (
                 <div key={index} className="flex items-center gap-3">
                   <div
-                    className="w-10 h-10 rounded border border-neutral-300 dark:border-neutral-600 flex-shrink-0"
+                    className="w-10 h-10 rounded border border-amber-500/20 flex-shrink-0"
                     style={{
                       backgroundColor: `rgb(${color.rgb[0]}, ${color.rgb[1]}, ${color.rgb[2]})`,
                     }}
                   />
                   <div className="flex-1">
-                    <div className="flex items-center justify-between text-xs mb-1">
-                      <code className="text-neutral-600 dark:text-neutral-400 font-mono">
+                    <div className="flex items-center justify-between text-xs mb-1 font-mono">
+                      <code className="text-neutral-400">
                         {rgbToHex(color.rgb)}
                       </code>
-                      <span className="text-neutral-900 dark:text-neutral-100 font-medium">
+                      <span className="text-amber-400">
                         {color.percentage.toFixed(2)}%
                       </span>
                     </div>
-                    <div className="w-full bg-neutral-200 dark:bg-neutral-700 rounded-full h-1.5">
+                    <div className="w-full bg-black/40 rounded h-1.5 overflow-hidden">
                       <div
-                        className="h-1.5 rounded-full"
+                        className="h-1.5 rounded transition-all duration-300"
                         style={{
                           width: `${color.percentage}%`,
                           backgroundColor: `rgb(${color.rgb[0]}, ${color.rgb[1]}, ${color.rgb[2]})`,
@@ -249,16 +258,16 @@ export default function ColorStatsDashboard({
           </div>
 
           {/* Brightness Statistics */}
-          <div className="border-t border-neutral-200 dark:border-neutral-700 pt-4">
-            <h4 className="text-xs font-medium text-neutral-600 dark:text-neutral-400 mb-3 uppercase tracking-wide">
-              Brightness Distribution
+          <div className="border-t border-amber-500/10 pt-4">
+            <h4 className="text-xs font-mono text-amber-500/70 mb-3 uppercase tracking-widest">
+              BRIGHTNESS_DISTRIBUTION
             </h4>
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-              <BrightnessStatCard label="Mean" value={stats.brightnessStats.mean} />
-              <BrightnessStatCard label="Median" value={stats.brightnessStats.median} />
-              <BrightnessStatCard label="Std Dev" value={stats.brightnessStats.std} />
-              <BrightnessStatCard label="Min" value={stats.brightnessStats.min} />
-              <BrightnessStatCard label="Max" value={stats.brightnessStats.max} />
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+              <BrightnessStatCard label="MEAN" value={stats.brightnessStats.mean} />
+              <BrightnessStatCard label="MEDIAN" value={stats.brightnessStats.median} />
+              <BrightnessStatCard label="STD_DEV" value={stats.brightnessStats.std} />
+              <BrightnessStatCard label="MIN" value={stats.brightnessStats.min} />
+              <BrightnessStatCard label="MAX" value={stats.brightnessStats.max} />
             </div>
           </div>
         </div>
@@ -269,18 +278,18 @@ export default function ColorStatsDashboard({
 
 function StatCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="bg-neutral-100 dark:bg-neutral-900 rounded p-3">
-      <div className="text-xs text-neutral-500 dark:text-neutral-400 mb-1">{label}</div>
-      <div className="text-base font-medium text-neutral-900 dark:text-neutral-100">{value}</div>
+    <div className="bg-black/40 border border-amber-500/10 rounded p-3">
+      <div className="text-xs text-amber-500/50 font-mono mb-1">{label}</div>
+      <div className="text-base font-mono text-amber-100/90">{value}</div>
     </div>
   );
 }
 
 function BrightnessStatCard({ label, value }: { label: string; value: number }) {
   return (
-    <div className="bg-neutral-100 dark:bg-neutral-900 rounded p-2 text-center">
-      <div className="text-xs text-neutral-500 dark:text-neutral-400 mb-1">{label}</div>
-      <div className="text-sm font-medium text-neutral-900 dark:text-neutral-100">{value}</div>
+    <div className="bg-black/40 border border-amber-500/10 rounded p-2 text-center">
+      <div className="text-xs text-amber-500/50 font-mono mb-1">{label}</div>
+      <div className="text-sm font-mono text-amber-100/90">{value}</div>
     </div>
   );
 }

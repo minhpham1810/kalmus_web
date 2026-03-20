@@ -64,15 +64,15 @@ export default function BarcodeComparison({
     // For correlation metrics, values near 1 are good (green), near -1 are anti-similar (red)
     // For similarity metrics (nrmse, ssim, etc), values near 1 are good
     if (metric === "crossCorrelation" || metric === "localCrossCorrelation") {
-      if (value > 0.7) return "text-green-600 dark:text-green-400";
-      if (value > 0.3) return "text-yellow-600 dark:text-yellow-400";
-      if (value > -0.3) return "text-orange-600 dark:text-orange-400";
-      return "text-red-600 dark:text-red-400";
+      if (value > 0.7) return "text-emerald-400";
+      if (value > 0.3) return "text-amber-400";
+      if (value > -0.3) return "text-orange-400";
+      return "text-red-400";
     } else {
-      if (value > 0.8) return "text-green-600 dark:text-green-400";
-      if (value > 0.6) return "text-yellow-600 dark:text-yellow-400";
-      if (value > 0.4) return "text-orange-600 dark:text-orange-400";
-      return "text-red-600 dark:text-red-400";
+      if (value > 0.8) return "text-emerald-400";
+      if (value > 0.6) return "text-amber-400";
+      if (value > 0.4) return "text-orange-400";
+      return "text-red-400";
     }
   };
 
@@ -89,57 +89,66 @@ export default function BarcodeComparison({
 
   const metricDescriptions = {
     nrmse: {
-      name: "NRMSE Similarity",
-      description: "Normalized Root Mean Square Error - measures pixel-level similarity",
-      range: "0 (least similar) to 1 (most similar)",
-      tag: "Image Similarity",
+      name: "NRMSE_SIMILARITY",
+      description: "Normalized Root Mean Square Error - pixel-level similarity",
+      range: "0 (LEAST) to 1 (MOST)",
+      tag: "IMAGE",
     },
     ssim: {
       name: "SSIM",
-      description: "Structural Similarity Index - measures structural patterns",
-      range: "0 (least similar) to 1 (most similar)",
-      tag: "Image Similarity",
+      description: "Structural Similarity Index - structural patterns",
+      range: "0 (LEAST) to 1 (MOST)",
+      tag: "IMAGE",
     },
     crossCorrelation: {
-      name: "Cross Correlation",
-      description: "Measures linear relationship between color sequences",
-      range: "-1 (anti-similar) to 1 (most similar)",
-      tag: "Signal Correlation",
+      name: "CROSS_CORRELATION",
+      description: "Linear relationship between color sequences",
+      range: "-1 (ANTI) to 1 (SIMILAR)",
+      tag: "SIGNAL",
     },
     localCrossCorrelation: {
-      name: "Local Cross Correlation",
-      description: "Measures local correlation patterns between sequences",
-      range: "-1 (anti-similar) to 1 (most similar)",
-      tag: "Signal Correlation",
+      name: "LOCAL_CORRELATION",
+      description: "Local correlation patterns between sequences",
+      range: "-1 (ANTI) to 1 (SIMILAR)",
+      tag: "SIGNAL",
     },
     needlemanWunsch: {
-      name: "Needleman-Wunsch",
+      name: "NEEDLEMAN_WUNSCH",
       description: "Global sequence alignment similarity",
-      range: "0 (least similar) to 1 (most similar)",
-      tag: "Sequence Matching",
+      range: "0 (LEAST) to 1 (MOST)",
+      tag: "SEQUENCE",
     },
     smithWaterman: {
-      name: "Smith-Waterman",
+      name: "SMITH_WATERMAN",
       description: "Local sequence alignment similarity",
-      range: "0 (least similar) to 1 (most similar)",
-      tag: "Sequence Matching",
+      range: "0 (LEAST) to 1 (MOST)",
+      tag: "SEQUENCE",
     },
   };
 
   return (
-    <div className="panel-bg border border-neutral-200 dark:border-neutral-700 rounded p-6">
-      <h3 className="text-sm font-medium mb-2 text-neutral-700 dark:text-neutral-300 uppercase tracking-wide">
-        Barcode Comparison
+    <div className="panel border border-amber-500/20 rounded p-6 relative overflow-hidden">
+      {/* Decorative corners */}
+      <div className="absolute top-0 left-0 w-4 h-4 border-t border-l border-amber-500/40" />
+      <div className="absolute top-0 right-0 w-4 h-4 border-t border-r border-amber-500/40" />
+      <div className="absolute bottom-0 left-0 w-4 h-4 border-b border-l border-amber-500/40" />
+      <div className="absolute bottom-0 right-0 w-4 h-4 border-b border-r border-amber-500/40" />
+      
+      <h3 className="text-xs font-mono mb-2 text-amber-500/80 uppercase tracking-widest flex items-center gap-2">
+        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+        </svg>
+        BARCODE_COMPARISON
       </h3>
-      <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-6">
-        Comparing {title1} and {title2}
+      <p className="text-xs text-neutral-500 font-mono mb-6">
+        // Comparing {title1} vs {title2}
       </p>
 
       {loading && (
         <div className="flex items-center justify-center py-12">
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col items-center gap-4">
             <svg
-              className="animate-spin h-5 w-5 text-neutral-600 dark:text-neutral-400"
+              className="animate-spin h-8 w-8 text-amber-500"
               viewBox="0 0 24 24"
             >
               <circle
@@ -157,64 +166,64 @@ export default function BarcodeComparison({
                 d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
               />
             </svg>
-            <span className="text-sm text-neutral-600 dark:text-neutral-400">
-              Computing similarity metrics...
+            <span className="text-sm text-amber-500/80 font-mono tracking-wider">
+              COMPUTING_METRICS...
             </span>
           </div>
         </div>
       )}
 
       {error && (
-        <div className="bg-neutral-100 dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-700 rounded p-4">
-          <p className="text-sm text-neutral-900 dark:text-neutral-100">{error}</p>
+        <div className="bg-black/40 border border-red-500/30 rounded p-4">
+          <p className="text-sm text-red-400/90 font-mono">// ERROR: {error}</p>
         </div>
       )}
 
       {!loading && !error && metrics && (
-        <div className="space-y-6">
+        <div className="space-y-5">
           {Object.entries(metrics).map(([key, value]) => {
             const desc = metricDescriptions[key as keyof typeof metricDescriptions];
             return (
-              <div key={key} className="border-b border-neutral-200 dark:border-neutral-700 pb-4 last:border-0">
+              <div key={key} className="border-b border-amber-500/10 pb-4 last:border-0">
                 <div className="flex items-start justify-between mb-2">
                   <div>
                     <div className="flex items-center gap-2">
-                      <h4 className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
+                      <h4 className="text-sm font-mono text-amber-100/90">
                         {desc.name}
                       </h4>
-                      <span className="text-xs px-2 py-0.5 bg-neutral-100 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-400 rounded">
+                      <span className="text-xs font-mono px-2 py-0.5 bg-cyan-500/10 text-cyan-400/70 rounded">
                         {desc.tag}
                       </span>
                     </div>
-                    <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-                      {desc.description}
+                    <p className="text-xs text-neutral-500 font-mono mt-1">
+                      // {desc.description}
                     </p>
                   </div>
                   <span
-                    className={`text-lg font-semibold ${getMetricColor(value, key)}`}
+                    className={`text-lg font-mono font-semibold ${getMetricColor(value, key)}`}
                   >
                     {value.toFixed(3)}
                   </span>
                 </div>
 
-                <div className="w-full bg-neutral-200 dark:bg-neutral-700 rounded-full h-2 mt-2">
+                <div className="w-full bg-black/40 rounded h-2 mt-2 overflow-hidden">
                   <div
-                    className="h-2 rounded-full transition-all duration-500 bg-gradient-to-r from-red-500 via-yellow-500 to-green-500"
+                    className="h-2 rounded transition-all duration-500 bg-gradient-to-r from-red-500 via-amber-500 to-emerald-500"
                     style={{ width: `${getProgressWidth(value, key)}%` }}
                   />
                 </div>
 
-                <p className="text-xs text-neutral-400 dark:text-neutral-500 mt-1">
+                <p className="text-xs text-neutral-600 font-mono mt-1">
                   {desc.range}
                 </p>
               </div>
             );
           })}
 
-          <div className="mt-6 bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded p-4">
-            <p className="text-xs text-neutral-600 dark:text-neutral-400">
-              <strong>Note:</strong> Different metrics capture different aspects of similarity.
-              Use multiple metrics together for comprehensive analysis.
+          <div className="mt-6 bg-black/40 border border-amber-500/10 rounded p-4">
+            <p className="text-xs text-neutral-400 font-mono">
+              <span className="text-cyan-400/70">NOTE:</span> Different metrics capture different aspects of similarity.
+              Use multiple metrics for comprehensive analysis.
             </p>
           </div>
         </div>
