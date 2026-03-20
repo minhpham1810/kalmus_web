@@ -2,6 +2,8 @@
 
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import Image from "next/image";
+import Link from "next/link";
 import VisualizationPanel from "@/app/components/VisualizationPanel";
 
 interface JobMetadata {
@@ -151,6 +153,20 @@ export default function ResultsPage() {
     <div className="min-h-screen">
       <main className="container mx-auto px-4 py-12">
         <div className="max-w-6xl mx-auto">
+          {/* Logo */}
+          <div className="mb-8">
+            <Link href="/" className="inline-block">
+              <Image
+                src="/kalmus-logo.png"
+                alt="KALMUS"
+                width={240}
+                height={80}
+                className="dark:invert"
+                priority
+              />
+            </Link>
+          </div>
+
           {/* Header with "Process Another Video" button */}
           <div className="mb-8 flex items-start justify-between">
             <div>
