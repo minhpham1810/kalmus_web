@@ -6,7 +6,7 @@ import { ThemeToggle } from './ThemeToggle';
 function ScanlineOverlay() {
   return (
     <div 
-      className="fixed inset-0 pointer-events-none z-[100]"
+      className="fixed inset-0 pointer-events-none z-[100] crt-flicker"
       style={{
         background: `repeating-linear-gradient(
           0deg,
@@ -47,10 +47,18 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
   const isDark = ['grey10', 'grey40', 'grey60'].includes(bgLevel);
 
   return (
-    <div className="min-h-screen relative" style={{ background: BG_COLORS[bgLevel] }}>
+    <div className="min-h-screen relative crt-shell" style={{ background: BG_COLORS[bgLevel] }}>
       {isDark && <ScanlineOverlay />}
       {isDark && <FilmGrain />}
       {isDark && <Vignette />}
+      {isDark && <div className="scan-sweep" />}
+      <div
+        className="pointer-events-none fixed inset-0 z-[96] opacity-70"
+        style={{
+          background:
+            "radial-gradient(circle at top left, rgba(212,165,116,0.08), transparent 28%), radial-gradient(circle at bottom right, rgba(78,205,196,0.08), transparent 24%)",
+        }}
+      />
       <ThemeToggle />
       <div className="relative z-10">
         {children}

@@ -1,13 +1,6 @@
 import type { Metadata, Viewport } from "next";
-import { JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { ClientLayout } from "./components/ClientLayout";
-
-const jetbrainsMono = JetBrains_Mono({
-  variable: "--font-jetbrains",
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
-});
 
 export const metadata: Metadata = {
   title: "KALMUS // Film Color Analysis",
@@ -25,9 +18,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark">
-      <body
-        className={`${jetbrainsMono.variable} font-mono antialiased`}
-      >
+      <body className="font-mono antialiased">
         <ClientLayout>{children}</ClientLayout>
       </body>
     </html>

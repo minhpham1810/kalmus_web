@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 export type BgLevel = 'grey10' | 'grey40' | 'grey60' | 'grey90';
 
@@ -21,38 +21,32 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [bgLevel, setBgLevel] = useState<BgLevel>('grey10');
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-    const stored = localStorage.getItem('theme') as BgLevel | null;
-    if (stored && BG_CYCLE.includes(stored)) {
-      setBgLevel(stored);
+  const [bgLevel, setBgLevel] = useState<BgLevel>(() => {
+    if (typeof window === 'undefined') {
+      return 'grey10';
     }
-  }, []);
+
+    const stored = localStorage.getItem('theme') as BgLevel | null;
+    return stored && BG_CYCLE.includes(stored) ? stored : 'grey10';
+  });
 
   useEffect(() => {
-    if (!mounted) return;
-
     const root = document.documentElement;
     root.classList.toggle('dark', ['grey10', 'grey40', 'grey60'].includes(bgLevel));
     root.setAttribute('data-bg-level', bgLevel);
     localStorage.setItem('theme', bgLevel);
-  }, [bgLevel, mounted]);
+  }, [bgLevel]);
 
-  const cycleBg = () => {
+  const cycleBg = useCallback(() => {
     setBgLevel(prev => {
       const idx = BG_CYCLE.indexOf(prev);
       return BG_CYCLE[(idx + 1) % BG_CYCLE.length];
     });
-  };
+  }, []);
 
-  return (
-    <ThemeContext.Provider value={{ bgLevel, cycleBg }}>
-      {children}
-    </ThemeContext.Provider>
-  );
+  const value = useMemo(() => ({ bgLevel, cycleBg }), [bgLevel, cycleBg]);
+
+  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
 
 export function useTheme() {
