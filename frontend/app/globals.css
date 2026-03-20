@@ -3,86 +3,325 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #0a0a0c;
+  --foreground: #e8e6e3;
+  
+  /* Cinematic dystopian color palette */
+  --accent-amber: #d4a574;
+  --accent-cyan: #4ecdc4;
+  --accent-red: #ff6b6b;
+  --accent-orange: #f39c12;
+  
+  /* CRT/Retro effects */
+  --glow-amber: rgba(212, 165, 116, 0.4);
+  --glow-cyan: rgba(78, 205, 196, 0.4);
+  --scanline-opacity: 0.03;
 }
-
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-accent-amber: var(--accent-amber);
+  --color-accent-cyan: var(--accent-cyan);
+  --color-accent-red: var(--accent-red);
+  --color-accent-orange: var(--accent-orange);
+  --font-sans: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+  --font-mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
 }
 
-/* ── Per-theme colour overrides ─────────────────────────────────────────────
-   Tailwind v4 resolves utilities through CSS vars (bg-neutral-800 →
-   var(--color-neutral-800)), so overriding them here cascades automatically
-   to every panel, button, border, and hover that uses those tokens.
-
-   Dark modes (grey10/grey40/grey60): override the dark: palette slots.
-     neutral-800 → panel bg | neutral-900 → inset panel bg
-     neutral-700 → hover bg | neutral-600 → secondary borders
-
-   Light mode (grey90 only): override the base palette slots.
-     white       → primary panel bg   | neutral-50  → alt panel bg
-     neutral-100 → inset panels+hover | neutral-200 → dividers/borders
-     neutral-300 → dashed/sec borders | neutral-400/500/600 → text
-
-   panel-bg utility applies --panel-gradient as the panel background.
+/* ── Cinematic Dystopian Theme ─────────────────────────────────────────────
+   Dark, moody interface with amber/cyan neon accents reminiscent of 
+   Blade Runner, film noir, and retro CRT terminals.
    ──────────────────────────────────────────────────────────────────────── */
 
 @utility panel-bg {
   background: var(--panel-gradient);
 }
 
+@utility glow-amber {
+  box-shadow: 0 0 20px var(--glow-amber), inset 0 0 20px rgba(212, 165, 116, 0.05);
+}
+
+@utility glow-cyan {
+  box-shadow: 0 0 20px var(--glow-cyan), inset 0 0 20px rgba(78, 205, 196, 0.05);
+}
+
+@utility text-glow-amber {
+  text-shadow: 0 0 10px var(--glow-amber), 0 0 20px rgba(212, 165, 116, 0.3);
+}
+
+@utility text-glow-cyan {
+  text-shadow: 0 0 10px var(--glow-cyan), 0 0 20px rgba(78, 205, 196, 0.3);
+}
+
+/* Scanline overlay effect */
+@utility scanlines {
+  position: relative;
+}
+
+@utility scanlines::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, var(--scanline-opacity)) 2px,
+    rgba(0, 0, 0, var(--scanline-opacity)) 4px
+  );
+  pointer-events: none;
+  z-index: 100;
+}
+
+/* CRT flicker animation */
+@keyframes flicker {
+  0%, 100% { opacity: 1; }
+  92% { opacity: 1; }
+  93% { opacity: 0.8; }
+  94% { opacity: 1; }
+  97% { opacity: 0.9; }
+  98% { opacity: 1; }
+}
+
+@keyframes glitch {
+  0%, 100% { transform: translate(0); }
+  20% { transform: translate(-2px, 2px); }
+  40% { transform: translate(-2px, -2px); }
+  60% { transform: translate(2px, 2px); }
+  80% { transform: translate(2px, -2px); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+@keyframes scan {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100vh); }
+}
+
+@keyframes typing {
+  from { width: 0; }
+  to { width: 100%; }
+}
+
+@keyframes blink-caret {
+  50% { border-color: transparent; }
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes border-glow {
+  0%, 100% { border-color: rgba(212, 165, 116, 0.3); }
+  50% { border-color: rgba(212, 165, 116, 0.6); }
+}
+
 :root {
-  /* Default (pre-hydration): match grey10 */
-  --panel-gradient: linear-gradient(135deg, #1e1e1e 0%, #2e2e2e 100%);
+  --panel-gradient: linear-gradient(135deg, #0d0d10 0%, #1a1a1f 100%);
 }
 
-/* grey10 — near-black; barely-visible panel lift above the dark background */
+/* grey10 — deep black with subtle elevation */
 [data-bg-level="grey10"] {
-  --color-neutral-800: #1e1e1e;
-  --color-neutral-900: #111111;
-  --color-neutral-700: #2a2a2a;
-  --color-neutral-600: #363636;
-  --panel-gradient: linear-gradient(135deg, #1e1e1e 0%, #2e2e2e 100%);
+  --color-neutral-800: #12121a;
+  --color-neutral-900: #0a0a0c;
+  --color-neutral-700: #1a1a24;
+  --color-neutral-600: #252530;
+  --panel-gradient: linear-gradient(135deg, #0d0d12 0%, #16161c 100%);
 }
 
-/* grey40 — dark gradient; panels clearly elevated */
+/* grey40 — elevated dark panels */
 [data-bg-level="grey40"] {
-  --color-neutral-800: #2e2e2e;
-  --color-neutral-900: #1f1f1f;
-  --color-neutral-700: #3c3c3c;
-  --color-neutral-600: #4a4a4a;
-  --panel-gradient: linear-gradient(135deg, #2a2a2a 0%, #454545 100%);
+  --color-neutral-800: #1a1a24;
+  --color-neutral-900: #12121a;
+  --color-neutral-700: #252530;
+  --color-neutral-600: #30303d;
+  --panel-gradient: linear-gradient(135deg, #14141c 0%, #1e1e28 100%);
 }
 
-/* grey60 — dark-to-mid gradient; DARK MODE — panels elevated to mid-dark */
+/* grey60 — mid-dark with more contrast */
 [data-bg-level="grey60"] {
-  --color-neutral-800: #4a4a4a;
-  --color-neutral-900: #383838;
-  --color-neutral-700: #5a5a5a;
-  --color-neutral-600: #6a6a6a;
-  --panel-gradient: linear-gradient(135deg, #3a3a3a 0%, #575757 100%);
+  --color-neutral-800: #252530;
+  --color-neutral-900: #1a1a24;
+  --color-neutral-700: #35354a;
+  --color-neutral-600: #45455c;
+  --panel-gradient: linear-gradient(135deg, #1e1e28 0%, #2a2a38 100%);
 }
 
-/* grey90 — near-white; light mode — panels stay light */
+/* grey90 — lighter mode with film grain texture */
 [data-bg-level="grey90"] {
-  --color-white: #eeeeee;
-  --color-neutral-50: #e6e6e6;
-  --color-neutral-100: #dadada;
-  --color-neutral-200: #cccccc;
-  --color-neutral-300: #c0c0c0;
-  --color-neutral-400: #666666;
-  --color-neutral-500: #555555;
-  --color-neutral-600: #404040;
-  --panel-gradient: linear-gradient(135deg, #d8d8d8 0%, #f0f0f0 100%);
+  --color-white: #f0ede8;
+  --color-neutral-50: #e8e5e0;
+  --color-neutral-100: #d8d5d0;
+  --color-neutral-200: #c8c5c0;
+  --color-neutral-300: #a8a5a0;
+  --color-neutral-400: #686560;
+  --color-neutral-500: #585550;
+  --color-neutral-600: #383530;
+  --panel-gradient: linear-gradient(135deg, #e0ddd8 0%, #f0ede8 100%);
+}
+
+/* Custom scrollbar for dystopian feel */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0a0a0c;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #d4a574 0%, #a67c52 100%);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #e8b584 0%, #b88c62 100%);
+}
+
+/* Film grain texture overlay */
+.film-grain::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  opacity: 0.015;
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* Vignette effect */
+.vignette::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(ellipse at center, transparent 0%, rgba(0, 0, 0, 0.4) 100%);
+  pointer-events: none;
+  z-index: 9998;
+}
+
+/* Accent button styles */
+.btn-primary {
+  background: linear-gradient(135deg, #d4a574 0%, #a67c52 100%);
+  color: #0a0a0c;
+  border: 1px solid rgba(212, 165, 116, 0.3);
+  transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+  box-shadow: 0 0 20px rgba(212, 165, 116, 0.4), 0 0 40px rgba(212, 165, 116, 0.2);
+  transform: translateY(-1px);
+}
+
+.btn-secondary {
+  background: transparent;
+  color: var(--accent-amber);
+  border: 1px solid rgba(212, 165, 116, 0.3);
+  transition: all 0.3s ease;
+}
+
+.btn-secondary:hover {
+  background: rgba(212, 165, 116, 0.1);
+  border-color: rgba(212, 165, 116, 0.5);
+  box-shadow: 0 0 15px rgba(212, 165, 116, 0.2);
+}
+
+/* Input field styles */
+.input-field {
+  background: rgba(10, 10, 12, 0.8);
+  border: 1px solid rgba(212, 165, 116, 0.2);
+  color: var(--foreground);
+  transition: all 0.3s ease;
+}
+
+.input-field:focus {
+  border-color: var(--accent-amber);
+  box-shadow: 0 0 15px rgba(212, 165, 116, 0.2), inset 0 0 10px rgba(212, 165, 116, 0.05);
+  outline: none;
+}
+
+.input-field::placeholder {
+  color: rgba(232, 230, 227, 0.3);
+}
+
+/* Panel styles */
+.panel {
+  background: var(--panel-gradient);
+  border: 1px solid rgba(212, 165, 116, 0.15);
+  backdrop-filter: blur(10px);
+}
+
+.panel-glow {
+  animation: border-glow 3s ease-in-out infinite;
+}
+
+/* Status indicators */
+.status-online {
+  background: var(--accent-cyan);
+  box-shadow: 0 0 10px var(--glow-cyan);
+}
+
+.status-warning {
+  background: var(--accent-orange);
+  box-shadow: 0 0 10px rgba(243, 156, 18, 0.4);
+}
+
+.status-error {
+  background: var(--accent-red);
+  box-shadow: 0 0 10px rgba(255, 107, 107, 0.4);
+}
+
+/* Terminal cursor blink */
+.cursor-blink {
+  animation: blink-caret 0.75s step-end infinite;
+}
+
+/* Animate on scroll/load */
+.animate-fade-in {
+  animation: fade-in-up 0.6s ease-out forwards;
+}
+
+.animate-delay-100 { animation-delay: 0.1s; }
+.animate-delay-200 { animation-delay: 0.2s; }
+.animate-delay-300 { animation-delay: 0.3s; }
+.animate-delay-400 { animation-delay: 0.4s; }
+
+/* Selection highlight */
+::selection {
+  background: rgba(212, 165, 116, 0.3);
+  color: #fff;
+}
+
+/* Links */
+a {
+  transition: all 0.2s ease;
+}
+
+/* Code/monospace elements */
+code, pre {
+  font-family: var(--font-mono);
+}
+
+/* Horizontal rule with glow */
+hr {
+  border: none;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(212, 165, 116, 0.3), transparent);
 }

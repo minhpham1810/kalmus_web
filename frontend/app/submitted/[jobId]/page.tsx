@@ -2,7 +2,7 @@
 
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export default function SubmittedPage() {
   const params = useParams();
@@ -10,6 +10,17 @@ export default function SubmittedPage() {
   const jobId = params.jobId as string;
 
   const [copied, setCopied] = useState(false);
+  const [time, setTime] = useState<string>("");
+
+  useEffect(() => {
+    const updateTime = () => {
+      const now = new Date();
+      setTime(now.toLocaleTimeString('en-US', { hour12: false }));
+    };
+    updateTime();
+    const interval = setInterval(updateTime, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(jobId);
@@ -18,14 +29,27 @@ export default function SubmittedPage() {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-900 flex items-center justify-center p-4">
-      <div className="w-full max-w-xl space-y-6">
+    <div className="min-h-screen flex items-center justify-center p-4">
+      <div className="w-full max-w-xl space-y-6 opacity-0 animate-[fade-in-up_0.6s_ease-out_forwards]">
         {/* Success Card */}
-        <div className="panel-bg border border-neutral-200 dark:border-neutral-700 rounded-lg p-8 text-center">
+        <div className="panel border border-amber-500/20 rounded-lg p-8 text-center relative overflow-hidden">
+          {/* Decorative corner accents */}
+          <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-amber-500/30" />
+          <div className="absolute top-0 right-0 w-8 h-8 border-t-2 border-r-2 border-amber-500/30" />
+          <div className="absolute bottom-0 left-0 w-8 h-8 border-b-2 border-l-2 border-amber-500/30" />
+          <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-amber-500/30" />
+          
+          {/* Status indicator */}
+          <div className="flex items-center justify-center gap-2 text-xs text-cyan-400/80 font-mono mb-6">
+            <span className="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(78,205,196,0.6)] animate-pulse" />
+            <span>JOB_SUBMITTED</span>
+            <span className="text-neutral-500 ml-2">{time}</span>
+          </div>
+
           {/* Icon */}
-          <div className="inline-flex items-center justify-center w-14 h-14 bg-neutral-100 dark:bg-neutral-700 rounded-full mb-5">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-amber-500/10 border border-amber-500/30 rounded-full mb-6">
             <svg
-              className="w-7 h-7 text-neutral-700 dark:text-neutral-300"
+              className="w-8 h-8 text-amber-500"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -39,29 +63,32 @@ export default function SubmittedPage() {
             </svg>
           </div>
 
-          <h1 className="text-2xl font-light tracking-tight text-neutral-900 dark:text-neutral-100 mb-2">
-            Job Submitted
+          <h1 className="text-2xl font-light tracking-tight text-amber-100/90 mb-2 font-mono">
+            TRANSMISSION_COMPLETE
           </h1>
-          <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-6">
-            Your video has been queued for barcode generation on the HPC cluster.
+          <p className="text-sm text-neutral-400 mb-8 font-mono">
+            // Video queued for HPC cluster processing
           </p>
 
           {/* Job ID */}
-          <div className="bg-neutral-100 dark:bg-neutral-900 rounded-lg p-4 mb-6 text-left">
-            <div className="text-xs text-neutral-500 dark:text-neutral-400 mb-1 uppercase tracking-wide">
-              Job ID
+          <div className="bg-black/40 border border-amber-500/20 rounded-lg p-4 mb-8 text-left">
+            <div className="text-xs text-amber-500/60 mb-2 uppercase tracking-widest font-mono flex items-center gap-2">
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+              </svg>
+              JOB_IDENTIFIER
             </div>
             <div className="flex items-center justify-between gap-3">
-              <code className="text-sm font-mono text-neutral-800 dark:text-neutral-200 break-all">
+              <code className="text-sm font-mono text-cyan-400/90 break-all">
                 {jobId}
               </code>
               <button
                 onClick={handleCopy}
-                className="flex-shrink-0 p-1.5 text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded transition-colors"
+                className="flex-shrink-0 p-2 text-amber-500/60 hover:text-amber-400 hover:bg-amber-500/10 rounded transition-all duration-200"
                 title="Copy job ID"
               >
                 {copied ? (
-                  <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
                 ) : (
@@ -74,21 +101,24 @@ export default function SubmittedPage() {
           </div>
 
           {/* What happens next */}
-          <div className="text-left space-y-3 mb-8">
-            <h2 className="text-xs font-medium text-neutral-700 dark:text-neutral-300 uppercase tracking-wide">
-              What happens next
+          <div className="text-left space-y-4 mb-8">
+            <h2 className="text-xs font-mono text-amber-500/60 uppercase tracking-widest flex items-center gap-2">
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+              SEQUENCE_PROTOCOL
             </h2>
-            <ol className="space-y-2">
+            <ol className="space-y-3">
               {[
-                "KALMUS generates your color or brightness barcode on the HPC cluster.",
-                "You'll receive an email with your barcode image attached.",
-                "The email includes a direct link to your analytics dashboard.",
+                "KALMUS generates color/brightness barcode via HPC cluster",
+                "Email notification dispatched with barcode attachment",
+                "Analytics dashboard link included in transmission",
               ].map((step, i) => (
                 <li key={i} className="flex items-start gap-3">
-                  <span className="flex-shrink-0 inline-flex items-center justify-center w-5 h-5 rounded-full bg-neutral-200 dark:bg-neutral-700 text-xs font-medium text-neutral-700 dark:text-neutral-300 mt-0.5">
-                    {i + 1}
+                  <span className="flex-shrink-0 inline-flex items-center justify-center w-6 h-6 rounded bg-amber-500/10 border border-amber-500/20 text-xs font-mono text-amber-500">
+                    {String(i + 1).padStart(2, '0')}
                   </span>
-                  <span className="text-sm text-neutral-600 dark:text-neutral-400">{step}</span>
+                  <span className="text-sm text-neutral-400 font-mono">{step}</span>
                 </li>
               ))}
             </ol>
@@ -98,32 +128,34 @@ export default function SubmittedPage() {
           <div className="flex flex-col sm:flex-row gap-3">
             <Link
               href={`/results/${jobId}`}
-              className="flex-1 inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 text-sm font-medium rounded hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-colors"
+              className="flex-1 inline-flex items-center justify-center gap-2 px-5 py-3 bg-gradient-to-r from-amber-600 to-amber-700 text-black text-sm font-mono font-medium tracking-wider rounded border border-amber-500/30 hover:shadow-[0_0_25px_rgba(212,165,116,0.3)] transition-all duration-300"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
               </svg>
-              View Analytics Dashboard
+              VIEW_ANALYTICS
             </Link>
             <button
               onClick={() => router.push("/")}
-              className="flex-1 inline-flex items-center justify-center gap-2 px-5 py-2.5 border border-neutral-300 dark:border-neutral-600 text-neutral-700 dark:text-neutral-300 text-sm font-medium rounded hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
+              className="flex-1 inline-flex items-center justify-center gap-2 px-5 py-3 bg-transparent border border-amber-500/30 text-amber-500/80 text-sm font-mono tracking-wider rounded hover:bg-amber-500/10 hover:border-amber-500/50 hover:text-amber-400 transition-all duration-300"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
-              Submit Another Video
+              SUBMIT_ANOTHER
             </button>
           </div>
         </div>
 
         {/* Note */}
-        <p className="text-xs text-center text-neutral-400 dark:text-neutral-500">
-          Save your Job ID — you can use it to access your dashboard at any time from{" "}
-          <code className="font-mono">
-            {typeof window !== "undefined" ? window.location.origin : ""}/results/{"{jobId}"}
-          </code>
-        </p>
+        <div className="text-center">
+          <p className="text-xs font-mono text-neutral-500">
+            // Preserve JOB_ID for dashboard access at{" "}
+            <code className="text-amber-500/60">
+              /results/{"{JOB_ID}"}
+            </code>
+          </p>
+        </div>
       </div>
     </div>
   );

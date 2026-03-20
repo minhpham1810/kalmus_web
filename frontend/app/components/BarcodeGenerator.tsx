@@ -322,9 +322,18 @@ export default function BarcodeGenerator() {
     <div className="space-y-6">
       {!submitted ? (
         <>
-          <div className="panel-bg border border-neutral-200 dark:border-neutral-700 rounded p-6">
-            <h2 className="text-sm font-medium mb-4 text-neutral-700 dark:text-neutral-300 uppercase tracking-wide">
-              Video Upload
+          <div className="panel border border-amber-500/20 rounded p-6 relative overflow-hidden">
+            {/* Decorative corners */}
+            <div className="absolute top-0 left-0 w-4 h-4 border-t border-l border-amber-500/40" />
+            <div className="absolute top-0 right-0 w-4 h-4 border-t border-r border-amber-500/40" />
+            <div className="absolute bottom-0 left-0 w-4 h-4 border-b border-l border-amber-500/40" />
+            <div className="absolute bottom-0 right-0 w-4 h-4 border-b border-r border-amber-500/40" />
+            
+            <h2 className="text-xs font-mono mb-4 text-amber-500/80 uppercase tracking-widest flex items-center gap-2">
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+              </svg>
+              VIDEO_UPLOAD
             </h2>
             <FileUpload
               onFileSelect={handleFileSelect}
@@ -334,89 +343,127 @@ export default function BarcodeGenerator() {
 
           {selectedFile && (
             <>
-              <div className="panel-bg border border-neutral-200 dark:border-neutral-700 rounded p-6">
-                <h2 className="text-sm font-medium mb-1 text-neutral-700 dark:text-neutral-300 uppercase tracking-wide">
-                  Movie Title <span className="text-neutral-900 dark:text-neutral-100">*</span>
+              <div className="panel border border-amber-500/20 rounded p-6 relative overflow-hidden">
+                {/* Decorative corners */}
+                <div className="absolute top-0 left-0 w-4 h-4 border-t border-l border-amber-500/40" />
+                <div className="absolute top-0 right-0 w-4 h-4 border-t border-r border-amber-500/40" />
+                <div className="absolute bottom-0 left-0 w-4 h-4 border-b border-l border-amber-500/40" />
+                <div className="absolute bottom-0 right-0 w-4 h-4 border-b border-r border-amber-500/40" />
+                
+                <h2 className="text-xs font-mono mb-1 text-amber-500/80 uppercase tracking-widest flex items-center gap-2">
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" />
+                  </svg>
+                  FILM_METADATA <span className="text-red-400">*</span>
                 </h2>
-                <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-3">
-                  Search by title or enter an IMDb ID to attach metadata to your barcode.
+                <p className="text-xs text-neutral-500 font-mono mb-4">
+                  // Search by title or IMDb ID to attach metadata
                 </p>
                 <MovieSearchInput key={selectedFile.name} onChange={handleMovieChange} />
               </div>
 
               {/* Already-in-DB prompt */}
               {movieInfo && existingAnalyses.length > 0 && (
-                <div className="panel-bg border border-neutral-200 dark:border-neutral-700 rounded p-6">
-                  <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100 mb-1">
-                    This film has already been analyzed.
-                  </p>
-                  <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-4">
-                    Would you like to view its analytics dashboard, or continue uploading?
+                <div className="panel border border-cyan-500/20 rounded p-6 relative overflow-hidden">
+                  {/* Decorative corners */}
+                  <div className="absolute top-0 left-0 w-4 h-4 border-t border-l border-cyan-500/40" />
+                  <div className="absolute top-0 right-0 w-4 h-4 border-t border-r border-cyan-500/40" />
+                  <div className="absolute bottom-0 left-0 w-4 h-4 border-b border-l border-cyan-500/40" />
+                  <div className="absolute bottom-0 right-0 w-4 h-4 border-b border-r border-cyan-500/40" />
+                  
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_6px_rgba(78,205,196,0.6)] animate-pulse" />
+                    <p className="text-sm font-mono text-cyan-400/90">
+                      EXISTING_ANALYSIS_DETECTED
+                    </p>
+                  </div>
+                  <p className="text-xs text-neutral-400 font-mono mb-4">
+                    // View existing dashboard or continue with new upload
                   </p>
                   <div className="space-y-2 mb-5">
                     {existingAnalyses.map((a) => (
-                      <div key={a.id} className="flex items-center justify-between text-xs text-neutral-600 dark:text-neutral-400">
-                        <span>
-                          <span className="px-1.5 py-0.5 bg-neutral-100 dark:bg-neutral-700 rounded mr-2">
+                      <div key={a.id} className="flex items-center justify-between text-xs font-mono">
+                        <span className="text-neutral-400">
+                          <span className="px-2 py-0.5 bg-amber-500/10 text-amber-400/80 rounded mr-2">
                             {a.barcode_type}
                           </span>
-                          {a.frame_type.replace(/_/g, " ")} · {a.metric}
+                          {a.frame_type.replace(/_/g, " ")} // {a.metric}
                         </span>
                         <button
                           onClick={() => router.push(`/results/${a.id}`)}
-                          className="underline text-neutral-900 dark:text-neutral-100 hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors"
+                          className="text-cyan-400/80 hover:text-cyan-300 transition-colors tracking-wider"
                         >
-                          View
+                          [VIEW]
                         </button>
                       </div>
                     ))}
                   </div>
                   <button
                     onClick={() => setExistingAnalyses([])}
-                    className="text-xs text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 underline"
+                    className="text-xs font-mono text-amber-500/50 hover:text-amber-400 transition-colors"
                   >
-                    Upload anyway
+                    // UPLOAD_ANYWAY
                   </button>
                 </div>
               )}
 
               {movieStepComplete && (
                 <>
-                  <div className="panel-bg border border-neutral-200 dark:border-neutral-700 rounded p-6">
-                    <h2 className="text-sm font-medium mb-4 text-neutral-700 dark:text-neutral-300 uppercase tracking-wide">
-                      Configuration
+                  <div className="panel border border-amber-500/20 rounded p-6 relative overflow-hidden">
+                    {/* Decorative corners */}
+                    <div className="absolute top-0 left-0 w-4 h-4 border-t border-l border-amber-500/40" />
+                    <div className="absolute top-0 right-0 w-4 h-4 border-t border-r border-amber-500/40" />
+                    <div className="absolute bottom-0 left-0 w-4 h-4 border-b border-l border-amber-500/40" />
+                    <div className="absolute bottom-0 right-0 w-4 h-4 border-b border-r border-amber-500/40" />
+                    
+                    <h2 className="text-xs font-mono mb-4 text-amber-500/80 uppercase tracking-widest flex items-center gap-2">
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                      CONFIGURATION
                     </h2>
                     <ConfigPanel config={config} onConfigChange={handleConfigChange} />
                   </div>
 
                   {isSubmitting && uploadProgress > 0 && (
-                    <div className="panel-bg border border-neutral-200 dark:border-neutral-700 rounded p-6">
-                      <div className="mb-2 flex justify-between items-center">
-                        <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
-                          Uploading video...
+                    <div className="panel border border-amber-500/30 rounded p-6 relative overflow-hidden">
+                      {/* Decorative corners */}
+                      <div className="absolute top-0 left-0 w-4 h-4 border-t border-l border-amber-500/50" />
+                      <div className="absolute top-0 right-0 w-4 h-4 border-t border-r border-amber-500/50" />
+                      <div className="absolute bottom-0 left-0 w-4 h-4 border-b border-l border-amber-500/50" />
+                      <div className="absolute bottom-0 right-0 w-4 h-4 border-b border-r border-amber-500/50" />
+                      
+                      <div className="mb-3 flex justify-between items-center">
+                        <span className="text-sm font-mono text-amber-500/80 uppercase tracking-wider flex items-center gap-2">
+                          <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                          </svg>
+                          UPLOADING...
                         </span>
-                        <span className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
+                        <span className="text-sm font-mono text-amber-400">
                           {uploadProgress}%
                         </span>
                       </div>
-                      <div className="w-full bg-neutral-200 dark:bg-neutral-700 rounded-full h-2.5">
+                      <div className="w-full bg-black/40 rounded h-2 overflow-hidden">
                         <div
-                          className="bg-neutral-900 dark:bg-neutral-100 h-2.5 rounded-full transition-all duration-300"
+                          className="bg-gradient-to-r from-amber-600 to-amber-500 h-2 transition-all duration-300 shadow-[0_0_10px_rgba(212,165,116,0.5)]"
                           style={{ width: `${uploadProgress}%` }}
                         ></div>
                       </div>
-                      <div className="mt-2 flex items-center justify-between">
-                        <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                      <div className="mt-3 flex items-center justify-between">
+                        <p className="text-xs text-neutral-500 font-mono">
                           {uploadProgress < 100
-                            ? "Please wait while your video is being uploaded..."
-                            : "Upload complete! Processing job submission..."}
+                            ? "// Transmitting video data..."
+                            : "// Upload complete! Processing submission..."}
                         </p>
                         {uploadProgress < 100 && (
                           <button
                             onClick={handleCancel}
-                            className="ml-4 px-3 py-1 text-xs border border-neutral-300 dark:border-neutral-600 rounded text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
+                            className="px-3 py-1.5 text-xs font-mono border border-red-500/30 rounded text-red-400/80 hover:bg-red-500/10 hover:border-red-500/50 transition-all duration-200"
                           >
-                            Cancel Upload
+                            [CANCEL]
                           </button>
                         )}
                       </div>
@@ -427,30 +474,23 @@ export default function BarcodeGenerator() {
                     <button
                       onClick={handleSubmit}
                       disabled={isSubmitting || !config.email}
-                      className="px-6 py-2.5 bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 text-sm font-medium rounded hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-neutral-900 dark:disabled:hover:bg-neutral-100"
+                      className="group px-6 py-3 bg-gradient-to-r from-amber-600 to-amber-700 text-black text-sm font-mono font-medium tracking-wider rounded border border-amber-500/30 hover:shadow-[0_0_25px_rgba(212,165,116,0.3)] transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:shadow-none flex items-center gap-2"
                     >
                       {isSubmitting ? (
-                        <span className="flex items-center gap-2">
+                        <>
                           <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                            <circle
-                              className="opacity-25"
-                              cx="12"
-                              cy="12"
-                              r="10"
-                              stroke="currentColor"
-                              strokeWidth="4"
-                              fill="none"
-                            />
-                            <path
-                              className="opacity-75"
-                              fill="currentColor"
-                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                            />
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                           </svg>
-                          {uploadProgress < 100 ? `Uploading ${uploadProgress}%` : "Submitting..."}
-                        </span>
+                          {uploadProgress < 100 ? `UPLOADING_${uploadProgress}%` : "SUBMITTING..."}
+                        </>
                       ) : (
-                        "Submit Job"
+                        <>
+                          <svg className="w-4 h-4 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                          </svg>
+                          SUBMIT_JOB
+                        </>
                       )}
                     </button>
                   </div>
@@ -460,12 +500,18 @@ export default function BarcodeGenerator() {
           )}
         </>
       ) : (
-        <div className="panel-bg border border-neutral-200 dark:border-neutral-700 rounded p-8">
+        <div className="panel border border-cyan-500/20 rounded p-8 relative overflow-hidden">
+          {/* Decorative corners */}
+          <div className="absolute top-0 left-0 w-6 h-6 border-t-2 border-l-2 border-cyan-500/40" />
+          <div className="absolute top-0 right-0 w-6 h-6 border-t-2 border-r-2 border-cyan-500/40" />
+          <div className="absolute bottom-0 left-0 w-6 h-6 border-b-2 border-l-2 border-cyan-500/40" />
+          <div className="absolute bottom-0 right-0 w-6 h-6 border-b-2 border-r-2 border-cyan-500/40" />
+          
           <div>
             <div className="mb-6">
-              <div className="inline-flex items-center justify-center w-10 h-10 bg-neutral-900 dark:bg-neutral-100 rounded-full mb-4">
+              <div className="inline-flex items-center justify-center w-14 h-14 bg-cyan-500/10 border border-cyan-500/30 rounded-full mb-4">
                 <svg
-                  className="w-5 h-5 text-white dark:text-neutral-900"
+                  className="w-7 h-7 text-cyan-400"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -473,69 +519,73 @@ export default function BarcodeGenerator() {
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    strokeWidth={2}
+                    strokeWidth={1.5}
                     d="M5 13l4 4L19 7"
                   />
                 </svg>
               </div>
-              <h2 className="text-2xl font-light text-neutral-900 dark:text-neutral-100 mb-2">
-                Job Submitted
+              <h2 className="text-2xl font-mono text-cyan-400/90 mb-2">
+                JOB_SUBMITTED
               </h2>
-              <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                Your video is being processed on the HPC cluster.
+              <p className="text-sm text-neutral-400 font-mono">
+                // Video queued for HPC cluster processing
               </p>
             </div>
 
-            <div className="border-l-2 border-neutral-300 dark:border-neutral-600 pl-4 mb-6 space-y-3">
+            <div className="border-l-2 border-amber-500/30 pl-4 mb-6 space-y-3 font-mono">
               {movieInfo && (
                 <div className="text-sm">
-                  <span className="text-neutral-500 dark:text-neutral-400">Movie:</span>{" "}
-                  <span className="text-neutral-900 dark:text-neutral-100">
+                  <span className="text-amber-500/60">FILM:</span>{" "}
+                  <span className="text-amber-100/90">
                     {movieInfo.title}{"year" in movieInfo ? ` (${movieInfo.year})` : ""}
                   </span>
                 </div>
               )}
               <div className="text-sm">
-                <span className="text-neutral-500 dark:text-neutral-400">Partition:</span>{" "}
-                <span className="text-neutral-900 dark:text-neutral-100">{config.partition}</span>
+                <span className="text-amber-500/60">PARTITION:</span>{" "}
+                <span className="text-amber-100/90">{config.partition}</span>
               </div>
               <div className="text-sm">
-                <span className="text-neutral-500 dark:text-neutral-400">Email:</span>{" "}
-                <span className="text-neutral-900 dark:text-neutral-100">{config.email}</span>
+                <span className="text-amber-500/60">EMAIL:</span>{" "}
+                <span className="text-cyan-400/80">{config.email}</span>
               </div>
               <div className="text-sm">
-                <span className="text-neutral-500 dark:text-neutral-400">Expected time:</span>{" "}
-                <span className="text-neutral-900 dark:text-neutral-100">1-10 minutes</span>
+                <span className="text-amber-500/60">ETA:</span>{" "}
+                <span className="text-amber-100/90">1-10 MINUTES</span>
               </div>
               {jobId && (
                 <div className="text-sm">
-                  <span className="text-neutral-500 dark:text-neutral-400">Job ID:</span>{" "}
-                  <code className="text-xs font-mono text-neutral-900 dark:text-neutral-100">
+                  <span className="text-amber-500/60">JOB_ID:</span>{" "}
+                  <code className="text-xs text-cyan-400/80">
                     {jobId.substring(0, 8)}
                   </code>
                 </div>
               )}
             </div>
 
-            <div className="bg-neutral-100 dark:bg-neutral-900 rounded p-4 mb-6">
-              <p className="text-sm text-neutral-600 dark:text-neutral-300">
-                You'll receive an email with your barcode image, data file, and processing statistics. You can close this page.
+            <div className="bg-black/40 border border-amber-500/10 rounded p-4 mb-6">
+              <p className="text-xs text-neutral-400 font-mono">
+                // Email notification will include barcode image, data file, and processing statistics. You may close this interface.
               </p>
             </div>
 
             <button
               onClick={handleNewUpload}
-              className="px-5 py-2 bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 text-sm font-medium rounded hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-colors"
+              className="px-5 py-2.5 bg-gradient-to-r from-amber-600 to-amber-700 text-black text-sm font-mono font-medium tracking-wider rounded border border-amber-500/30 hover:shadow-[0_0_20px_rgba(212,165,116,0.2)] transition-all duration-300"
             >
-              Process Another Video
+              PROCESS_ANOTHER
             </button>
           </div>
         </div>
       )}
 
       {error && (
-        <div className="bg-neutral-100 dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-700 rounded p-4">
-          <p className="text-sm text-neutral-900 dark:text-neutral-100">{error}</p>
+        <div className="bg-black/40 border border-red-500/30 rounded p-4 relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-red-500/50" />
+          <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-red-500/50" />
+          <div className="absolute bottom-0 left-0 w-2 h-2 border-b border-l border-red-500/50" />
+          <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-red-500/50" />
+          <p className="text-sm text-red-400/90 font-mono">// ERROR: {error}</p>
         </div>
       )}
     </div>

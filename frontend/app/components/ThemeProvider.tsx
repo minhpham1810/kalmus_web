@@ -5,10 +5,10 @@ import { createContext, useContext, useEffect, useState } from 'react';
 export type BgLevel = 'grey10' | 'grey40' | 'grey60' | 'grey90';
 
 export const BG_COLORS: Record<BgLevel, string> = {
-  grey10: 'linear-gradient(135deg, #060606 0%, #1a1a1a 100%)',
-  grey40: 'linear-gradient(135deg, #060606 0%, #555555 100%)',
-  grey60: 'linear-gradient(135deg, #111111 0%, #999999 100%)',
-  grey90: 'linear-gradient(135deg, #c8c8c8 0%, #f5f5f5 100%)',
+  grey10: 'linear-gradient(135deg, #050508 0%, #0a0a0c 50%, #0d0d12 100%)',
+  grey40: 'linear-gradient(135deg, #0a0a0c 0%, #12121a 50%, #1a1a24 100%)',
+  grey60: 'linear-gradient(135deg, #0d0d12 0%, #1a1a24 50%, #252530 100%)',
+  grey90: 'linear-gradient(135deg, #c8c5c0 0%, #e0ddd8 50%, #f0ede8 100%)',
 };
 
 const BG_CYCLE: BgLevel[] = ['grey10', 'grey40', 'grey60', 'grey90'];

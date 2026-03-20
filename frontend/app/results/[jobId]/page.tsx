@@ -62,10 +62,10 @@ export default function ResultsPage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-flex items-center justify-center w-16 h-16 panel-bg border border-neutral-200 dark:border-neutral-700 rounded-full mb-4">
+        <div className="text-center opacity-0 animate-[fade-in-up_0.6s_ease-out_forwards]">
+          <div className="inline-flex items-center justify-center w-20 h-20 panel border border-amber-500/20 rounded-full mb-6">
             <svg
-              className="animate-spin h-8 w-8 text-neutral-600 dark:text-neutral-400"
+              className="animate-spin h-10 w-10 text-amber-500"
               viewBox="0 0 24 24"
             >
               <circle
@@ -84,8 +84,11 @@ export default function ResultsPage() {
               />
             </svg>
           </div>
-          <p className="text-sm text-neutral-600 dark:text-neutral-400">
-            Loading barcode analysis...
+          <p className="text-sm text-amber-500/80 font-mono tracking-wider">
+            LOADING_ANALYSIS_DATA...
+          </p>
+          <p className="text-xs text-neutral-500 font-mono mt-2">
+            // Retrieving barcode information
           </p>
         </div>
       </div>
@@ -96,12 +99,18 @@ export default function ResultsPage() {
     return (
       <div className="min-h-screen">
         <main className="container mx-auto px-4 py-12">
-          <div className="max-w-2xl mx-auto">
-            <div className="panel-bg border border-neutral-200 dark:border-neutral-700 rounded p-8">
+          <div className="max-w-2xl mx-auto opacity-0 animate-[fade-in-up_0.6s_ease-out_forwards]">
+            <div className="panel border border-red-500/20 rounded p-8 relative overflow-hidden">
+              {/* Decorative corners */}
+              <div className="absolute top-0 left-0 w-6 h-6 border-t-2 border-l-2 border-red-500/30" />
+              <div className="absolute top-0 right-0 w-6 h-6 border-t-2 border-r-2 border-red-500/30" />
+              <div className="absolute bottom-0 left-0 w-6 h-6 border-b-2 border-l-2 border-red-500/30" />
+              <div className="absolute bottom-0 right-0 w-6 h-6 border-b-2 border-r-2 border-red-500/30" />
+              
               <div className="text-center">
-                <div className="inline-flex items-center justify-center w-12 h-12 bg-red-100 dark:bg-red-900/20 rounded-full mb-4">
+                <div className="inline-flex items-center justify-center w-14 h-14 bg-red-500/10 border border-red-500/30 rounded-full mb-4">
                   <svg
-                    className="w-6 h-6 text-red-600 dark:text-red-400"
+                    className="w-7 h-7 text-red-400"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -109,35 +118,34 @@ export default function ResultsPage() {
                     <path
                       strokeLinecap="round"
                       strokeLinejoin="round"
-                      strokeWidth={2}
+                      strokeWidth={1.5}
                       d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
                     />
                   </svg>
                 </div>
-                <h2 className="text-xl font-light text-neutral-900 dark:text-neutral-100 mb-2">
-                  Unable to Load Results
+                <h2 className="text-xl font-mono text-red-400/90 mb-2">
+                  ERROR_LOADING_RESULTS
                 </h2>
-                <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-6">
-                  {error || "The requested job could not be found or has not completed yet."}
+                <p className="text-sm text-neutral-400 font-mono mb-6">
+                  // {error || "Job not found or still processing"}
                 </p>
-                <div className="space-y-3">
-                  <p className="text-xs text-neutral-600 dark:text-neutral-400">
-                    Job ID: <code className="font-mono">{jobId}</code>
-                  </p>
-                  <div className="flex items-center justify-center gap-3">
-                    <button
-                      onClick={() => router.push("/")}
-                      className="px-5 py-2 border border-neutral-300 dark:border-neutral-600 text-neutral-700 dark:text-neutral-300 text-sm font-medium rounded hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
-                    >
-                      Back to Search
-                    </button>
-                    <button
-                      onClick={handleProcessAnother}
-                      className="px-5 py-2 bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 text-sm font-medium rounded hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-colors"
-                    >
-                      Upload New Video
-                    </button>
-                  </div>
+                <div className="bg-black/40 border border-amber-500/10 rounded p-3 mb-6">
+                  <span className="text-xs text-amber-500/60 font-mono">JOB_ID: </span>
+                  <code className="text-xs font-mono text-cyan-400/80">{jobId}</code>
+                </div>
+                <div className="flex items-center justify-center gap-3">
+                  <button
+                    onClick={() => router.push("/")}
+                    className="px-5 py-2.5 border border-amber-500/30 text-amber-500/80 text-sm font-mono tracking-wider rounded hover:bg-amber-500/10 hover:border-amber-500/50 transition-all duration-300"
+                  >
+                    [BACK_TO_SEARCH]
+                  </button>
+                  <button
+                    onClick={handleProcessAnother}
+                    className="px-5 py-2.5 bg-gradient-to-r from-amber-600 to-amber-700 text-black text-sm font-mono font-medium tracking-wider rounded border border-amber-500/30 hover:shadow-[0_0_20px_rgba(212,165,116,0.2)] transition-all duration-300"
+                  >
+                    UPLOAD_NEW
+                  </button>
                 </div>
               </div>
             </div>
@@ -149,138 +157,153 @@ export default function ResultsPage() {
 
   return (
     <div className="min-h-screen">
-      <main className="container mx-auto px-4 py-12">
+      {/* Top Navigation Bar */}
+      <nav className="fixed top-0 left-0 right-0 z-40 border-b border-amber-500/10 bg-black/40 backdrop-blur-md">
+        <div className="container mx-auto px-4 h-14 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => router.push("/")}
+              className="flex items-center gap-2 text-amber-500/60 hover:text-amber-400 transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+              <span className="text-xs font-mono tracking-wider">[SEARCH]</span>
+            </button>
+          </div>
+          <div className="flex items-center gap-2 text-xs text-cyan-400/80 font-mono">
+            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_6px_rgba(78,205,196,0.6)] animate-pulse" />
+            <span>ANALYSIS_COMPLETE</span>
+          </div>
+        </div>
+      </nav>
+
+      <main className="container mx-auto px-4 pt-24 pb-12">
         <div className="max-w-6xl mx-auto">
-          {/* Header with "Process Another Video" button */}
-          <div className="mb-8 flex items-start justify-between">
+          {/* Header */}
+          <div className="mb-8 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 opacity-0 animate-[fade-in-up_0.6s_ease-out_forwards]">
             <div>
-              <h1 className="text-3xl font-light tracking-tight text-neutral-900 dark:text-neutral-100 mb-2">
-                Barcode Analysis
-              </h1>
-              <p className="text-sm text-neutral-500 dark:text-neutral-400 font-light">
+              <h1 className="text-2xl font-light tracking-tight text-amber-100/90 mb-1 font-mono">
                 {jobData.metadata?.movie?.title
                   ? `${jobData.metadata.movie.title}${jobData.metadata.movie.year ? ` (${jobData.metadata.movie.year})` : ""}`
-                  : jobData.metadata?.videoFilename || "Video Analysis Results"}
+                  : jobData.metadata?.videoFilename || "ANALYSIS_RESULTS"}
+              </h1>
+              <p className="text-sm text-amber-500/60 font-mono tracking-wider">
+                // Barcode Analysis Dashboard
               </p>
             </div>
             <div className="flex items-center gap-3">
               <button
                 onClick={() => router.push("/")}
-                className="px-5 py-2.5 border border-neutral-300 dark:border-neutral-600 text-neutral-700 dark:text-neutral-300 text-sm font-medium rounded hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors flex items-center gap-2"
+                className="px-4 py-2.5 border border-amber-500/30 text-amber-500/80 text-sm font-mono tracking-wider rounded hover:bg-amber-500/10 hover:border-amber-500/50 transition-all duration-300 flex items-center gap-2"
               >
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M10 19l-7-7m0 0l7-7m-7 7h18"
-                  />
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
-                Back to Search
+                SEARCH
               </button>
               <button
                 onClick={handleProcessAnother}
-                className="px-5 py-2.5 bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 text-sm font-medium rounded hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-colors flex items-center gap-2"
+                className="px-4 py-2.5 bg-gradient-to-r from-amber-600 to-amber-700 text-black text-sm font-mono font-medium tracking-wider rounded border border-amber-500/30 hover:shadow-[0_0_20px_rgba(212,165,116,0.2)] transition-all duration-300 flex items-center gap-2"
               >
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 4v16m8-8H4"
-                  />
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                 </svg>
-                Process Another Video
+                UPLOAD
               </button>
             </div>
           </div>
 
-
           {/* Visualization Panel */}
-          <VisualizationPanel
-            jobId={jobId}
-            videoFilename={
-              jobData.metadata?.movie?.title
-                ? `${jobData.metadata.movie.title}${jobData.metadata.movie.year ? ` (${jobData.metadata.movie.year})` : ""}`
-                : jobData.metadata?.videoFilename || "Video"
-            }
-          />
+          <div className="opacity-0 animate-[fade-in-up_0.6s_ease-out_0.1s_forwards]">
+            <VisualizationPanel
+              jobId={jobId}
+              videoFilename={
+                jobData.metadata?.movie?.title
+                  ? `${jobData.metadata.movie.title}${jobData.metadata.movie.year ? ` (${jobData.metadata.movie.year})` : ""}`
+                  : jobData.metadata?.videoFilename || "Video"
+              }
+            />
+          </div>
+
           {/* Job Metadata Card */}
-          <div className="panel-bg border border-neutral-200 dark:border-neutral-700 rounded p-6 mb-6">
-            <h2 className="text-sm font-medium mb-4 text-neutral-700 dark:text-neutral-300 uppercase tracking-wide">
-              Job Information
+          <div className="panel border border-amber-500/20 rounded p-6 mb-6 opacity-0 animate-[fade-in-up_0.6s_ease-out_0.2s_forwards] relative overflow-hidden">
+            {/* Decorative corners */}
+            <div className="absolute top-0 left-0 w-4 h-4 border-t border-l border-amber-500/40" />
+            <div className="absolute top-0 right-0 w-4 h-4 border-t border-r border-amber-500/40" />
+            <div className="absolute bottom-0 left-0 w-4 h-4 border-b border-l border-amber-500/40" />
+            <div className="absolute bottom-0 right-0 w-4 h-4 border-b border-r border-amber-500/40" />
+            
+            <h2 className="text-xs font-mono mb-6 text-amber-500/80 uppercase tracking-widest flex items-center gap-2">
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              JOB_METADATA
             </h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div>
-                <div className="text-xs text-neutral-500 dark:text-neutral-400 mb-1">
-                  Total Frames
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+              <div className="space-y-1">
+                <div className="text-xs text-amber-500/50 font-mono uppercase tracking-wide">
+                  TOTAL_FRAMES
                 </div>
-                <div className="text-base font-medium text-neutral-900 dark:text-neutral-100">
+                <div className="text-lg font-medium text-amber-100/90 font-mono">
                   {jobData.summary?.total_frames.toLocaleString() || "N/A"}
                 </div>
               </div>
-              <div>
-                <div className="text-xs text-neutral-500 dark:text-neutral-400 mb-1">
-                  Color Metric
+              <div className="space-y-1">
+                <div className="text-xs text-amber-500/50 font-mono uppercase tracking-wide">
+                  COLOR_METRIC
                 </div>
-                <div className="text-base font-medium text-neutral-900 dark:text-neutral-100">
+                <div className="text-lg font-medium text-cyan-400/80 font-mono">
                   {jobData.metadata?.color_metric || "N/A"}
                 </div>
               </div>
-              <div>
-                <div className="text-xs text-neutral-500 dark:text-neutral-400 mb-1">
-                  Frame Type
+              <div className="space-y-1">
+                <div className="text-xs text-amber-500/50 font-mono uppercase tracking-wide">
+                  FRAME_TYPE
                 </div>
-                <div className="text-base font-medium text-neutral-900 dark:text-neutral-100">
+                <div className="text-lg font-medium text-amber-100/90 font-mono">
                   {jobData.metadata?.frame_type?.replace(/_/g, " ") || "N/A"}
                 </div>
               </div>
-              <div>
-                <div className="text-xs text-neutral-500 dark:text-neutral-400 mb-1">
-                  Barcode Type
+              <div className="space-y-1">
+                <div className="text-xs text-amber-500/50 font-mono uppercase tracking-wide">
+                  BARCODE_TYPE
                 </div>
-                <div className="text-base font-medium text-neutral-900 dark:text-neutral-100">
+                <div className="text-lg font-medium text-amber-100/90 font-mono">
                   {jobData.metadata?.barcode_type || "N/A"}
                 </div>
               </div>
             </div>
 
-            <div className="mt-4 pt-4 border-t border-neutral-200 dark:border-neutral-700">
-              <div className="text-xs text-neutral-500 dark:text-neutral-400 mb-1">
-                Job ID
+            <div className="mt-6 pt-6 border-t border-amber-500/10">
+              <div className="flex items-center gap-2 text-xs font-mono">
+                <span className="text-amber-500/50">JOB_ID:</span>
+                <code className="text-cyan-400/80">{jobId}</code>
               </div>
-              <code className="text-xs font-mono text-neutral-900 dark:text-neutral-100">
-                {jobId}
-              </code>
             </div>
           </div>
         </div>
-
-
       </main>
 
-      <footer className="py-6 text-center text-xs text-neutral-600 dark:text-neutral-400">
-        <p>
-          Powered by{" "}
-          <a
-            href="https://github.com/KALMUS-Color-Toolkit/KALMUS"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline hover:text-neutral-600 dark:hover:text-neutral-400"
-          >
-            KALMUS
-          </a>
-        </p>
+      <footer className="py-8 border-t border-amber-500/10">
+        <div className="container mx-auto px-4">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-mono text-neutral-500">
+            <p>
+              POWERED_BY{" "}
+              <a
+                href="https://github.com/KALMUS-Color-Toolkit/KALMUS"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-amber-500/60 hover:text-amber-400 transition-colors"
+              >
+                KALMUS_TOOLKIT
+              </a>
+            </p>
+            <p className="text-neutral-600">
+              v2.0.0 // FILM_COLOR_ANALYSIS_SYSTEM
+            </p>
+          </div>
+        </div>
       </footer>
     </div>
   );

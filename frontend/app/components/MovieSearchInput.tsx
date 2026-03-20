@@ -97,7 +97,7 @@ export default function MovieSearchInput({ onChange }: MovieSearchInputProps) {
     } catch {
       setResults([]);
       setShowDropdown(false);
-      setError("Search unavailable — you can enter a title manually.");
+      setError("// Search unavailable - enter title manually");
       setShowManualInput(true);
     } finally {
       setLoading(false);
@@ -122,7 +122,7 @@ export default function MovieSearchInput({ onChange }: MovieSearchInputProps) {
     } catch (e) {
       setShowDropdown(false);
       setError(
-        (e as Error).message || "Lookup failed — enter a title manually."
+        `// ${(e as Error).message || "Lookup failed"} - enter manually`
       );
       setShowManualInput(true);
     } finally {
@@ -162,34 +162,43 @@ export default function MovieSearchInput({ onChange }: MovieSearchInputProps) {
   // ─── Selected OMDb movie card ───
   if (selected) {
     return (
-      <div className="flex items-start gap-3">
+      <div className="flex items-start gap-4 p-4 bg-black/40 border border-cyan-500/20 rounded relative overflow-hidden">
+        {/* Decorative corners */}
+        <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-cyan-500/50" />
+        <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-cyan-500/50" />
+        <div className="absolute bottom-0 left-0 w-2 h-2 border-b border-l border-cyan-500/50" />
+        <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-cyan-500/50" />
+        
         {selected.poster_url && (
           <img
             src={selected.poster_url}
             alt={selected.title}
-            className="w-12 rounded border border-neutral-200 dark:border-neutral-700"
-            style={{ maxHeight: "72px", objectFit: "cover" }}
+            className="w-14 rounded border border-amber-500/20"
+            style={{ maxHeight: "80px", objectFit: "cover" }}
           />
         )}
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
+          <p className="text-sm font-mono text-amber-100/90">
             {selected.title}{" "}
-            <span className="font-normal text-neutral-500 dark:text-neutral-400">
+            <span className="text-cyan-400/70">
               ({selected.year})
             </span>
           </p>
-          <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate">
+          <p className="text-xs text-neutral-500 font-mono truncate mt-1">
             {[
               selected.genre,
               selected.director && `Dir. ${selected.director}`,
             ]
               .filter(Boolean)
-              .join(" · ")}
+              .join(" // ")}
+          </p>
+          <p className="text-xs text-amber-500/50 font-mono mt-1">
+            ID: {selected.imdb_id}
           </p>
         </div>
         <button
           onClick={handleClear}
-          className="text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-300 transition-colors flex-shrink-0"
+          className="p-2 text-amber-500/60 hover:text-red-400 hover:bg-red-500/10 rounded transition-all duration-200 flex-shrink-0"
         >
           <svg
             className="w-4 h-4"
@@ -212,18 +221,29 @@ export default function MovieSearchInput({ onChange }: MovieSearchInputProps) {
   // ─── Manual title card ───
   if (submittedManual) {
     return (
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-4 p-4 bg-black/40 border border-amber-500/20 rounded relative overflow-hidden">
+        {/* Decorative corners */}
+        <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-amber-500/40" />
+        <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-amber-500/40" />
+        <div className="absolute bottom-0 left-0 w-2 h-2 border-b border-l border-amber-500/40" />
+        <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-amber-500/40" />
+        
+        <div className="w-10 h-10 rounded bg-amber-500/10 border border-amber-500/30 flex items-center justify-center flex-shrink-0">
+          <svg className="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" />
+          </svg>
+        </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100 truncate">
+          <p className="text-sm font-mono text-amber-100/90 truncate">
             {submittedManual}
           </p>
-          <p className="text-xs text-neutral-500 dark:text-neutral-400">
-            Entered manually
+          <p className="text-xs text-amber-500/50 font-mono">
+            // MANUAL_ENTRY
           </p>
         </div>
         <button
           onClick={handleClear}
-          className="text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-300 transition-colors flex-shrink-0"
+          className="p-2 text-amber-500/60 hover:text-red-400 hover:bg-red-500/10 rounded transition-all duration-200 flex-shrink-0"
         >
           <svg
             className="w-4 h-4"
@@ -246,7 +266,22 @@ export default function MovieSearchInput({ onChange }: MovieSearchInputProps) {
   // ─── Search input + dropdown ───
   return (
     <div ref={containerRef} className="relative">
-      <div className="relative">
+      <div className="relative group">
+        <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+          <svg
+            className="w-4 h-4 text-amber-500/50"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={1.5}
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+            />
+          </svg>
+        </div>
         <input
           type="text"
           value={query}
@@ -257,13 +292,13 @@ export default function MovieSearchInput({ onChange }: MovieSearchInputProps) {
           onFocus={() => {
             if (results.length > 0) setShowDropdown(true);
           }}
-          placeholder="Title or IMDb ID (e.g. tt1234567)"
-          className="w-full px-3 py-2 pr-8 text-sm border border-neutral-300 dark:border-neutral-600 rounded bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:border-neutral-500 dark:focus:border-neutral-400"
+          placeholder="SEARCH_TITLE_OR_IMDB_ID..."
+          className="w-full pl-10 pr-10 py-2.5 text-sm font-mono bg-black/40 border border-amber-500/20 rounded text-amber-100/90 placeholder-amber-500/30 focus:outline-none focus:border-amber-500/50 focus:shadow-[0_0_15px_rgba(212,165,116,0.1)] transition-all duration-300"
         />
         {loading && (
           <div className="absolute right-3 top-1/2 -translate-y-1/2">
             <svg
-              className="animate-spin h-4 w-4 text-neutral-400"
+              className="animate-spin h-4 w-4 text-amber-500/60"
               viewBox="0 0 24 24"
             >
               <circle
@@ -287,7 +322,7 @@ export default function MovieSearchInput({ onChange }: MovieSearchInputProps) {
 
       {/* Result rows */}
       {showDropdown && results.length > 0 && (
-        <div className="absolute top-full mt-1 left-0 right-0 z-10 panel-bg border border-neutral-200 dark:border-neutral-700 rounded shadow-lg max-h-56 overflow-y-auto">
+        <div className="absolute top-full mt-2 left-0 right-0 z-10 panel border border-amber-500/20 rounded shadow-lg max-h-64 overflow-y-auto">
           {results.map((r) => (
             <button
               key={r.imdbID}
@@ -295,22 +330,22 @@ export default function MovieSearchInput({ onChange }: MovieSearchInputProps) {
                 setShowDropdown(false);
                 fetchDetails(r.imdbID);
               }}
-              className="w-full text-left flex items-center gap-3 px-3 py-2 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
+              className="w-full text-left flex items-center gap-3 px-4 py-3 hover:bg-amber-500/10 transition-colors border-b border-amber-500/10 last:border-0"
             >
-              {r.Poster && (
+              {r.Poster && r.Poster !== 'N/A' && (
                 <img
                   src={r.Poster}
                   alt={r.Title}
-                  className="w-8 rounded flex-shrink-0"
-                  style={{ maxHeight: "40px", objectFit: "cover" }}
+                  className="w-10 rounded border border-amber-500/20 flex-shrink-0"
+                  style={{ maxHeight: "48px", objectFit: "cover" }}
                 />
               )}
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100 truncate">
+                <p className="text-sm font-mono text-amber-100/90 truncate">
                   {r.Title}
                 </p>
-                <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                  {r.Year} · {r.imdbID}
+                <p className="text-xs text-amber-500/50 font-mono">
+                  {r.Year} // {r.imdbID}
                 </p>
               </div>
             </button>
@@ -324,16 +359,16 @@ export default function MovieSearchInput({ onChange }: MovieSearchInputProps) {
         !loading &&
         query.trim().length >= 2 &&
         !error && (
-          <div className="absolute top-full mt-1 left-0 right-0 z-10 panel-bg border border-neutral-200 dark:border-neutral-700 rounded shadow-lg px-3 py-2">
-            <p className="text-xs text-neutral-500 dark:text-neutral-400">
-              No results found.
+          <div className="absolute top-full mt-2 left-0 right-0 z-10 panel border border-amber-500/20 rounded shadow-lg px-4 py-3">
+            <p className="text-xs text-neutral-500 font-mono">
+              // NO_RESULTS_FOUND
             </p>
           </div>
         )}
 
       {/* Error banner */}
       {error && (
-        <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
+        <p className="mt-2 text-xs text-amber-500/60 font-mono">
           {error}
         </p>
       )}
@@ -348,15 +383,15 @@ export default function MovieSearchInput({ onChange }: MovieSearchInputProps) {
             onKeyDown={(e) => {
               if (e.key === "Enter") handleManualSubmit();
             }}
-            placeholder="Movie title"
-            className="flex-1 px-3 py-1.5 text-sm border border-neutral-300 dark:border-neutral-600 rounded bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:border-neutral-500 dark:focus:border-neutral-400"
+            placeholder="ENTER_MOVIE_TITLE"
+            className="flex-1 px-3 py-2 text-sm font-mono bg-black/40 border border-amber-500/20 rounded text-amber-100/90 placeholder-amber-500/30 focus:outline-none focus:border-amber-500/50 transition-all duration-300"
           />
           <button
             onClick={handleManualSubmit}
             disabled={!manualInputValue.trim()}
-            className="px-3 py-1.5 text-xs font-medium bg-neutral-200 dark:bg-neutral-600 text-neutral-800 dark:text-neutral-200 rounded hover:bg-neutral-300 dark:hover:bg-neutral-500 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            className="px-4 py-2 text-xs font-mono bg-amber-500/20 text-amber-400 rounded border border-amber-500/30 hover:bg-amber-500/30 hover:border-amber-500/50 transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed tracking-wider"
           >
-            Use This
+            [CONFIRM]
           </button>
         </div>
       )}
@@ -365,9 +400,9 @@ export default function MovieSearchInput({ onChange }: MovieSearchInputProps) {
       {!showManualInput && (
         <button
           onClick={() => setShowManualInput(true)}
-          className="mt-2 text-xs text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 underline"
+          className="mt-2 text-xs font-mono text-amber-500/50 hover:text-amber-400 transition-colors"
         >
-          Enter title manually
+          // ENTER_TITLE_MANUALLY
         </button>
       )}
     </div>

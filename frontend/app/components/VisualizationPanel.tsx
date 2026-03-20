@@ -117,22 +117,27 @@ function FilmSearch({
 
   return (
     <div ref={containerRef} className="relative">
-      <label className="block text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wide mb-2">
-        Compare with another film
+      <label className="block text-xs font-mono text-amber-500/70 uppercase tracking-widest mb-2">
+        COMPARE_WITH_FILM
       </label>
       <div className="flex gap-2">
         <div className="relative flex-1">
+          <div className="absolute left-3 top-1/2 -translate-y-1/2">
+            <svg className="w-4 h-4 text-amber-500/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
           <input
             type="text"
             value={query}
             onChange={handleChange}
             onFocus={() => results.length > 0 && setOpen(true)}
-            placeholder="Search films in database…"
-            className="w-full px-3 py-2 text-sm border border-neutral-300 dark:border-neutral-600 rounded bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:border-neutral-500 dark:focus:border-neutral-400"
+            placeholder="SEARCH_DATABASE..."
+            className="w-full pl-10 pr-10 py-2.5 text-sm font-mono bg-black/40 border border-amber-500/20 rounded text-amber-100/90 placeholder-amber-500/30 focus:outline-none focus:border-amber-500/50 focus:shadow-[0_0_15px_rgba(212,165,116,0.1)] transition-all duration-300"
           />
           {searching && (
             <div className="absolute right-3 top-1/2 -translate-y-1/2">
-              <svg className="animate-spin h-4 w-4 text-neutral-400" viewBox="0 0 24 24">
+              <svg className="animate-spin h-4 w-4 text-amber-500/60" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
               </svg>
@@ -142,34 +147,34 @@ function FilmSearch({
         {compareJobId && (
           <button
             onClick={handleClear}
-            className="px-3 py-2 text-sm border border-neutral-300 dark:border-neutral-600 rounded bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 transition-colors"
+            className="px-3 py-2 text-sm font-mono border border-red-500/30 rounded bg-black/40 text-red-400/80 hover:bg-red-500/10 hover:border-red-500/50 transition-all duration-200"
             title="Clear comparison"
           >
-            ✕
+            [X]
           </button>
         )}
       </div>
 
       {open && results.length > 0 && (
-        <div className="absolute z-50 mt-1 w-full bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded shadow-lg max-h-64 overflow-y-auto">
+        <div className="absolute z-50 mt-2 w-full panel border border-amber-500/20 rounded shadow-lg max-h-64 overflow-y-auto">
           {results.map((r) => (
             <button
               key={r.id}
               onClick={() => handleSelect(r)}
-              className={`w-full text-left px-4 py-3 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors border-b border-neutral-100 dark:border-neutral-700 last:border-0 ${r.id === currentJobId ? "opacity-50" : ""}`}
+              className={`w-full text-left px-4 py-3 hover:bg-amber-500/10 transition-colors border-b border-amber-500/10 last:border-0 ${r.id === currentJobId ? "opacity-40" : ""}`}
             >
               <div className="flex items-center justify-between gap-2">
-                <span className="text-sm font-medium text-neutral-900 dark:text-neutral-100 truncate">
+                <span className="text-sm font-mono text-amber-100/90 truncate">
                   {r.title}
                 </span>
-                <span className="text-xs text-neutral-500 dark:text-neutral-400 shrink-0">
+                <span className="text-xs text-cyan-400/60 font-mono shrink-0">
                   {r.released ? r.released.slice(0, 4) : ""}
                 </span>
               </div>
-              <div className="flex gap-2 mt-0.5">
-                <span className="text-xs text-neutral-500 dark:text-neutral-400">{r.barcode_type}</span>
-                <span className="text-xs text-neutral-400 dark:text-neutral-500">·</span>
-                <span className="text-xs text-neutral-500 dark:text-neutral-400">{r.frame_type}</span>
+              <div className="flex gap-2 mt-1">
+                <span className="text-xs text-amber-500/50 font-mono">{r.barcode_type}</span>
+                <span className="text-xs text-neutral-600">//</span>
+                <span className="text-xs text-amber-500/50 font-mono">{r.frame_type}</span>
               </div>
             </button>
           ))}
@@ -177,8 +182,8 @@ function FilmSearch({
       )}
 
       {open && results.length === 0 && !searching && query.trim() && (
-        <div className="absolute z-50 mt-1 w-full bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded shadow-lg px-4 py-3">
-          <p className="text-sm text-neutral-500 dark:text-neutral-400">No films found.</p>
+        <div className="absolute z-50 mt-2 w-full panel border border-amber-500/20 rounded shadow-lg px-4 py-3">
+          <p className="text-sm text-neutral-500 font-mono">// NO_RESULTS</p>
         </div>
       )}
     </div>
@@ -285,11 +290,11 @@ export default function VisualizationPanel({
   if (loading) {
     return (
       <div className="space-y-6">
-        <div className="panel-bg border border-neutral-200 dark:border-neutral-700 rounded p-6">
+        <div className="panel border border-amber-500/20 rounded p-6">
           <div className="flex items-center justify-center py-12">
-            <div className="flex items-center gap-3">
+            <div className="flex flex-col items-center gap-4">
               <svg
-                className="animate-spin h-5 w-5 text-neutral-600 dark:text-neutral-400"
+                className="animate-spin h-8 w-8 text-amber-500"
                 viewBox="0 0 24 24"
               >
                 <circle
@@ -307,8 +312,8 @@ export default function VisualizationPanel({
                   d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                 />
               </svg>
-              <span className="text-sm text-neutral-600 dark:text-neutral-400">
-                Loading barcode data...
+              <span className="text-sm text-amber-500/80 font-mono tracking-wider">
+                LOADING_BARCODE_DATA...
               </span>
             </div>
           </div>
@@ -320,14 +325,14 @@ export default function VisualizationPanel({
   if (error) {
     return (
       <div className="space-y-6">
-        <div className="panel-bg border border-neutral-200 dark:border-neutral-700 rounded p-6">
-          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded p-4 text-center">
-            <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
+        <div className="panel border border-red-500/20 rounded p-6">
+          <div className="bg-black/40 border border-red-500/30 rounded p-4 text-center">
+            <p className="text-sm text-red-400/90 font-mono">// ERROR: {error}</p>
             <button
               onClick={loadBarcodeData}
-              className="mt-3 px-4 py-2 text-sm bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+              className="mt-4 px-4 py-2 text-sm font-mono bg-red-500/20 text-red-400 border border-red-500/30 rounded hover:bg-red-500/30 transition-colors tracking-wider"
             >
-              Retry
+              [RETRY]
             </button>
           </div>
         </div>
@@ -338,14 +343,20 @@ export default function VisualizationPanel({
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="panel-bg border border-neutral-200 dark:border-neutral-700 rounded p-6">
+      <div className="panel border border-amber-500/20 rounded p-6 relative overflow-hidden">
+        {/* Decorative corners */}
+        <div className="absolute top-0 left-0 w-4 h-4 border-t border-l border-amber-500/40" />
+        <div className="absolute top-0 right-0 w-4 h-4 border-t border-r border-amber-500/40" />
+        <div className="absolute bottom-0 left-0 w-4 h-4 border-b border-l border-amber-500/40" />
+        <div className="absolute bottom-0 right-0 w-4 h-4 border-b border-r border-amber-500/40" />
+        
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
-            <h2 className="text-xl font-light text-neutral-900 dark:text-neutral-100 mb-1">
-              Barcode Visualizations
+            <h2 className="text-lg font-mono text-amber-100/90 mb-1">
+              BARCODE_VISUALIZATIONS
             </h2>
-            <p className="text-sm text-neutral-500 dark:text-neutral-400">
-              {videoFilename} ({barcodeData?.barcode_type} Barcode)
+            <p className="text-sm text-amber-500/60 font-mono">
+              // {videoFilename} ({barcodeData?.barcode_type})
             </p>
           </div>
 
@@ -375,19 +386,25 @@ export default function VisualizationPanel({
       )}
 
       {/* Tab Navigation */}
-      <div className="panel-bg border border-neutral-200 dark:border-neutral-700 rounded">
-        <div className="border-b border-neutral-200 dark:border-neutral-700 overflow-x-auto">
+      <div className="panel border border-amber-500/20 rounded relative overflow-hidden">
+        {/* Decorative corners */}
+        <div className="absolute top-0 left-0 w-4 h-4 border-t border-l border-amber-500/40" />
+        <div className="absolute top-0 right-0 w-4 h-4 border-t border-r border-amber-500/40" />
+        <div className="absolute bottom-0 left-0 w-4 h-4 border-b border-l border-amber-500/40" />
+        <div className="absolute bottom-0 right-0 w-4 h-4 border-b border-r border-amber-500/40" />
+        
+        <div className="border-b border-amber-500/20 overflow-x-auto">
           <nav className="flex -mb-px min-w-max" aria-label="Tabs">
             {availableTabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`
-                  flex items-center gap-2 py-4 px-4 text-center text-sm font-medium border-b-2 transition-colors whitespace-nowrap
+                  flex items-center gap-2 py-4 px-4 text-center text-xs font-mono tracking-wider border-b-2 transition-all duration-200 whitespace-nowrap
                   ${
                     activeTab === tab.id
-                      ? "border-neutral-900 dark:border-neutral-100 text-neutral-900 dark:text-neutral-100"
-                      : "border-transparent text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-300 hover:border-neutral-300 dark:hover:border-neutral-600"
+                      ? "border-amber-500 text-amber-400 bg-amber-500/5"
+                      : "border-transparent text-neutral-500 hover:text-amber-400/80 hover:border-amber-500/30"
                   }
                 `}
               >
@@ -400,11 +417,11 @@ export default function VisualizationPanel({
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    strokeWidth={2}
+                    strokeWidth={1.5}
                     d={tab.icon}
                   />
                 </svg>
-                {tab.label}
+                {tab.label.toUpperCase().replace(/ /g, '_')}
               </button>
             ))}
           </nav>
@@ -485,11 +502,11 @@ export default function VisualizationPanel({
               {compareLoading && (
                 <div className="flex items-center justify-center py-8">
                   <div className="flex items-center gap-3">
-                    <svg className="animate-spin h-5 w-5 text-neutral-600 dark:text-neutral-400" viewBox="0 0 24 24">
+                    <svg className="animate-spin h-5 w-5 text-amber-500" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                     </svg>
-                    <span className="text-sm text-neutral-600 dark:text-neutral-400">Loading comparison barcode...</span>
+                    <span className="text-sm text-amber-500/80 font-mono">LOADING_COMPARISON...</span>
                   </div>
                 </div>
               )}
@@ -516,8 +533,8 @@ export default function VisualizationPanel({
               )}
 
               {!compareJobId && (
-                <p className="text-sm text-center text-neutral-500 dark:text-neutral-400 py-6">
-                  Search for a film above to compare barcodes side by side.
+                <p className="text-sm text-center text-neutral-500 font-mono py-6">
+                  // Search above to compare barcodes
                 </p>
               )}
             </div>
@@ -526,44 +543,40 @@ export default function VisualizationPanel({
       </div>
 
       {/* Info Panel */}
-      <div className="bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded p-4">
-        <h4 className="text-xs font-medium text-neutral-700 dark:text-neutral-300 mb-2 uppercase tracking-wide">
-          About These Visualizations
+      <div className="bg-black/40 border border-amber-500/10 rounded p-4 relative overflow-hidden">
+        <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-amber-500/30" />
+        <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-amber-500/30" />
+        <div className="absolute bottom-0 left-0 w-2 h-2 border-b border-l border-amber-500/30" />
+        <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-amber-500/30" />
+        
+        <h4 className="text-xs font-mono text-amber-500/70 mb-3 uppercase tracking-widest">
+          VISUALIZATION_GUIDE
         </h4>
-        <ul className="text-xs text-neutral-600 dark:text-neutral-400 space-y-1">
+        <ul className="text-xs text-neutral-400 font-mono space-y-1.5">
           <li>
-            <strong>Statistics:</strong> Overview of barcode metadata, dominant colors, and
-            brightness distribution
+            <span className="text-cyan-400/70">STATISTICS:</span> Barcode metadata, dominant colors, brightness distribution
           </li>
           <li>
-            <strong>Histogram:</strong>{" "}
+            <span className="text-cyan-400/70">HISTOGRAM:</span>{" "}
             {isColorBarcode
-              ? "Distribution of color hues (0-360°) across all frames"
-              : "Distribution of brightness values (0-255) across all frames"}
+              ? "Hue distribution (0-360) across frames"
+              : "Brightness values (0-255) across frames"}
           </li>
           {isColorBarcode && (
             <>
               <li>
-                <strong>RGB Cube:</strong> 3D scatter plot of RGB colors in the barcode (drag to
-                rotate)
+                <span className="text-cyan-400/70">RGB_CUBE:</span> 3D scatter plot of RGB colors (drag to rotate)
               </li>
               <li>
-                <strong>Hue/Light Scatter:</strong> 2D scatter plot showing hue vs lightness
-                distribution
-              </li>
-              <li>
-                <strong>Hue/Light 3D:</strong> 3D visualization of color distribution with
-                adjustable resolution and camera controls
+                <span className="text-cyan-400/70">HUE_LIGHT:</span> 2D/3D hue vs lightness distribution
               </li>
             </>
           )}
           <li>
-            <strong>Compare:</strong> Side-by-side barcode comparison with similarity metrics
-            (SSIM, NRMSE, cross-correlation, sequence alignment)
+            <span className="text-cyan-400/70">COMPARE:</span> Side-by-side analysis with SSIM, NRMSE, correlation metrics
           </li>
           <li>
-            <strong>Export CSV:</strong> Download per-frame color/brightness data with frame
-            indices
+            <span className="text-cyan-400/70">EXPORT:</span> Download per-frame color/brightness data as CSV
           </li>
         </ul>
       </div>
