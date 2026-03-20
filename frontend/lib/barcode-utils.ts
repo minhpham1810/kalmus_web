@@ -147,13 +147,17 @@ export function computeHistogram(
 }
 
 /**
- * Get hue values from RGB colors with saturation filtering
+ * Get hue values from RGB colors with chroma filtering.
+ * Uses chroma (max-min) instead of HSV saturation (max-min)/max to avoid
+ * dark pixels being misclassified as highly saturated.
  */
-export function getHueValues(colors: RGB[], saturationThreshold: number = 0): number[] {
+export function getHueValues(colors: RGB[], chromaThreshold: number = 0): number[] {
   const hues: number[] = [];
   for (const [r, g, b] of colors) {
-    const [h, s] = rgbToHsv(r, g, b);
-    if (s > 0 && s >= saturationThreshold) {
+    const rN = r / 255, gN = g / 255, bN = b / 255;
+    const chroma = Math.max(rN, gN, bN) - Math.min(rN, gN, bN);
+    if (chroma > 0 && chroma >= chromaThreshold) {
+      const [h] = rgbToHsv(r, g, b);
       hues.push(h);
     }
   }
@@ -364,8 +368,8 @@ export function getHueColor(hue: number): string {
  * Camera presets for 3D plots (matching KALMUS Tkinter)
  */
 export const CAMERA_PRESETS = {
-  "Diag View 1": { eye: { x: 1.5, y: 1.5, z: 1.0 } },
-  "Diag View 2": { eye: { x: -1.5, y: -1.5, z: 1.0 } },
+  "Diag View 1": { eye: { x: 2.0, y: 2.0, z: 1.3 } },
+  "Diag View 2": { eye: { x: -2.0, y: -2.0, z: 1.3 } },
   "Hue View 1": { eye: { x: 0, y: 2.5, z: 0.1 } },
   "Hue View 2": { eye: { x: 0, y: -2.5, z: 0.1 } },
   "Light View 1": { eye: { x: 2.5, y: 0, z: 0.1 } },

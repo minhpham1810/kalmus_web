@@ -103,7 +103,7 @@ export default function InteractiveHistogram({
         {barcodeType === "Color" && (
           <div className="flex items-center gap-2">
             <label className="text-xs text-neutral-600 dark:text-neutral-400">
-              Saturation Filter:
+              Chroma Filter:
             </label>
             <select
               value={satThreshold}
@@ -112,7 +112,7 @@ export default function InteractiveHistogram({
             >
               {SATURATION_THRESHOLDS.map((t) => (
                 <option key={t} value={t}>
-                  {t === 0 ? "No filter" : `> ${t}`}
+                  {t === 0 ? "No filter" : `≥ ${t}`}
                 </option>
               ))}
             </select>
@@ -187,7 +187,7 @@ export default function InteractiveHistogram({
 
       <p className="text-xs text-neutral-500 dark:text-neutral-400">
         {barcodeType === "Color"
-          ? `Distribution of hue values (0-360°) across all sampled frames. Bars are colored by their corresponding hue.${satThreshold > 0 ? ` Only colors with saturation > ${satThreshold} are included.` : ""}`
+          ? `Distribution of hue values (0-360°) across all sampled frames. Bars are colored by their corresponding hue.${satThreshold > 0 ? ` Only colors with chroma ≥ ${satThreshold} are included.` : ""}`
           : "Distribution of brightness values (0-255) across all sampled frames."}
       </p>
     </div>
