@@ -4,6 +4,7 @@ import json
 import sys
 import numpy as np
 from PIL import Image
+import requests
 
 import sqlite3
 from datetime import datetime
@@ -185,7 +186,7 @@ def in_db(imdb_id, barcode_type, frame_type, metric):
 
     return exists
 
-def add_to_db(job_id, data, json_loc):
+def add_to_db(job_id, data, json_loc, poster_loc):
     config = data.get("config")
     movie = data.get("movie")
     raw = movie.get("raw")
@@ -248,10 +249,11 @@ def add_to_db(job_id, data, json_loc):
 
     cur.execute(
         "INSERT OR REPLACE INTO analyzed_files "
-        "(film_id, json, barcode_type, frame_type, metric, process_date) "
-        "VALUES (?, ?, ?, ?, ?, ?);",
+        "(film_id, json, poster, barcode_type, frame_type, metric, process_date) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?);",
         (job_id,
          json_loc,
+         poster_loc,
          config.get("barcode_type").lower(),
          config.get("frame_type").lower(),
          config.get("color_metric").lower(),
@@ -260,6 +262,21 @@ def add_to_db(job_id, data, json_loc):
 
     con.commit()
     con.close()
+
+def download_poster(url, save_dir):
+    ext = ".jpg"
+    if url.lower().endswith(".png"):
+        ext = ".png"
+
+    output_path = os.path.join(save_dir, f"poster{ext}")
+
+    with requests.get(url, stream=True) as r:
+        r.raise_for_status()
+        with open(output_path, "wb") as f:
+            for chunk in r.iter_content(chunk_size=8192):
+                f.write(chunk)
+    
+    return output_path
 
 def main(args=sys.argv[1:]):
     args = parse_args_into_dict(args=args)
@@ -363,8 +380,11 @@ def main(args=sys.argv[1:]):
         with open(summary_path, 'w') as f:
             json.dump(summary, f, indent=2)
 
-        # Save to Database
-        add_to_db(args.job_id, metadata, os.path.join(args.output_dir, "barcode.json"))
+        # Download poster
+        poster_path = download_poster(metadata.get("movie").get("poster_url"), args.output_dir)
+
+        # Save to database
+        add_to_db(args.job_id, metadata, os.path.join(args.output_dir, "barcode.json"), poster_path)
 
         print()
         print("=" * 50)
