@@ -42,7 +42,6 @@ def create_db():
         "title TEXT NOT NULL, " \
         "imdb_id TEXT, " \
         "released DATE, " \
-        "country TEXT, " \
         "type TEXT" \
         ");"
     )
@@ -76,6 +75,12 @@ def create_db():
         "CREATE TABLE IF NOT EXISTS languages (" \
         "id INTEGER PRIMARY KEY AUTOINCREMENT, " \
         "language TEXT NOT NULL" \
+        ");"
+    )
+    cur.execute(
+        "CREATE TABLE IF NOT EXISTS countries (" \
+        "id INTEGER PRIMARY KEY AUTOINCREMENT, " \
+        "country TEXT NOT NULL" \
         ");"
     )
 
@@ -123,6 +128,15 @@ def create_db():
         "PRIMARY KEY (film_id, language_id), " \
         "FOREIGN KEY (film_id) REFERENCES films(id), " \
         "FOREIGN KEY (language_id) REFERENCES languages(id)" \
+        ");"
+    )
+    cur.execute(
+        "CREATE TABLE IF NOT EXISTS film_countries (" \
+        "film_id TEXT, " \
+        "country_id INTEGER, " \
+        "PRIMARY KEY (film_id, country_id), " \
+        "FOREIGN KEY (film_id) REFERENCES films(id), " \
+        "FOREIGN KEY (country_id) REFERENCES countries(id)" \
         ");"
     )
 
@@ -178,7 +192,6 @@ def add_to_db(job_id, data, json_loc):
     
     title = movie.get("title")
     imdb_id = movie.get("imdb_id")
-    country = raw.get("Country", "") if raw else ""
     type_ = raw.get("Type", "") if raw else ""
 
     released_raw = raw.get("Released") if raw else ""
@@ -194,14 +207,14 @@ def add_to_db(job_id, data, json_loc):
     writers = [w.strip() for w in (raw.get("Writer", "") if raw else "").split(",") if w and w != "N/A"]
     actors = [a.strip() for a in (raw.get("Actors", "") if raw else "").split(",") if a and a != "N/A"]
     languages = [l.strip() for l in (raw.get("Language", "") if raw else "").split(",") if l and l != "N/A"]
-
+    countries = [c.strip() for c in (raw.get("Country", "") if raw else "").split(",") if c and c != "N/A"]
 
     con = sqlite3.connect(films_db)
     cur = con.cursor()
 
     cur.execute(
-        "INSERT INTO films (id, title, imdb_id, released, country, type) VALUES (?, ?, ?, ?, ?, ?)",
-        (job_id, title, imdb_id, released, country, type_)
+        "INSERT INTO films (id, title, imdb_id, released, type) VALUES (?, ?, ?, ?, ?)",
+        (job_id, title, imdb_id, released, type_)
     )
 
     def insert_or_get_id(table, column, value):
@@ -227,6 +240,9 @@ def add_to_db(job_id, data, json_loc):
     for language in languages:
         language_id = insert_or_get_id("languages", "language", language)
         cur.execute("INSERT OR IGNORE INTO film_languages (film_id, language_id) VALUES (?, ?)", (job_id, language_id))
+    for country in countries:
+        country_id = insert_or_get_id("countries", "country", country)
+        cur.execute("INSERT OR IGNORE INTO film_countries (film_id, country_id) VALUES (?, ?)", (job_id, country_id))
 
     process_date = datetime.now().date()
 
