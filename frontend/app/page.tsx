@@ -152,9 +152,14 @@ export default function Home() {
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search by title or IMDb ID…"
-                className="w-full pl-11 pr-4 py-4 bg-transparent border border-neutral-300 dark:border-neutral-600 text-sm font-light text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-600 focus:outline-none focus:border-neutral-600 dark:focus:border-neutral-400 transition-colors"
-                style={{ borderRadius: 0 }}
+                placeholder="Search by title, year, director, etc…"
+                className="kalmus-input w-full pl-11 pr-4 py-4 bg-transparent text-sm font-light focus:outline-none transition-colors"
+                style={{
+                  border: '1px solid var(--accent-crimson)',
+                  borderRadius: 0,
+                  borderLeftWidth: '3px',
+                  color: 'var(--input-text)',
+                }}
               />
               {loading && (
                 <div className="absolute right-4 top-1/2 -translate-y-1/2">
