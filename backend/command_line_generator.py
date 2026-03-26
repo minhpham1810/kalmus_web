@@ -187,6 +187,50 @@ def in_db(imdb_id, barcode_type, frame_type, metric):
 
     return exists
 
+def update_search_table(film_id):
+    con = sqlite3.connect(films_db)
+    cur = con.cursor()
+
+    cur.execute("""
+INSERT INTO films_search (
+    film_id, title, directors, actors, countries, genres, languages, writers, year
+)
+SELECT
+    f.id,
+    f.title,
+    IFNULL((SELECT GROUP_CONCAT(DISTINCT d.director)
+            FROM film_directors fd
+            JOIN directors d ON fd.director_id = d.id
+            WHERE fd.film_id = f.id), ''),
+    IFNULL((SELECT GROUP_CONCAT(DISTINCT a.actor)
+            FROM film_actors fa
+            JOIN actors a ON fa.actor_id = a.id
+            WHERE fa.film_id = f.id), ''),
+    IFNULL((SELECT GROUP_CONCAT(DISTINCT c.country)
+            FROM film_countries fc
+            JOIN countries c ON fc.country_id = c.id
+            WHERE fc.film_id = f.id), ''),
+    IFNULL((SELECT GROUP_CONCAT(DISTINCT g.genre)
+            FROM film_genres fg
+            JOIN genres g ON fg.genre_id = g.id
+            WHERE fg.film_id = f.id), ''),
+    IFNULL((SELECT GROUP_CONCAT(DISTINCT l.language)
+            FROM film_languages fl
+            JOIN languages l ON fl.language_id = l.id
+            WHERE fl.film_id = f.id), ''),
+    IFNULL((SELECT GROUP_CONCAT(DISTINCT w.writer)
+            FROM film_writers fw
+            JOIN writers w ON fw.writer_id = w.id
+            WHERE fw.film_id = f.id), ''),
+    IFNULL(CAST(f.released AS TEXT), '')
+FROM films f
+WHERE f.id = ?;
+""", (film_id,)
+    )
+
+    con.commit()
+    con.close()
+
 def add_to_db(job_id, data, json_loc, poster_loc):
     config = data.get("config")
     movie = data.get("movie")
@@ -260,7 +304,7 @@ def add_to_db(job_id, data, json_loc, poster_loc):
          config.get("color_metric").lower(),
          process_date)
     )
-
+    
     con.commit()
     con.close()
 
@@ -340,11 +384,12 @@ def main(args=sys.argv[1:]):
         )
 
         print("Generating barcode (this may take several minutes)...")
+        # TODO: Check if we can actually save frames; I don't think anything is ever done with them
         generator.generate_barcode(
             video_file_path=args.video_path,
             num_thread=4,  # Use 4 threads as specified in SLURM script
             save_frames=False,  # Don't save individual frames to keep storage minimal
-            # save_frames_rate=1,
+            # save_frames_rate=24,
             # rescale_frames_factor=1
         )
 
@@ -398,6 +443,9 @@ def main(args=sys.argv[1:]):
 
         # Save to database
         add_to_db(args.job_id, metadata, os.path.join(args.output_dir, "barcode.json"), poster_path)
+
+        # Update search table
+        update_search_table(args.job_id)
 
         verify_video(args.video_path, 24, float(metadata.get("movie").get("raw").get("Runtime").split()[0]))
 
