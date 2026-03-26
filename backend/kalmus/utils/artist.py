@@ -111,7 +111,7 @@ def compute_mode_color(image, bin_size=10):
     image = flatten_image(image)
     image = image // bin_size
     mode_color, counts = stats.mode(image, axis=0)
-    return (mode_color[0] * bin_size), counts
+    return mode_color * bin_size, counts
 
 def compute_mean_color(image):
     """
