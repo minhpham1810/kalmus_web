@@ -5,6 +5,7 @@ import sys
 import numpy as np
 from PIL import Image
 import requests
+import cv2 as cv
 
 import sqlite3
 from datetime import datetime
@@ -278,6 +279,21 @@ def download_poster(url, save_dir):
     
     return output_path
 
+#NOTE: This assumes a 24fps true framerate
+# We verify the framerate within +-2 fps
+# We verify the length is within 10% of the expected runtime
+def verify_video(video_path, expected_fps=24, expected_runtime_min=120):
+    cap = cv.VideoCapture(video_path)
+    fps = cap.get(cv.CAP_PROP_FPS)
+    frame_count = cap.get(cv.CAP_PROP_FRAME_COUNT)
+    cap.release()
+
+    runtime = frame_count / fps if fps > 0 else 0
+    if abs(fps - expected_fps) > 2:
+        print(f"WARNING: Video framerate is {fps}, which is outside the expected range of {expected_fps - 2}-{expected_fps + 2} fps.")
+    if abs(runtime - expected_runtime_min * 60) > expected_runtime_min * 60 * 0.1:  # 10% of expected runtime
+        print(f"WARNING: Video length is {runtime} seconds, which is outside the expected range of {expected_runtime_min * 60 * 0.9}-{expected_runtime_min * 60 * 1.1} seconds.")
+
 def main(args=sys.argv[1:]):
     args = parse_args_into_dict(args=args)
 
@@ -296,11 +312,8 @@ def main(args=sys.argv[1:]):
              metadata["config"]["barcode_type"].lower(),
              metadata["config"]["frame_type"].lower(),
              metadata["config"]["color_metric"].lower()):
-        # TODO: Return file to frontend
-        # This might need to happen before a new file is uploaded
-        # We create a new job_id when uploaded
-        # Maybe send a request to check if in database first
-        # Then if we do not have it, send a request to process a film
+        # NOTE: This prevents rerunning a film with the same parameters
+        # This should not be an issue unless a film had issues with how it was ripped
         return 0
 
     print()
@@ -385,6 +398,8 @@ def main(args=sys.argv[1:]):
 
         # Save to database
         add_to_db(args.job_id, metadata, os.path.join(args.output_dir, "barcode.json"), poster_path)
+
+        verify_video(args.video_path, 24, float(metadata.get("movie").get("raw").get("Runtime").split()[0]))
 
         print()
         print("=" * 50)
