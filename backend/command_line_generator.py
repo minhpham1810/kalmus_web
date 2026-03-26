@@ -193,7 +193,7 @@ def update_search_table(film_id):
 
     cur.execute("""
 INSERT INTO films_search (
-    film_id, title, directors, actors, countries, genres, languages, writers, year
+    film_id, title, directors, actors, countries, genres, languages, writers, released
 )
 SELECT
     f.id,
