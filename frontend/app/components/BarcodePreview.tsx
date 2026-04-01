@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useEffect, useState } from "react";
-import { RGB } from "@/lib/barcode-utils";
+import { RGB, ThumbnailEntry, ThumbnailManifest, ThumbnailSheet } from "@/lib/barcode-utils";
 
 interface BarcodePreviewProps {
   barcode: RGB[][] | number[][];
@@ -11,18 +11,46 @@ interface BarcodePreviewProps {
   sampledFrameRate?: number;
   skipOver?: number;
   totalFrames?: number;
+  thumbnails?: ThumbnailManifest | null;
+}
+
+interface HoverPreviewState {
+  left: number;
+  top: number;
+  thumbnail: ThumbnailEntry;
+  sheet: ThumbnailSheet;
+}
+
+function formatTimestamp(totalSeconds: number | null): string {
+  if (totalSeconds === null || Number.isNaN(totalSeconds)) return "Time unavailable";
+
+  const rounded = Math.max(0, Math.floor(totalSeconds));
+  const hours = Math.floor(rounded / 3600);
+  const minutes = Math.floor((rounded % 3600) / 60);
+  const seconds = rounded % 60;
+
+  if (hours > 0) {
+    return `${hours}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+  }
+
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 }
 
 export default function BarcodePreview({
   barcode,
   barcodeType,
   title = "Barcode Preview",
+  thumbnails = null,
 }: BarcodePreviewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState(1);
-  const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const [isDark, setIsDark] = useState(false);
+  const [hoverPreview, setHoverPreview] = useState<HoverPreviewState | null>(null);
+  const dimensions = {
+    width: barcode[0]?.length || 0,
+    height: barcode.length || 0,
+  };
 
   useEffect(() => {
     const root = document.documentElement;
@@ -50,8 +78,6 @@ export default function BarcodePreview({
     // Set canvas dimensions
     canvas.width = width;
     canvas.height = height;
-    setDimensions({ width, height });
-
     // Create image data
     const imageData = ctx.createImageData(width, height);
 
@@ -93,6 +119,72 @@ export default function BarcodePreview({
     link.click();
   };
 
+  const clearHoverPreview = () => {
+    setHoverPreview(null);
+  };
+
+  const handlePointerMove = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!thumbnails?.enabled || thumbnails.count === 0 || dimensions.width === 0 || dimensions.height === 0) {
+      return;
+    }
+
+    const rect = event.currentTarget.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return;
+
+    const barcodeX = Math.max(
+      0,
+      Math.min(
+        dimensions.width - 1,
+        Math.floor(((event.clientX - rect.left) / rect.width) * dimensions.width)
+      )
+    );
+    const barcodeY = Math.max(
+      0,
+      Math.min(
+        dimensions.height - 1,
+        Math.floor(((event.clientY - rect.top) / rect.height) * dimensions.height)
+      )
+    );
+
+    const normalizedPosition =
+      (barcodeX * dimensions.height + barcodeY) / (dimensions.width * dimensions.height);
+    const thumbnailIndex = Math.max(
+      0,
+      Math.min(
+        thumbnails.count - 1,
+        Math.round(normalizedPosition * Math.max(thumbnails.count - 1, 0))
+      )
+    );
+
+    const thumbnail = thumbnails.thumbnails[thumbnailIndex];
+    const sheet = thumbnails.sheets.find((entry) => entry.index === thumbnail?.sheet_index);
+
+    if (!thumbnail || !sheet?.url) {
+      setHoverPreview(null);
+      return;
+    }
+
+    const popupWidth = thumbnail.width;
+    const popupHeight = thumbnail.height + 44;
+    const margin = 16;
+
+    const left = Math.max(
+      margin,
+      Math.min(event.clientX + 20, window.innerWidth - popupWidth - margin)
+    );
+    const top = Math.min(
+      Math.max(margin, event.clientY - popupHeight / 2),
+      window.innerHeight - popupHeight - margin
+    );
+
+    setHoverPreview({
+      left,
+      top,
+      thumbnail,
+      sheet,
+    });
+  };
+
   const zoomLevels = [0.5, 1, 2, 4, 8];
 
   return (
@@ -120,6 +212,11 @@ export default function BarcodePreview({
             <p className="text-xs text-neutral-500 dark:text-neutral-400">
               {dimensions.width} x {dimensions.height} pixels
             </p>
+            {thumbnails?.enabled && thumbnails.count > 0 && (
+              <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-1">
+                Hover the barcode to preview captured thumbnails.
+              </p>
+            )}
           </div>
         </div>
 
@@ -177,6 +274,9 @@ export default function BarcodePreview({
         >
           <canvas
             ref={canvasRef}
+            onPointerMove={handlePointerMove}
+            onPointerLeave={clearHoverPreview}
+            onPointerCancel={clearHoverPreview}
             style={{
               width: dimensions.width * zoom,
               height: dimensions.height * zoom,
@@ -195,6 +295,40 @@ export default function BarcodePreview({
             : "Brightness barcode showing the temporal brightness distribution of the video."}
         </p>
       </div>
+
+      {hoverPreview && hoverPreview.sheet.url && (
+        <div
+          className="fixed z-50 pointer-events-none overflow-hidden rounded-md border shadow-xl"
+          style={{
+            left: hoverPreview.left,
+            top: hoverPreview.top,
+            borderColor: "var(--surface-border)",
+            background: isDark ? "var(--surface-bg-strong)" : "var(--panel-gradient)",
+          }}
+        >
+          <div
+            style={{
+              width: hoverPreview.thumbnail.width,
+              height: hoverPreview.thumbnail.height,
+              backgroundImage: `url(${hoverPreview.sheet.url})`,
+              backgroundPosition: `-${hoverPreview.thumbnail.x}px -${hoverPreview.thumbnail.y}px`,
+              backgroundRepeat: "no-repeat",
+              backgroundSize: `${hoverPreview.sheet.width}px ${hoverPreview.sheet.height}px`,
+            }}
+          />
+          <div
+            className="px-3 py-2 border-t"
+            style={{ borderColor: "var(--surface-border)", background: "var(--surface-bg-strong)" }}
+          >
+            <div className="font-mono text-[10px] tracking-[0.16em] uppercase kalmus-text-secondary">
+              Frame {hoverPreview.thumbnail.frame_index.toLocaleString()}
+            </div>
+            <div className="font-mono text-[11px] kalmus-text-primary mt-1">
+              {formatTimestamp(hoverPreview.thumbnail.time_seconds)}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

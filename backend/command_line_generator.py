@@ -19,6 +19,12 @@ except ImportError:
 
 films_db = Path("/home/kalmus/kalmus/app/backend/databases/films.db")
 
+THUMBNAIL_CAPTURE_INTERVAL_FRAMES = 24
+THUMBNAIL_HEIGHT = 200
+THUMBNAIL_SHEET_MAX_WIDTH = 4096
+THUMBNAIL_SHEET_MAX_HEIGHT = 4096
+THUMBNAIL_SHEET_QUALITY = 70
+
 def parse_args_into_dict(args):
     parser = argparse.ArgumentParser(description='Generate movie barcode using KALMUS')
     parser.add_argument('--video-path', required=True, help='Path to input video file')
@@ -30,6 +36,7 @@ def parse_args_into_dict(args):
     parser.add_argument('--skip-over', type=int, default=0, help='Number of frames to skip at start')
     parser.add_argument('--total-frames', type=int, default=100000000, help='Maximum frames to process')
     parser.add_argument('--frames-per-column', type=int, default=50, help='Frames per column in barcode')
+    parser.add_argument('--save-thumbnails', action='store_true', help='Capture hover-preview thumbnails')
     parser.add_argument('--job-id', required=True, help='Unique job identifier')
     return parser.parse_args(args)
 
@@ -233,14 +240,14 @@ WHERE f.id = ?;
 
 def add_to_db(job_id, data, json_loc, poster_loc):
     config = data.get("config")
-    movie = data.get("movie")
-    raw = movie.get("raw")
+    movie = data.get("movie") or {}
+    raw = movie.get("raw") or {}
     
     title = movie.get("title")
     imdb_id = movie.get("imdb_id")
-    type_ = raw.get("Type", "") if raw else ""
+    type_ = raw.get("Type", "")
 
-    released_raw = raw.get("Released") if raw else ""
+    released_raw = raw.get("Released")
     released = ""
     if released_raw and released_raw != "N/A":
         try:
@@ -250,10 +257,10 @@ def add_to_db(job_id, data, json_loc, poster_loc):
 
     genres = [g.strip() for g in movie.get("genre", "").split(",") if g and g != "N/A"]
     directors = [d.strip() for d in movie.get("director", "").split(",") if d and d != "N/A"]
-    writers = [w.strip() for w in (raw.get("Writer", "") if raw else "").split(",") if w and w != "N/A"]
-    actors = [a.strip() for a in (raw.get("Actors", "") if raw else "").split(",") if a and a != "N/A"]
-    languages = [l.strip() for l in (raw.get("Language", "") if raw else "").split(",") if l and l != "N/A"]
-    countries = [c.strip() for c in (raw.get("Country", "") if raw else "").split(",") if c and c != "N/A"]
+    writers = [w.strip() for w in raw.get("Writer", "").split(",") if w and w != "N/A"]
+    actors = [a.strip() for a in raw.get("Actors", "").split(",") if a and a != "N/A"]
+    languages = [l.strip() for l in raw.get("Language", "").split(",") if l and l != "N/A"]
+    countries = [c.strip() for c in raw.get("Country", "").split(",") if c and c != "N/A"]
 
     con = sqlite3.connect(films_db)
     cur = con.cursor()
@@ -309,6 +316,9 @@ def add_to_db(job_id, data, json_loc, poster_loc):
     con.close()
 
 def download_poster(url, save_dir):
+    if not url:
+        return None
+
     ext = ".jpg"
     if url.lower().endswith(".png"):
         ext = ".png"
@@ -337,6 +347,179 @@ def verify_video(video_path, expected_fps=24, expected_runtime_min=120):
         print(f"WARNING: Video framerate is {fps}, which is outside the expected range of {expected_fps - 2}-{expected_fps + 2} fps.")
     if abs(runtime - expected_runtime_min * 60) > expected_runtime_min * 60 * 0.1:  # 10% of expected runtime
         print(f"WARNING: Video length is {runtime} seconds, which is outside the expected range of {expected_runtime_min * 60 * 0.9}-{expected_runtime_min * 60 * 1.1} seconds.")
+
+def _extract_thumbnail_frames(video_path, barcode_obj, start_frame, end_frame):
+    cap = cv.VideoCapture(video_path)
+    if not cap.isOpened():
+        raise RuntimeError(f"Could not open video for thumbnail extraction: {video_path}")
+
+    fps = float(barcode_obj.fps) if barcode_obj.fps else None
+    thumbnails = []
+
+    try:
+        for frame_index in range(start_frame, end_frame, THUMBNAIL_CAPTURE_INTERVAL_FRAMES):
+            cap.set(cv.CAP_PROP_POS_FRAMES, frame_index)
+            success, frame = cap.read()
+            if not success:
+                continue
+
+            frame = barcode_obj.remove_letter_box_from_frame(frame)
+            if frame is None or frame.size == 0:
+                continue
+
+            rgb_frame = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
+            frame_height, frame_width = rgb_frame.shape[:2]
+            if frame_height <= 0 or frame_width <= 0:
+                continue
+
+            thumbnail_width = max(1, int(round(frame_width * (THUMBNAIL_HEIGHT / frame_height))))
+            resized = cv.resize(
+                rgb_frame,
+                dsize=(thumbnail_width, THUMBNAIL_HEIGHT),
+                interpolation=cv.INTER_AREA,
+            )
+
+            thumbnails.append({
+                "frame_index": int(frame_index),
+                "time_seconds": round(frame_index / fps, 3) if fps else None,
+                "image": Image.fromarray(resized),
+            })
+    finally:
+        cap.release()
+
+    return thumbnails
+
+def _write_thumbnail_sheets(thumbnails, output_dir):
+    if not thumbnails:
+        return {
+            "sheets": [],
+            "thumbnails": [],
+        }
+
+    sheets = []
+    sheet_entries = []
+    sheet_index = 0
+    current_items = []
+    cursor_x = 0
+    cursor_y = 0
+    row_height = 0
+    sheet_width = 0
+
+    def flush_sheet():
+        nonlocal sheet_index, current_items, cursor_x, cursor_y, row_height, sheet_width
+        if not current_items:
+            return
+
+        final_height = cursor_y + row_height
+        filename = f"thumbnails_{sheet_index:03d}.webp"
+        sprite = Image.new("RGB", (sheet_width, final_height))
+        for item in current_items:
+            sprite.paste(item["image"], (item["x"], item["y"]))
+
+        sprite.save(
+            os.path.join(output_dir, filename),
+            format="WEBP",
+            quality=THUMBNAIL_SHEET_QUALITY,
+            method=6,
+        )
+        sheets.append({
+            "index": sheet_index,
+            "filename": filename,
+            "width": sheet_width,
+            "height": final_height,
+        })
+
+        sheet_index += 1
+        current_items = []
+        cursor_x = 0
+        cursor_y = 0
+        row_height = 0
+        sheet_width = 0
+
+    for thumb_index, thumb in enumerate(thumbnails):
+        image = thumb["image"]
+        thumb_width, thumb_height = image.size
+
+        if thumb_width > THUMBNAIL_SHEET_MAX_WIDTH or thumb_height > THUMBNAIL_SHEET_MAX_HEIGHT:
+            raise ValueError("Thumbnail dimensions exceed sprite sheet limits")
+
+        if cursor_x + thumb_width > THUMBNAIL_SHEET_MAX_WIDTH:
+            cursor_x = 0
+            cursor_y += row_height
+            row_height = 0
+
+        if cursor_y + thumb_height > THUMBNAIL_SHEET_MAX_HEIGHT and current_items:
+            flush_sheet()
+
+        if cursor_x + thumb_width > THUMBNAIL_SHEET_MAX_WIDTH:
+            raise ValueError("Thumbnail width exceeds available sprite sheet width")
+
+        current_items.append({
+            "image": image,
+            "x": cursor_x,
+            "y": cursor_y,
+            "width": thumb_width,
+            "height": thumb_height,
+            "frame_index": thumb["frame_index"],
+            "time_seconds": thumb["time_seconds"],
+            "index": thumb_index,
+            "sheet_index": sheet_index,
+        })
+        sheet_entries.append({
+            "index": thumb_index,
+            "frame_index": thumb["frame_index"],
+            "time_seconds": thumb["time_seconds"],
+            "sheet_index": sheet_index,
+            "x": cursor_x,
+            "y": cursor_y,
+            "width": thumb_width,
+            "height": thumb_height,
+        })
+
+        cursor_x += thumb_width
+        row_height = max(row_height, thumb_height)
+        sheet_width = max(sheet_width, cursor_x)
+
+    flush_sheet()
+
+    return {
+        "sheets": sheets,
+        "thumbnails": sheet_entries,
+    }
+
+def maybe_generate_thumbnail_manifest(video_path, barcode_obj, output_dir, start_frame, processed_frames):
+    if processed_frames <= 0:
+        return None
+
+    end_frame = min(int(start_frame + processed_frames), int(barcode_obj.film_length_in_frames))
+    extracted = _extract_thumbnail_frames(video_path, barcode_obj, int(start_frame), end_frame)
+    if not extracted:
+        return None
+
+    packed = _write_thumbnail_sheets(extracted, output_dir)
+    barcode_shape = list(barcode_obj.get_barcode().shape)
+    manifest = {
+        "version": 1,
+        "enabled": True,
+        "capture_interval_frames": THUMBNAIL_CAPTURE_INTERVAL_FRAMES,
+        "thumbnail_height": THUMBNAIL_HEIGHT,
+        "processed_frame_start": int(start_frame),
+        "processed_frame_end": int(end_frame),
+        "count": len(packed["thumbnails"]),
+        "fps": float(barcode_obj.fps) if barcode_obj.fps else None,
+        "barcode": {
+            "width": int(barcode_shape[1]),
+            "height": int(barcode_shape[0]),
+        },
+        "sheets": packed["sheets"],
+        "thumbnails": packed["thumbnails"],
+    }
+
+    manifest_path = os.path.join(output_dir, "thumbnails.json")
+    with open(manifest_path, "w") as f:
+        json.dump(manifest, f, indent=2)
+
+    return manifest
 
 def main(args=sys.argv[1:]):
     args = parse_args_into_dict(args=args)
@@ -384,13 +567,10 @@ def main(args=sys.argv[1:]):
         )
 
         print("Generating barcode (this may take several minutes)...")
-        # TODO: Check if we can actually save frames; I don't think anything is ever done with them
         generator.generate_barcode(
             video_file_path=args.video_path,
             num_thread=4,  # Use 4 threads as specified in SLURM script
-            save_frames=False,  # Don't save individual frames to keep storage minimal
-            # save_frames_rate=24,
-            # rescale_frames_factor=1
+            save_frames=False,
         )
 
         print("Processing barcode data...")
@@ -416,9 +596,20 @@ def main(args=sys.argv[1:]):
             barcode_data = barcode_data.astype(np.uint8)
 
         # Create PIL Image and save as PNG
-        print(barcode_data)
         img = Image.fromarray(barcode_data)
         img.save(image_path, 'PNG')
+
+        thumbnail_manifest = None
+        if args.save_thumbnails:
+            print("Generating hover-preview thumbnails...")
+            processed_source_frames = int(barcode_obj.total_frames * barcode_obj.sampled_frame_rate)
+            thumbnail_manifest = maybe_generate_thumbnail_manifest(
+                args.video_path,
+                barcode_obj,
+                args.output_dir,
+                args.skip_over,
+                processed_source_frames,
+            )
 
         # Also save a summary with metadata
         summary_path = os.path.join(args.output_dir, 'summary.json')
@@ -432,14 +623,19 @@ def main(args=sys.argv[1:]):
             'frame_type': args.frame_type,
             'barcode_type': args.barcode_type,
             'sampled_frame_rate': args.sampled_rate,
-            'frames_per_column': args.frames_per_column
+            'frames_per_column': args.frames_per_column,
+            'thumbnails_enabled': bool(thumbnail_manifest),
+            'thumbnail_count': thumbnail_manifest["count"] if thumbnail_manifest else 0,
+            'thumbnail_interval_frames': THUMBNAIL_CAPTURE_INTERVAL_FRAMES,
+            'thumbnail_sheet_count': len(thumbnail_manifest["sheets"]) if thumbnail_manifest else 0,
         }
 
         with open(summary_path, 'w') as f:
             json.dump(summary, f, indent=2)
 
-        # Download poster
-        poster_path = download_poster(metadata.get("movie").get("poster_url"), args.output_dir)
+        # Download poster if present; missing poster metadata should not fail the job.
+        movie_metadata = metadata.get("movie") or {}
+        poster_path = download_poster(movie_metadata.get("poster_url"), args.output_dir)
 
         # Save to database
         add_to_db(args.job_id, metadata, os.path.join(args.output_dir, "barcode.json"), poster_path)
@@ -447,7 +643,9 @@ def main(args=sys.argv[1:]):
         # Update search table
         update_search_table(args.job_id)
 
-        verify_video(args.video_path, 24, float(metadata.get("movie").get("raw").get("Runtime").split()[0]))
+        runtime_raw = ((movie_metadata.get("raw") or {}).get("Runtime") or "").split()
+        if runtime_raw:
+            verify_video(args.video_path, 24, float(runtime_raw[0]))
 
         print()
         print("=" * 50)

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { submitSlurmJob, JobConfig } from '@/lib/slurm';
 import { streamToHPC } from '@/lib/hpc-transfer';
 import { Readable } from 'stream';
+import type { ReadableStream as NodeReadableStream } from 'stream/web';
 
 // Configure route segment for large file uploads
 export const maxDuration = 600; // 10 minutes timeout for large uploads
@@ -33,6 +34,7 @@ export async function POST(request: NextRequest) {
       skip_over: parseInt((formData.get('skip_over') as string) || '0'),
       total_frames: parseInt((formData.get('total_frames') as string) || '100000000'),
       frames_per_column: parseInt((formData.get('frames_per_column') as string) || '50'),
+      save_thumbnails: (formData.get('save_thumbnails') as string) === 'true',
       partition: (formData.get('partition') as string) || 'short',
       email: (formData.get('email') as string) || undefined,
     };
@@ -61,7 +63,9 @@ export async function POST(request: NextRequest) {
     const sanitizedName = videoFile.name.replace(/[^a-zA-Z0-9.-]/g, '_');
     const filename = `${timestamp}_${sanitizedName}`;
 
-    const nodeStream = Readable.fromWeb(videoFile.stream() as any);
+    const nodeStream = Readable.fromWeb(
+      videoFile.stream() as unknown as NodeReadableStream
+    );
     const { remotePath: videoPath } = await streamToHPC(nodeStream, filename);
 
     // Submit SLURM job

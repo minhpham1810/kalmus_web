@@ -90,6 +90,7 @@ export async function POST(request: NextRequest) {
             skip_over: parseInt(config.skip_over) || 0,
             total_frames: parseInt(config.total_frames) || 100000000,
             frames_per_column: parseInt(config.frames_per_column) || 50,
+            save_thumbnails: config.save_thumbnails === 'true' || config.save_thumbnails === true,
             partition: config.partition || 'short',
             email: config.email || undefined,
         };

@@ -3,6 +3,7 @@ import { promisify } from 'util';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
+import { ThumbnailManifest } from '@/lib/barcode-utils';
 
 const execAsync = promisify(exec);
 
@@ -25,6 +26,7 @@ export interface JobConfig {
   skip_over: number;
   total_frames: number;
   frames_per_column: number;
+  save_thumbnails?: boolean;
   partition?: string;
   email?: string;
 }
@@ -60,6 +62,7 @@ export function generateSlurmScript(
     ? `#SBATCH --mail-user=${config.email}
 #SBATCH --mail-type=END,FAIL`
     : '';
+  const thumbnailArg = config.save_thumbnails ? '  --save-thumbnails \\\n' : '';
 
   return `#!/bin/bash
 #SBATCH --job-name=kalmus_${jobId.substring(0, 8)}
@@ -102,6 +105,7 @@ echo "  - Sampled Rate: ${config.sampled_rate}"
 echo "  - Skip Over: ${config.skip_over}"
 echo "  - Total Frames: ${config.total_frames}"
 echo "  - Frames Per Column: ${config.frames_per_column}"
+echo "  - Save Thumbnails: ${config.save_thumbnails ? 'Yes' : 'No'}"
 echo ""
 
 python3 ${SLURM_CONFIG.kalmusScript} \\
@@ -114,7 +118,7 @@ python3 ${SLURM_CONFIG.kalmusScript} \\
   --skip-over ${config.skip_over} \\
   --total-frames ${config.total_frames} \\
   --frames-per-column ${config.frames_per_column} \\
-  --job-id "${jobId}"
+${thumbnailArg}  --job-id "${jobId}"
 
 EXIT_CODE=$?
 
@@ -223,7 +227,7 @@ export async function submitSlurmJob(
         `squeue -j ${slurmJobId} --format="%S" --noheader`
       );
       estimatedTime = timeOutput.trim();
-    } catch (e) {
+    } catch {
       // Ignore errors getting estimated time
     }
 
@@ -262,7 +266,7 @@ export async function checkSlurmJobStatus(jobId: string) {
         submittedAt: metadata.submittedAt,
         completed: true,
       };
-    } catch (e) {
+    } catch {
       // Status file doesn't exist yet, check SLURM queue
     }
 
@@ -310,7 +314,7 @@ export async function checkSlurmJobStatus(jobId: string) {
           completed: false,
         };
       }
-    } catch (error) {
+    } catch {
       // Job might have completed, check for result files
       try {
         await fs.access(path.join(outputDir, 'barcode.json'));
@@ -320,7 +324,7 @@ export async function checkSlurmJobStatus(jobId: string) {
           submittedAt: metadata.submittedAt,
           completed: true,
         };
-      } catch (e) {
+      } catch {
         throw new Error(
           `Job ${jobId} not found in queue and no results available`
         );
@@ -375,7 +379,7 @@ export async function getSlurmJobResult(jobId: string) {
     try {
       const summaryContent = await fs.readFile(summaryPath, 'utf-8');
       summaryData = JSON.parse(summaryContent);
-    } catch (e) {
+    } catch {
       // Summary file might not exist
     }
 
@@ -384,11 +388,28 @@ export async function getSlurmJobResult(jobId: string) {
     const metadataContent = await fs.readFile(metadataPath, 'utf-8');
     const metadata: JobMetadata = JSON.parse(metadataContent);
 
+    let thumbnailData: ThumbnailManifest | null = null;
+    try {
+      const thumbnailsPath = path.join(outputDir, 'thumbnails.json');
+      const thumbnailsContent = await fs.readFile(thumbnailsPath, 'utf-8');
+      const parsedManifest = JSON.parse(thumbnailsContent) as ThumbnailManifest;
+      thumbnailData = {
+        ...parsedManifest,
+        sheets: parsedManifest.sheets.map((sheet) => ({
+          ...sheet,
+          url: `/api/job-result/${jobId}/thumbnail-sheet/${sheet.index}`,
+        })),
+      };
+    } catch {
+      // Thumbnails are optional
+    }
+
     return {
       success: true,
       message: 'Barcode generated successfully',
       barcode: barcodeData,
       summary: summaryData,
+      thumbnails: thumbnailData,
       download_filename: `barcode_${jobId}.json`,
       metadata: {
         ...metadata.config,
