@@ -217,7 +217,7 @@ def generate_hue_light_3d_bar(barcode_data, hue_resolution=10, bri_resolution=0.
         shaded=shaded,
         grid_off=False,
         background_off=True,
-        invert_light_axis=True,
+        invert_light_axis=False,
         saturation_threshold=saturation_threshold
     )
 

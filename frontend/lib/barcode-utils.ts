@@ -18,6 +18,42 @@ export interface BarcodeData {
   total_frames?: number;
 }
 
+export interface ThumbnailSheet {
+  index: number;
+  filename: string;
+  width: number;
+  height: number;
+  url?: string;
+}
+
+export interface ThumbnailEntry {
+  index: number;
+  frame_index: number;
+  time_seconds: number | null;
+  sheet_index: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface ThumbnailManifest {
+  version: number;
+  enabled: boolean;
+  capture_interval_frames: number;
+  thumbnail_height: number;
+  processed_frame_start: number;
+  processed_frame_end: number;
+  count: number;
+  fps: number | null;
+  barcode: {
+    width: number;
+    height: number;
+  };
+  sheets: ThumbnailSheet[];
+  thumbnails: ThumbnailEntry[];
+}
+
 /**
  * Convert RGB (0-255) to HSV (H: 0-360, S: 0-1, V: 0-1)
  */
@@ -208,8 +244,7 @@ export function computeHueLightBins(
   bins.forEach((data, key) => {
     const [hueBin, lightBin] = key.split(",").map(Number);
     const hueCenter = hueBin * hueResolution + hueResolution / 2;
-    // Invert light axis for display (1 - value) to match KALMUS behavior
-    const lightCenter = 1 - (lightBin * lightResolution + lightResolution / 2);
+    const lightCenter = lightBin * lightResolution + lightResolution / 2;
 
     hueValues.push(hueCenter);
     lightValues.push(lightCenter);
