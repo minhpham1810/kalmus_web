@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { readdir, unlink, rmdir } from 'fs/promises';
+import { readdir, unlink, rm } from 'fs/promises';
 import { createReadStream } from 'fs';
 import { PassThrough } from 'stream';
 import path from 'path';
 import { submitSlurmJob, JobConfig } from '@/lib/slurm';
 import { streamToHPC } from '@/lib/hpc-transfer';
+import { findDuplicateAnalyses } from '@/lib/db';
 
 export const maxDuration = 600;
 export const dynamic = 'force-dynamic';
@@ -21,6 +22,40 @@ export async function POST(request: NextRequest) {
                 { error: 'Missing required fields' },
                 { status: 400 }
             );
+        }
+
+        const jobConfig: JobConfig = {
+            color_metric: config.color_metric || 'Average',
+            frame_type: config.frame_type || 'Whole_frame',
+            barcode_type: config.barcode_type || 'Color',
+            sampled_rate: parseInt(config.sampled_rate) || 2,
+            skip_over: parseInt(config.skip_over) || 0,
+            total_frames: parseInt(config.total_frames) || 100000000,
+            frames_per_column: parseInt(config.frames_per_column) || 50,
+            save_thumbnails: config.save_thumbnails === 'true' || config.save_thumbnails === true,
+            partition: config.partition || 'short',
+            email: config.email || undefined,
+            force_reprocess: config.force_reprocess === 'true' || config.force_reprocess === true,
+        };
+
+        const duplicateMatch = findDuplicateAnalyses(
+            (movie?.imdb_id as string | undefined) || null,
+            {
+                barcode_type: jobConfig.barcode_type,
+                frame_type: jobConfig.frame_type,
+                color_metric: jobConfig.color_metric,
+            }
+        );
+
+        if (duplicateMatch.exactMatch && !jobConfig.force_reprocess) {
+            await rm(path.join(CHUNKS_DIR, uploadId), { recursive: true, force: true });
+
+            return NextResponse.json({
+                success: true,
+                duplicate: true,
+                existingJobId: duplicateMatch.exactMatch.id,
+                existingAnalysis: duplicateMatch.exactMatch,
+            });
         }
 
         // Get all chunks from /tmp
@@ -76,24 +111,10 @@ export async function POST(request: NextRequest) {
 
         // Clean up chunks directory
         try {
-            await rmdir(uploadDir);
+            await rm(uploadDir, { recursive: true, force: true });
         } catch (e) {
             console.warn('Could not remove upload directory:', e);
         }
-
-        // Parse config
-        const jobConfig: JobConfig = {
-            color_metric: config.color_metric || 'Average',
-            frame_type: config.frame_type || 'Whole_frame',
-            barcode_type: config.barcode_type || 'Color',
-            sampled_rate: parseInt(config.sampled_rate) || 2,
-            skip_over: parseInt(config.skip_over) || 0,
-            total_frames: parseInt(config.total_frames) || 100000000,
-            frames_per_column: parseInt(config.frames_per_column) || 50,
-            save_thumbnails: config.save_thumbnails === 'true' || config.save_thumbnails === true,
-            partition: config.partition || 'short',
-            email: config.email || undefined,
-        };
 
         // Extract user info from headers
         const username = request.headers.get('x-username');

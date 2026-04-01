@@ -29,6 +29,7 @@ export interface JobConfig {
   save_thumbnails?: boolean;
   partition?: string;
   email?: string;
+  force_reprocess?: boolean;
 }
 
 export interface JobMetadata {
@@ -47,6 +48,11 @@ export interface JobMetadata {
   movie?: Record<string, unknown>;
 }
 
+interface DuplicateMarker {
+  existing_job_id: string;
+  detected_at: string;
+}
+
 /**
  * Generate SLURM job script for video processing
  */
@@ -63,6 +69,7 @@ export function generateSlurmScript(
 #SBATCH --mail-type=END,FAIL`
     : '';
   const thumbnailArg = config.save_thumbnails ? '  --save-thumbnails \\\n' : '';
+  const forceReprocessArg = config.force_reprocess ? '  --force-reprocess \\\n' : '';
 
   return `#!/bin/bash
 #SBATCH --job-name=kalmus_${jobId.substring(0, 8)}
@@ -106,6 +113,7 @@ echo "  - Skip Over: ${config.skip_over}"
 echo "  - Total Frames: ${config.total_frames}"
 echo "  - Frames Per Column: ${config.frames_per_column}"
 echo "  - Save Thumbnails: ${config.save_thumbnails ? 'Yes' : 'No'}"
+echo "  - Force Reprocess: ${config.force_reprocess ? 'Yes' : 'No'}"
 echo ""
 
 python3 ${SLURM_CONFIG.kalmusScript} \\
@@ -118,7 +126,7 @@ python3 ${SLURM_CONFIG.kalmusScript} \\
   --skip-over ${config.skip_over} \\
   --total-frames ${config.total_frames} \\
   --frames-per-column ${config.frames_per_column} \\
-${thumbnailArg}  --job-id "${jobId}"
+${thumbnailArg}${forceReprocessArg}  --job-id "${jobId}"
 
 EXIT_CODE=$?
 
@@ -129,10 +137,14 @@ echo "========================================="
 
 # Create completion marker file
 if [ $EXIT_CODE -eq 0 ]; then
-  echo "SUCCESS" > ${outputDir}/status.txt
+  if [ -f "${outputDir}/duplicate.json" ]; then
+    echo "DUPLICATE" > ${outputDir}/status.txt
+  else
+    echo "SUCCESS" > ${outputDir}/status.txt
+  fi
 
   # Send email with barcode attachments
-  if [ -n "${config.email}" ]; then
+  if [ -n "${config.email}" ] && [ ! -f "${outputDir}/duplicate.json" ]; then
     echo ""
     echo "Sending barcode via email to ${config.email}..."
     python3 ${SLURM_CONFIG.emailScript} \\
@@ -238,6 +250,18 @@ export async function submitSlurmJob(
   }
 }
 
+async function readDuplicateMarker(outputDir: string): Promise<DuplicateMarker | null> {
+  try {
+    const duplicateContent = await fs.readFile(
+      path.join(outputDir, 'duplicate.json'),
+      'utf-8'
+    );
+    return JSON.parse(duplicateContent) as DuplicateMarker;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Check the status of a SLURM job
  */
@@ -259,12 +283,16 @@ export async function checkSlurmJobStatus(jobId: string) {
         'utf-8'
       );
       const jobStatus = statusContent.trim();
+      const duplicateMarker =
+        jobStatus === 'DUPLICATE' ? await readDuplicateMarker(outputDir) : null;
 
       return {
         status: jobStatus,
         slurmJobId,
         submittedAt: metadata.submittedAt,
         completed: true,
+        reused: jobStatus === 'DUPLICATE',
+        existingJobId: duplicateMarker?.existing_job_id,
       };
     } catch {
       // Status file doesn't exist yet, check SLURM queue
@@ -350,6 +378,24 @@ export async function getSlurmJobResult(jobId: string) {
     const statusContent = await fs.readFile(statusPath, 'utf-8');
 
     if (statusContent.trim() !== 'SUCCESS') {
+      if (statusContent.trim() === 'DUPLICATE') {
+        const duplicateMarker = await readDuplicateMarker(outputDir);
+
+        if (!duplicateMarker?.existing_job_id) {
+          return {
+            success: false,
+            error: 'Equivalent analysis exists, but the existing result could not be resolved.',
+          };
+        }
+
+        return {
+          success: true,
+          duplicate: true,
+          existingJobId: duplicateMarker.existing_job_id,
+          message: 'Equivalent analysis already exists',
+        };
+      }
+
       // Read error log
       const errorFiles = await fs.readdir(outputDir);
       const stderrFile = errorFiles.find((f) => f.includes('stderr'));

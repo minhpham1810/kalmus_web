@@ -37,6 +37,7 @@ def parse_args_into_dict(args):
     parser.add_argument('--total-frames', type=int, default=100000000, help='Maximum frames to process')
     parser.add_argument('--frames-per-column', type=int, default=50, help='Frames per column in barcode')
     parser.add_argument('--save-thumbnails', action='store_true', help='Capture hover-preview thumbnails')
+    parser.add_argument('--force-reprocess', action='store_true', help='Allow reprocessing even if an equivalent analysis already exists')
     parser.add_argument('--job-id', required=True, help='Unique job identifier')
     return parser.parse_args(args)
 
@@ -171,28 +172,37 @@ def get_metadata(job_id):
         data = json.load(f)
     return data
 
-def in_db(imdb_id, barcode_type, frame_type, metric):
+def find_existing_analysis(imdb_id, barcode_type, frame_type, metric):
     if imdb_id is None:
-        return False
+        return None
 
     con = sqlite3.connect(films_db)
     cur = con.cursor()
 
     cur.execute(
-        "SELECT 1 " \
+        "SELECT films.id " \
         "FROM analyzed_files " \
         "JOIN films ON analyzed_files.film_id = films.id " \
         "WHERE films.imdb_id = ? " \
         "AND analyzed_files.barcode_type = ? " \
         "AND analyzed_files.frame_type = ? " \
         "AND analyzed_files.metric = ? " \
+        "ORDER BY analyzed_files.process_date DESC " \
         "LIMIT 1" \
         ";", (imdb_id, barcode_type, frame_type, metric))
-    exists = cur.fetchone() is not None
+    row = cur.fetchone()
 
     con.close()
 
-    return exists
+    return row[0] if row else None
+
+def write_duplicate_marker(output_dir, existing_job_id):
+    duplicate_path = Path(output_dir) / "duplicate.json"
+    with duplicate_path.open("w") as f:
+        json.dump({
+            "existing_job_id": existing_job_id,
+            "detected_at": datetime.utcnow().isoformat() + "Z",
+        }, f, indent=2)
 
 def update_search_table(film_id):
     con = sqlite3.connect(films_db)
@@ -535,12 +545,16 @@ def main(args=sys.argv[1:]):
     create_db()
 
     metadata = get_metadata(args.job_id)
-    if in_db(metadata.get("movie").get("imdb_id"),
+    movie_metadata = metadata.get("movie") or {}
+    existing_job_id = find_existing_analysis(movie_metadata.get("imdb_id"),
              metadata["config"]["barcode_type"].lower(),
              metadata["config"]["frame_type"].lower(),
-             metadata["config"]["color_metric"].lower()):
+             metadata["config"]["color_metric"].lower())
+    if existing_job_id and not args.force_reprocess:
         # NOTE: This prevents rerunning a film with the same parameters
         # This should not be an issue unless a film had issues with how it was ripped
+        print(f"Equivalent analysis already exists for this movie/configuration: {existing_job_id}")
+        write_duplicate_marker(args.output_dir, existing_job_id)
         return 0
 
     print()

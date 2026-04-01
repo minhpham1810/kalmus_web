@@ -17,10 +17,66 @@ const DB_PATH =
 
 let db: Database.Database | null = null;
 
+function normalizeAnalysisValue(value: string | null | undefined): string {
+  return (value || "").trim().toLowerCase();
+}
+
 export function getDb(): Database.Database {
   if (!db) {
     db = new Database(DB_PATH, { readonly: true });
     db.pragma("journal_mode = WAL");
   }
   return db;
+}
+
+export function getAnalysesByImdbId(imdbId: string): FilmSearchResult[] {
+  return getDb()
+    .prepare(
+      `SELECT f.id, f.title, f.imdb_id, f.released,
+              af.barcode_type, af.frame_type, af.metric, af.process_date
+       FROM films f
+       INNER JOIN analyzed_files af ON f.id = af.film_id
+       WHERE LOWER(f.imdb_id) = LOWER(?)
+       ORDER BY af.process_date DESC`
+    )
+    .all(imdbId) as FilmSearchResult[];
+}
+
+export function findDuplicateAnalyses(
+  imdbId: string | null | undefined,
+  analysisConfig: {
+    barcode_type?: string | null;
+    frame_type?: string | null;
+    color_metric?: string | null;
+  }
+): {
+  analyses: FilmSearchResult[];
+  exactMatches: FilmSearchResult[];
+  exactMatch: FilmSearchResult | null;
+} {
+  if (!imdbId) {
+    return {
+      analyses: [],
+      exactMatches: [],
+      exactMatch: null,
+    };
+  }
+
+  const analyses = getAnalysesByImdbId(imdbId);
+  const barcodeType = normalizeAnalysisValue(analysisConfig.barcode_type);
+  const frameType = normalizeAnalysisValue(analysisConfig.frame_type);
+  const metric = normalizeAnalysisValue(analysisConfig.color_metric);
+
+  const exactMatches = analyses.filter(
+    (analysis) =>
+      normalizeAnalysisValue(analysis.barcode_type) === barcodeType &&
+      normalizeAnalysisValue(analysis.frame_type) === frameType &&
+      normalizeAnalysisValue(analysis.metric) === metric
+  );
+
+  return {
+    analyses,
+    exactMatches,
+    exactMatch: exactMatches[0] || null,
+  };
 }

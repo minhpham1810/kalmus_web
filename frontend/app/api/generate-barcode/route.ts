@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { submitSlurmJob, JobConfig } from '@/lib/slurm';
 import { streamToHPC } from '@/lib/hpc-transfer';
+import { findDuplicateAnalyses } from '@/lib/db';
 import { Readable } from 'stream';
 import type { ReadableStream as NodeReadableStream } from 'stream/web';
 
@@ -37,6 +38,7 @@ export async function POST(request: NextRequest) {
       save_thumbnails: (formData.get('save_thumbnails') as string) === 'true',
       partition: (formData.get('partition') as string) || 'short',
       email: (formData.get('email') as string) || undefined,
+      force_reprocess: (formData.get('force_reprocess') as string) === 'true',
     };
 
     // Parse movie metadata (JSON-encoded form field)
@@ -44,6 +46,24 @@ export async function POST(request: NextRequest) {
     const movieRaw = formData.get('movie') as string | null;
     if (movieRaw) {
       try { movie = JSON.parse(movieRaw); } catch { /* ignore malformed */ }
+    }
+
+    const duplicateMatch = findDuplicateAnalyses(
+      (movie?.imdb_id as string | undefined) || null,
+      {
+        barcode_type: config.barcode_type,
+        frame_type: config.frame_type,
+        color_metric: config.color_metric,
+      }
+    );
+
+    if (duplicateMatch.exactMatch && !config.force_reprocess) {
+      return NextResponse.json({
+        success: true,
+        duplicate: true,
+        existingJobId: duplicateMatch.exactMatch.id,
+        existingAnalysis: duplicateMatch.exactMatch,
+      });
     }
 
     // Extract user info from headers (if available from upstream auth)

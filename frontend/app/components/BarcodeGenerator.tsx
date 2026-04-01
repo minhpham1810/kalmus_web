@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import FileUpload from "./FileUpload";
 import ConfigPanel from "./ConfigPanel";
@@ -18,6 +18,18 @@ export interface BarcodeConfig {
   partition?: string;
   email?: string;
 }
+
+interface ExistingAnalysis {
+  id: string;
+  barcode_type: string;
+  frame_type: string;
+  metric: string;
+}
+
+type DuplicateCheckConfig = Pick<
+  BarcodeConfig,
+  "barcode_type" | "color_metric" | "frame_type"
+>;
 
 export default function BarcodeGenerator() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -40,19 +52,58 @@ export default function BarcodeGenerator() {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [movieInfo, setMovieInfo] = useState<MovieInfo | null>(null);
   const [existingAnalyses, setExistingAnalyses] = useState<
-    { id: string; barcode_type: string; frame_type: string; metric: string }[]
+    ExistingAnalysis[]
   >([]);
+  const [exactDuplicate, setExactDuplicate] = useState<ExistingAnalysis | null>(null);
+  const [duplicateCheckLoading, setDuplicateCheckLoading] = useState(false);
+  const [forceReprocess, setForceReprocess] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const xhrRef = useRef<XMLHttpRequest | null>(null);
   const router = useRouter();
 
-  const movieStepComplete = movieInfo !== null && existingAnalyses.length === 0;
+  const movieStepComplete = movieInfo !== null;
   const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
+
+  const resetDuplicateState = () => {
+    setExistingAnalyses([]);
+    setExactDuplicate(null);
+    setDuplicateCheckLoading(false);
+    setForceReprocess(false);
+  };
+
+  const getDuplicateCheckUrl = useCallback((movie: MovieInfo | null, currentConfig: DuplicateCheckConfig) => {
+    if (!movie || !("imdb_id" in movie) || !movie.imdb_id) {
+      return null;
+    }
+
+    return `/api/duplicate-check?imdb_id=${encodeURIComponent(movie.imdb_id)}&barcode_type=${encodeURIComponent(currentConfig.barcode_type)}&frame_type=${encodeURIComponent(currentConfig.frame_type)}&color_metric=${encodeURIComponent(currentConfig.color_metric)}`;
+  }, []);
+
+  const fetchDuplicateState = useCallback(async (movie: MovieInfo | null, currentConfig: DuplicateCheckConfig) => {
+    const url = getDuplicateCheckUrl(movie, currentConfig);
+    if (!url) {
+      return {
+        analyses: [] as ExistingAnalysis[],
+        exactMatch: null as ExistingAnalysis | null,
+      };
+    }
+
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error("Failed to check for existing analyses");
+    }
+
+    const data = await response.json();
+    return {
+      analyses: (data.analyses || []) as ExistingAnalysis[],
+      exactMatch: (data.exactMatch || null) as ExistingAnalysis | null,
+    };
+  }, [getDuplicateCheckUrl]);
 
   const handleFileSelect = (file: File | null) => {
     setSelectedFile(file);
     setMovieInfo(null);
-    setExistingAnalyses([]);
+    resetDuplicateState();
     setSubmitted(false);
     setError(null);
     setJobId(null);
@@ -60,24 +111,66 @@ export default function BarcodeGenerator() {
 
   const handleMovieChange = async (movie: MovieInfo | null) => {
     setMovieInfo(movie);
-    setExistingAnalyses([]);
-    if (!movie || !("imdb_id" in movie) || !movie.imdb_id) return;
-    try {
-      const res = await fetch(
-        `/api/search-films?q=${encodeURIComponent(movie.imdb_id)}`
-      );
-      const data = await res.json();
-      if (data.results?.length > 0) {
-        setExistingAnalyses(data.results);
-      }
-    } catch {
-      // silently ignore — don't block the upload flow
-    }
+    setForceReprocess(false);
   };
 
   const handleConfigChange = (newConfig: Partial<BarcodeConfig>) => {
     setConfig((prev) => ({ ...prev, ...newConfig }));
+    setForceReprocess(false);
   };
+
+  useEffect(() => {
+    let cancelled = false;
+    const duplicateCheckConfig: DuplicateCheckConfig = {
+      barcode_type: config.barcode_type,
+      color_metric: config.color_metric,
+      frame_type: config.frame_type,
+    };
+
+    const runDuplicateCheck = async () => {
+      const url = getDuplicateCheckUrl(movieInfo, duplicateCheckConfig);
+      if (!url) {
+        if (!cancelled) {
+          setExistingAnalyses([]);
+          setExactDuplicate(null);
+          setDuplicateCheckLoading(false);
+        }
+        return;
+      }
+
+      setDuplicateCheckLoading(true);
+
+      try {
+        const duplicateState = await fetchDuplicateState(movieInfo, duplicateCheckConfig);
+        if (!cancelled) {
+          setExistingAnalyses(duplicateState.analyses);
+          setExactDuplicate(duplicateState.exactMatch);
+        }
+      } catch {
+        if (!cancelled) {
+          setExistingAnalyses([]);
+          setExactDuplicate(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setDuplicateCheckLoading(false);
+        }
+      }
+    };
+
+    void runDuplicateCheck();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    movieInfo,
+    config.barcode_type,
+    config.color_metric,
+    config.frame_type,
+    fetchDuplicateState,
+    getDuplicateCheckUrl,
+  ]);
 
   // Helper: Determine optimal chunk size based on file size
   const getOptimalChunkSize = (fileSize: number): number => {
@@ -186,6 +279,19 @@ export default function BarcodeGenerator() {
     abortRef.current = abortController;
 
     try {
+      const duplicateState = await fetchDuplicateState(movieInfo, {
+        barcode_type: config.barcode_type,
+        color_metric: config.color_metric,
+        frame_type: config.frame_type,
+      });
+      setExistingAnalyses(duplicateState.analyses);
+      setExactDuplicate(duplicateState.exactMatch);
+
+      if (duplicateState.exactMatch && !forceReprocess) {
+        setError("An equivalent analysis already exists. View the existing result or choose Reprocess anyway.");
+        return;
+      }
+
       // Use chunked upload for files larger than 50MB
       const useChunkedUpload = selectedFile.size > 50 * 1024 * 1024;
 
@@ -213,6 +319,7 @@ export default function BarcodeGenerator() {
               save_thumbnails: config.save_thumbnails.toString(),
               partition: config.partition || "short",
               email: config.email,
+              force_reprocess: forceReprocess.toString(),
             },
             movie: movieInfo,
           }),
@@ -224,6 +331,11 @@ export default function BarcodeGenerator() {
         }
 
         const data = await assembleResponse.json();
+        if (data.duplicate && data.existingJobId) {
+          router.push(`/results/${data.existingJobId}`);
+          return;
+        }
+
         setJobId(data.jobId);
         setSubmitted(true);
         router.push(`/submitted/${data.jobId}`);
@@ -242,6 +354,7 @@ export default function BarcodeGenerator() {
         formData.append("partition", config.partition || "short");
         formData.append("email", config.email);
         formData.append("movie", JSON.stringify(movieInfo));
+        formData.append("force_reprocess", forceReprocess.toString());
 
         // Use XMLHttpRequest for upload progress tracking
         const xhr = new XMLHttpRequest();
@@ -258,6 +371,11 @@ export default function BarcodeGenerator() {
             if (xhr.status === 200) {
               try {
                 const data = JSON.parse(xhr.responseText);
+                if (data.duplicate && data.existingJobId) {
+                  router.push(`/results/${data.existingJobId}`);
+                  resolve();
+                  return;
+                }
                 setJobId(data.jobId);
                 setSubmitted(true);
                 router.push(`/submitted/${data.jobId}`);
@@ -312,6 +430,7 @@ export default function BarcodeGenerator() {
   const handleNewUpload = () => {
     setSelectedFile(null);
     setMovieInfo(null);
+    resetDuplicateState();
     setSubmitted(false);
     setJobId(null);
     setError(null);
@@ -348,43 +467,6 @@ export default function BarcodeGenerator() {
                 <MovieSearchInput key={selectedFile.name} onChange={handleMovieChange} />
               </div>
 
-              {/* Already-in-DB prompt */}
-              {movieInfo && existingAnalyses.length > 0 && (
-                <div className="panel-bg p-6" style={{ border: '1px solid var(--surface-border)', borderLeftWidth: 3, borderLeftColor: 'var(--accent-amber)' }}>
-                  <p className="font-mono text-xs kalmus-text-primary mb-1">
-                    This film has already been analyzed.
-                  </p>
-                  <p className="font-mono text-[10px] kalmus-text-secondary mb-4">
-                    Would you like to view its analytics dashboard, or continue uploading?
-                  </p>
-                  <div className="space-y-2 mb-5">
-                    {existingAnalyses.map((a) => (
-                      <div key={a.id} className="flex items-center justify-between font-mono text-[10px] kalmus-text-secondary">
-                        <span>
-                          <span className="px-1.5 py-0.5 mr-2" style={{ background: 'var(--surface-bg-strong)', color: 'var(--accent-amber)' }}>
-                            {a.barcode_type}
-                          </span>
-                          {a.frame_type.replace(/_/g, " ")} · {a.metric}
-                        </span>
-                        <button
-                          onClick={() => router.push(`/results/${a.id}`)}
-                          className="underline transition-colors hover:text-[var(--text-primary)]"
-                          style={{ color: 'var(--accent-amber)' }}
-                        >
-                          View
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                  <button
-                    onClick={() => setExistingAnalyses([])}
-                    className="font-mono text-[10px] underline kalmus-text-secondary hover:text-[var(--text-primary)] transition-colors"
-                  >
-                    Upload anyway
-                  </button>
-                </div>
-              )}
-
               {movieStepComplete && (
                 <>
                   <div className="panel-bg p-6" style={{ border: '1px solid var(--surface-border)', borderLeftWidth: 3, borderLeftColor: 'var(--accent-crimson)' }}>
@@ -393,6 +475,77 @@ export default function BarcodeGenerator() {
                     </h2>
                     <ConfigPanel config={config} onConfigChange={handleConfigChange} />
                   </div>
+
+                  {movieInfo && existingAnalyses.length > 0 && (
+                    <div className="panel-bg p-6" style={{ border: '1px solid var(--surface-border)', borderLeftWidth: 3, borderLeftColor: exactDuplicate && !forceReprocess ? 'var(--accent-amber)' : 'var(--accent-crimson)' }}>
+                      <div className="flex items-start justify-between gap-4 mb-4">
+                        <div>
+                          <p className="font-mono text-xs kalmus-text-primary mb-1">
+                            {exactDuplicate && !forceReprocess
+                              ? "An equivalent analysis already exists for these settings."
+                              : exactDuplicate && forceReprocess
+                                ? "Reprocessing override enabled for an existing analysis."
+                                : "This film already has analyses in the database."}
+                          </p>
+                          <p className="font-mono text-[10px] kalmus-text-secondary">
+                            {duplicateCheckLoading
+                              ? "Checking current settings against saved analyses..."
+                              : exactDuplicate && !forceReprocess
+                                ? "Reuse the existing dashboard by default, or explicitly choose to reprocess."
+                                : exactDuplicate && forceReprocess
+                                  ? "Submitting now will generate a new run for the same movie and configuration."
+                                  : "Existing analyses are listed below; different settings can still be submitted normally."}
+                          </p>
+                        </div>
+                        {exactDuplicate && (
+                          <div className="flex gap-2 shrink-0">
+                            <button
+                              onClick={() => router.push(`/results/${exactDuplicate.id}`)}
+                              className="px-3 py-1.5 font-mono text-[10px] tracking-[0.12em] uppercase transition-all hover:opacity-90"
+                              style={{ background: 'var(--accent-amber)', color: 'var(--background)' }}
+                            >
+                              View Existing
+                            </button>
+                            <button
+                              onClick={() => setForceReprocess((prev) => !prev)}
+                              className="px-3 py-1.5 font-mono text-[10px] tracking-[0.12em] uppercase transition-all kalmus-text-secondary hover:text-[var(--text-primary)]"
+                              style={{ border: '1px solid var(--input-border)' }}
+                            >
+                              {forceReprocess ? "Cancel Reprocess" : "Reprocess Anyway"}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="space-y-2">
+                        {existingAnalyses.map((a) => {
+                          const isExactMatch = exactDuplicate?.id === a.id;
+                          return (
+                            <div key={a.id} className="flex items-center justify-between font-mono text-[10px] kalmus-text-secondary">
+                              <span>
+                                <span className="px-1.5 py-0.5 mr-2" style={{ background: 'var(--surface-bg-strong)', color: isExactMatch ? 'var(--accent-amber)' : 'var(--text-secondary)' }}>
+                                  {a.barcode_type}
+                                </span>
+                                {a.frame_type.replace(/_/g, " ")} · {a.metric}
+                                {isExactMatch && (
+                                  <span className="ml-2" style={{ color: 'var(--accent-amber)' }}>
+                                    matching config
+                                  </span>
+                                )}
+                              </span>
+                              <button
+                                onClick={() => router.push(`/results/${a.id}`)}
+                                className="underline transition-colors hover:text-[var(--text-primary)]"
+                                style={{ color: isExactMatch ? 'var(--accent-amber)' : 'var(--text-secondary)' }}
+                              >
+                                View
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
 
                   {isSubmitting && uploadProgress > 0 && (
                     <div className="panel-bg p-6" style={{ border: '1px solid var(--surface-border)' }}>
@@ -432,7 +585,7 @@ export default function BarcodeGenerator() {
                   <div className="flex justify-end">
                     <button
                       onClick={handleSubmit}
-                      disabled={isSubmitting || !config.email}
+                      disabled={isSubmitting || !config.email || duplicateCheckLoading || (!!exactDuplicate && !forceReprocess)}
                       className="px-6 py-2.5 font-mono text-[11px] tracking-[0.22em] uppercase transition-all hover:opacity-90 hover:-translate-y-0.5 disabled:opacity-40 disabled:cursor-not-allowed"
                       style={{ background: 'var(--accent-crimson)', color: 'var(--foreground)', borderRadius: 0 }}
                     >
@@ -457,7 +610,7 @@ export default function BarcodeGenerator() {
                           {uploadProgress < 100 ? `Uploading ${uploadProgress}%` : "Submitting..."}
                         </span>
                       ) : (
-                        "Submit Job"
+                        exactDuplicate && !forceReprocess ? "Existing Analysis Found" : "Submit Job"
                       )}
                     </button>
                   </div>

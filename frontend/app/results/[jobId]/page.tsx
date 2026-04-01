@@ -1,13 +1,15 @@
 "use client";
 
-import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import VisualizationPanel from "@/app/components/VisualizationPanel";
 
 interface JobMetadata {
   success: boolean;
+  duplicate?: boolean;
+  existingJobId?: string;
   message?: string;
   metadata?: {
     videoFilename: string;
@@ -31,17 +33,15 @@ interface JobMetadata {
 export default function ResultsPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const jobId = params.jobId as string;
+  const reusedFrom = searchParams.get("reusedFrom");
 
   const [jobData, setJobData] = useState<JobMetadata | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadJobData();
-  }, [jobId]);
-
-  const loadJobData = async () => {
+  const loadJobData = useCallback(async () => {
     try {
       const response = await fetch(`/api/job-result/${jobId}`);
       if (!response.ok) {
@@ -55,7 +55,17 @@ export default function ResultsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [jobId]);
+
+  useEffect(() => {
+    loadJobData();
+  }, [loadJobData]);
+
+  useEffect(() => {
+    if (jobData?.duplicate && jobData.existingJobId) {
+      router.replace(`/results/${jobData.existingJobId}?reusedFrom=${jobId}`);
+    }
+  }, [jobData, jobId, router]);
 
   const handleProcessAnother = () => {
     router.push("/upload");
@@ -92,6 +102,43 @@ export default function ResultsPage() {
           </div>
           <p className="font-mono text-xs tracking-[0.18em] uppercase kalmus-text-secondary">
             Retrieving barcode analysis...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (jobData?.duplicate) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div
+            className="inline-flex items-center justify-center w-16 h-16 panel-bg mb-4"
+            style={{ border: '1px solid var(--accent-amber)' }}
+          >
+            <svg
+              className="animate-spin h-6 w-6"
+              style={{ color: 'var(--accent-amber)' }}
+              viewBox="0 0 24 24"
+            >
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+                fill="none"
+              />
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+              />
+            </svg>
+          </div>
+          <p className="font-mono text-xs tracking-[0.18em] uppercase kalmus-text-secondary">
+            Reusing existing analysis...
           </p>
         </div>
       </div>
@@ -178,6 +225,14 @@ export default function ResultsPage() {
           </div>
 
           {/* Header */}
+          {reusedFrom && (
+            <div className="panel-bg p-4 mb-6" style={{ border: '1px solid var(--accent-amber)', borderLeftWidth: 3 }}>
+              <p className="font-mono text-[10px] kalmus-text-secondary">
+                Equivalent analysis request <code className="kalmus-text-primary">{reusedFrom.slice(0, 8)}</code> matched an existing result. Showing the saved dashboard instead of creating a duplicate run.
+              </p>
+            </div>
+          )}
+
           <div className="mb-8 flex items-start justify-between">
             <div>
               <div className="font-mono text-[9px] tracking-[0.35em] uppercase kalmus-text-secondary mb-1">
