@@ -3,7 +3,7 @@
 import { useCallback } from "react";
 
 interface FileUploadProps {
-  onFileSelect: (file: File) => void;
+  onFileSelect: (file: File | null) => void;
   selectedFile: File | null;
 }
 
@@ -52,8 +52,18 @@ export default function FileUpload({
       <div
         onDragOver={handleDragOver}
         onDrop={handleDrop}
-        className="border border-dashed border-neutral-300 dark:border-neutral-600 rounded p-10 text-center hover:border-neutral-400 dark:hover:border-neutral-500 transition-colors cursor-pointer"
+        className="relative p-10 text-center cursor-pointer transition-all group"
+        style={{
+          border: '1px solid var(--accent-crimson)',
+          borderStyle: 'dashed',
+        }}
       >
+        {/* Corner brackets */}
+        <span aria-hidden className="absolute top-2 left-2 font-mono text-[10px] leading-none" style={{ color: 'var(--accent-amber)', opacity: 0.7 }}>⌐</span>
+        <span aria-hidden className="absolute top-2 right-2 font-mono text-[10px] leading-none" style={{ color: 'var(--accent-amber)', opacity: 0.7 }}>¬</span>
+        <span aria-hidden className="absolute bottom-2 left-2 font-mono text-[10px] leading-none" style={{ color: 'var(--accent-amber)', opacity: 0.7 }}>L</span>
+        <span aria-hidden className="absolute bottom-2 right-2 font-mono text-[10px] leading-none" style={{ color: 'var(--accent-amber)', opacity: 0.7 }}>J</span>
+
         <input
           type="file"
           id="video-upload"
@@ -63,8 +73,10 @@ export default function FileUpload({
         />
         <label htmlFor="video-upload" className="cursor-pointer">
           <div className="flex flex-col items-center gap-3">
+            {/* Film reel SVG */}
             <svg
-              className="w-12 h-12 text-neutral-400 dark:text-neutral-500"
+              className="w-10 h-10"
+              style={{ color: 'var(--accent-crimson)' }}
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -72,16 +84,16 @@ export default function FileUpload({
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                strokeWidth={1.5}
-                d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                strokeWidth={1.2}
+                d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
               />
             </svg>
             <div>
-              <p className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
-                Drop video or click to browse
+              <p className="font-mono text-xs tracking-[0.15em] uppercase kalmus-text-primary">
+                Drop footage or click to load
               </p>
-              <p className="text-xs text-neutral-500 dark:text-neutral-500 mt-1">
-                MP4, AVI, MOV, MKV, FLV, WMV
+              <p className="font-mono text-[10px] kalmus-text-muted mt-1 tracking-wider">
+                MP4 · AVI · MOV · MKV · FLV · WMV
               </p>
             </div>
           </div>
@@ -89,11 +101,12 @@ export default function FileUpload({
       </div>
 
       {selectedFile && (
-        <div className="mt-3 p-3 bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded">
+        <div className="kalmus-surface mt-3 p-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <svg
-                className="w-5 h-5 text-neutral-600 dark:text-neutral-400"
+                className="w-4 h-4 flex-shrink-0"
+                style={{ color: 'var(--accent-amber)' }}
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -106,21 +119,22 @@ export default function FileUpload({
                 />
               </svg>
               <div>
-                <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
+                <p className="font-mono text-xs kalmus-text-primary">
                   {selectedFile.name}
                 </p>
-                <p className="text-xs text-neutral-500 dark:text-neutral-500">
+                <p className="font-mono text-[10px] kalmus-text-secondary">
                   {formatFileSize(selectedFile.size)}
                 </p>
               </div>
             </div>
             <button
-              onClick={() => onFileSelect(null as any)}
-              className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors"
+              onClick={() => onFileSelect(null)}
+              className="transition-colors"
+              style={{ color: 'var(--accent-crimson)' }}
               title="Remove file"
             >
               <svg
-                className="w-5 h-5"
+                className="w-4 h-4"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"

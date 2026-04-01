@@ -29,6 +29,14 @@ interface MovieSearchInputProps {
 
 const IMDB_ID_RE = /^tt\d{7,8}$/i;
 
+const inputStyle = {
+  width: '100%',
+  padding: '8px 32px 8px 12px',
+  fontSize: '13px',
+  fontFamily: 'inherit',
+  outline: 'none',
+} as React.CSSProperties;
+
 export default function MovieSearchInput({ onChange }: MovieSearchInputProps) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -162,23 +170,23 @@ export default function MovieSearchInput({ onChange }: MovieSearchInputProps) {
   // ─── Selected OMDb movie card ───
   if (selected) {
     return (
-      <div className="flex items-start gap-3">
+      <div className="kalmus-surface flex items-start gap-3 p-3">
         {selected.poster_url && (
           <img
             src={selected.poster_url}
             alt={selected.title}
-            className="w-12 rounded border border-neutral-200 dark:border-neutral-700"
-            style={{ maxHeight: "72px", objectFit: "cover" }}
+            className="w-10 flex-shrink-0"
+            style={{ maxHeight: "60px", objectFit: "cover", border: '1px solid var(--surface-border)' }}
           />
         )}
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
+          <p className="font-mono text-xs kalmus-text-primary truncate">
             {selected.title}{" "}
-            <span className="font-normal text-neutral-500 dark:text-neutral-400">
+            <span style={{ color: 'var(--accent-amber)' }}>
               ({selected.year})
             </span>
           </p>
-          <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate">
+          <p className="font-mono text-[10px] kalmus-text-secondary truncate mt-0.5">
             {[
               selected.genre,
               selected.director && `Dir. ${selected.director}`,
@@ -189,7 +197,8 @@ export default function MovieSearchInput({ onChange }: MovieSearchInputProps) {
         </div>
         <button
           onClick={handleClear}
-          className="text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-300 transition-colors flex-shrink-0"
+          className="transition-colors flex-shrink-0"
+          style={{ color: 'var(--accent-crimson)' }}
         >
           <svg
             className="w-4 h-4"
@@ -212,18 +221,19 @@ export default function MovieSearchInput({ onChange }: MovieSearchInputProps) {
   // ─── Manual title card ───
   if (submittedManual) {
     return (
-      <div className="flex items-center gap-3">
+      <div className="kalmus-surface flex items-center gap-3 p-3">
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100 truncate">
+          <p className="font-mono text-xs kalmus-text-primary truncate">
             {submittedManual}
           </p>
-          <p className="text-xs text-neutral-500 dark:text-neutral-400">
+          <p className="font-mono text-[10px] kalmus-text-secondary">
             Entered manually
           </p>
         </div>
         <button
           onClick={handleClear}
-          className="text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-300 transition-colors flex-shrink-0"
+          className="transition-colors flex-shrink-0"
+          style={{ color: 'var(--accent-crimson)' }}
         >
           <svg
             className="w-4 h-4"
@@ -258,12 +268,14 @@ export default function MovieSearchInput({ onChange }: MovieSearchInputProps) {
             if (results.length > 0) setShowDropdown(true);
           }}
           placeholder="Title or IMDb ID (e.g. tt1234567)"
-          className="w-full px-3 py-2 pr-8 text-sm border border-neutral-300 dark:border-neutral-600 rounded bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:border-neutral-500 dark:focus:border-neutral-400"
+          className="kalmus-input"
+          style={inputStyle}
         />
         {loading && (
           <div className="absolute right-3 top-1/2 -translate-y-1/2">
             <svg
-              className="animate-spin h-4 w-4 text-neutral-400"
+              className="animate-spin h-4 w-4"
+              style={{ color: 'var(--accent-amber)' }}
               viewBox="0 0 24 24"
             >
               <circle
@@ -287,7 +299,7 @@ export default function MovieSearchInput({ onChange }: MovieSearchInputProps) {
 
       {/* Result rows */}
       {showDropdown && results.length > 0 && (
-        <div className="absolute top-full mt-1 left-0 right-0 z-10 panel-bg border border-neutral-200 dark:border-neutral-700 rounded shadow-lg max-h-56 overflow-y-auto">
+        <div className="absolute top-full mt-1 left-0 right-0 z-10 max-h-56 overflow-y-auto" style={{ background: 'var(--panel-gradient)', border: '1px solid var(--input-border)' }}>
           {results.map((r) => (
             <button
               key={r.imdbID}
@@ -295,21 +307,24 @@ export default function MovieSearchInput({ onChange }: MovieSearchInputProps) {
                 setShowDropdown(false);
                 fetchDetails(r.imdbID);
               }}
-              className="w-full text-left flex items-center gap-3 px-3 py-2 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
+              className="w-full text-left flex items-center gap-3 px-3 py-2 transition-colors"
+              style={{ borderBottom: '1px solid var(--surface-border)' }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-hover)')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
             >
               {r.Poster && (
                 <img
                   src={r.Poster}
                   alt={r.Title}
-                  className="w-8 rounded flex-shrink-0"
-                  style={{ maxHeight: "40px", objectFit: "cover" }}
+                  className="w-7 flex-shrink-0"
+                  style={{ maxHeight: "36px", objectFit: "cover", border: '1px solid var(--surface-border)' }}
                 />
               )}
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100 truncate">
+                <p className="font-mono text-xs kalmus-text-primary truncate">
                   {r.Title}
                 </p>
-                <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                <p className="font-mono text-[10px] kalmus-text-secondary">
                   {r.Year} · {r.imdbID}
                 </p>
               </div>
@@ -324,8 +339,8 @@ export default function MovieSearchInput({ onChange }: MovieSearchInputProps) {
         !loading &&
         query.trim().length >= 2 &&
         !error && (
-          <div className="absolute top-full mt-1 left-0 right-0 z-10 panel-bg border border-neutral-200 dark:border-neutral-700 rounded shadow-lg px-3 py-2">
-            <p className="text-xs text-neutral-500 dark:text-neutral-400">
+          <div className="absolute top-full mt-1 left-0 right-0 z-10 px-3 py-2" style={{ background: 'var(--panel-gradient)', border: '1px solid var(--input-border)' }}>
+            <p className="font-mono text-[10px] kalmus-text-secondary">
               No results found.
             </p>
           </div>
@@ -333,7 +348,7 @@ export default function MovieSearchInput({ onChange }: MovieSearchInputProps) {
 
       {/* Error banner */}
       {error && (
-        <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
+        <p className="mt-2 font-mono text-[10px] kalmus-text-secondary">
           {error}
         </p>
       )}
@@ -349,12 +364,14 @@ export default function MovieSearchInput({ onChange }: MovieSearchInputProps) {
               if (e.key === "Enter") handleManualSubmit();
             }}
             placeholder="Movie title"
-            className="flex-1 px-3 py-1.5 text-sm border border-neutral-300 dark:border-neutral-600 rounded bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:border-neutral-500 dark:focus:border-neutral-400"
+            className="kalmus-input"
+            style={{ ...inputStyle, padding: '6px 12px' }}
           />
           <button
             onClick={handleManualSubmit}
             disabled={!manualInputValue.trim()}
-            className="px-3 py-1.5 text-xs font-medium bg-neutral-200 dark:bg-neutral-600 text-neutral-800 dark:text-neutral-200 rounded hover:bg-neutral-300 dark:hover:bg-neutral-500 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            className="px-3 py-1.5 font-mono text-[10px] tracking-wider uppercase transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{ background: 'var(--surface-bg-strong)', border: '1px solid var(--accent-crimson)', color: 'var(--accent-amber)', borderRadius: 0 }}
           >
             Use This
           </button>
@@ -365,7 +382,9 @@ export default function MovieSearchInput({ onChange }: MovieSearchInputProps) {
       {!showManualInput && (
         <button
           onClick={() => setShowManualInput(true)}
-          className="mt-2 text-xs text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 underline"
+          className="mt-2 font-mono text-[10px] underline kalmus-text-muted transition-colors"
+          onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-secondary)')}
+          onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
         >
           Enter title manually
         </button>

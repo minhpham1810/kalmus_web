@@ -9,7 +9,7 @@ export default function AboutPage() {
           <div className="mb-10">
             <Link
               href="/"
-              className="text-xs text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 transition-colors"
+              className="text-xs kalmus-text-secondary hover:text-[var(--text-primary)] transition-colors"
             >
               ← Back
             </Link>
@@ -26,7 +26,7 @@ export default function AboutPage() {
             />
           </div>
 
-          <div className="space-y-6 text-sm text-neutral-700 dark:text-neutral-300 font-light leading-relaxed">
+          <div className="space-y-6 text-sm kalmus-text-secondary font-light leading-relaxed">
 
 
             <p>Contents go here

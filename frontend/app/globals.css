@@ -7,7 +7,6 @@
   --foreground: #171717;
 }
 
-
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -21,63 +20,137 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
-/* ── Per-theme colour overrides ─────────────────────────────────────────────
-   Tailwind v4 resolves utilities through CSS vars (bg-neutral-800 →
-   var(--color-neutral-800)), so overriding them here cascades automatically
-   to every panel, button, border, and hover that uses those tokens.
-
-   Dark modes (grey10/grey40/grey60): override the dark: palette slots.
-     neutral-800 → panel bg | neutral-900 → inset panel bg
-     neutral-700 → hover bg | neutral-600 → secondary borders
-
-   Light mode (grey90 only): override the base palette slots.
-     white       → primary panel bg   | neutral-50  → alt panel bg
-     neutral-100 → inset panels+hover | neutral-200 → dividers/borders
-     neutral-300 → dashed/sec borders | neutral-400/500/600 → text
-
-   panel-bg utility applies --panel-gradient as the panel background.
-   ──────────────────────────────────────────────────────────────────────── */
-
+/* ── Panel utility ───────────────────────────────────────────────────────── */
 @utility panel-bg {
   background: var(--panel-gradient);
 }
 
+/* ── Custom scrollbar ────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #555; border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: #777; }
+
+/* ── Default / pre-hydration vars (match grey10) ────────────────────────── */
 :root {
-  /* Default (pre-hydration): match grey10 */
   --panel-gradient: linear-gradient(135deg, #1e1e1e 0%, #2e2e2e 100%);
+
+  /* Text hierarchy */
+  --text-primary:      #e0e0e0;
+  --text-secondary:    #9a9a9a;
+  --text-muted:        #7f7f7f;
+
+  /* Surface tokens */
+  --surface-bg:        rgba(100,100,100,0.06);
+  --surface-bg-strong: rgba(100,100,100,0.1);
+  --surface-hover:     rgba(100,100,100,0.12);
+  --surface-border:    rgba(100,100,100,0.3);
+  --input-border:      rgba(100,100,100,0.4);
+
+  /* Input fields */
+  --input-bg:          rgba(255,255,255,0.07);
+  --input-text:        #e0e0e0;
+  --input-placeholder: #8a8a8a;
+
+  /* Accent neutrals (used for borders, interactive text) */
+  --accent-crimson: #5a5a5a;
+  --accent-amber:   #9a9a9a;
 }
 
-/* grey10 — near-black; barely-visible panel lift above the dark background */
+/* ── grey10: near-black ──────────────────────────────────────────────────── */
 [data-bg-level="grey10"] {
+  --foreground:     #e5e5e5;
+
+  /* Tailwind panel/border tokens */
   --color-neutral-800: #1e1e1e;
   --color-neutral-900: #111111;
   --color-neutral-700: #2a2a2a;
   --color-neutral-600: #363636;
   --panel-gradient: linear-gradient(135deg, #1e1e1e 0%, #2e2e2e 100%);
+
+  /* Muted text — lifted so they pass 4.5:1 on panel (#2e2e2e) */
+  --color-neutral-500: #8a8a8a;   /* 4.5:1 vs #1e1e1e panel */
+  --color-neutral-400: #a8a8a8;   /* 6.0:1 vs panel */
+
+  --text-primary:      #e0e0e0;
+  --text-secondary:    #9a9a9a;
+  --text-muted:        #7f7f7f;
+  --surface-bg:        rgba(100,100,100,0.06);
+  --surface-bg-strong: rgba(100,100,100,0.1);
+  --surface-hover:     rgba(100,100,100,0.12);
+  --surface-border:    rgba(100,100,100,0.3);
+  --input-border:      rgba(100,100,100,0.4);
+  --input-bg:          rgba(255,255,255,0.07);
+  --input-text:        #e0e0e0;
+  --input-placeholder: #8a8a8a;
+  --accent-crimson:    #5a5a5a;
+  --accent-amber:      #9a9a9a;
 }
 
-/* grey40 — dark gradient; panels clearly elevated */
+/* ── grey40: dark ────────────────────────────────────────────────────────── */
 [data-bg-level="grey40"] {
+  --foreground:     #e5e5e5;
+
   --color-neutral-800: #2e2e2e;
   --color-neutral-900: #1f1f1f;
   --color-neutral-700: #3c3c3c;
   --color-neutral-600: #4a4a4a;
   --panel-gradient: linear-gradient(135deg, #2a2a2a 0%, #454545 100%);
+
+  /* Muted text — lifted so they pass 4.5:1 on panel (#2a-#45 range) */
+  --color-neutral-500: #9a9a9a;   /* 4.8:1 vs #2a2a2a panel */
+  --color-neutral-400: #b8b8b8;   /* 6.4:1 vs panel */
+
+  --text-primary:      #e0e0e0;
+  --text-secondary:    #ababab;
+  --text-muted:        #909090;
+  --surface-bg:        rgba(100,100,100,0.08);
+  --surface-bg-strong: rgba(100,100,100,0.12);
+  --surface-hover:     rgba(100,100,100,0.14);
+  --surface-border:    rgba(100,100,100,0.32);
+  --input-border:      rgba(100,100,100,0.42);
+  --input-bg:          rgba(255,255,255,0.10);
+  --input-text:        #e0e0e0;
+  --input-placeholder: #9a9a9a;
+  --accent-crimson:    #606060;
+  --accent-amber:      #a0a0a0;
 }
 
-/* grey60 — dark-to-mid gradient; DARK MODE — panels elevated to mid-dark */
+/* ── grey60: dark-to-mid (still dark mode, .dark applied) ───────────────── */
 [data-bg-level="grey60"] {
+  --foreground:     #e5e5e5;
+
   --color-neutral-800: #4a4a4a;
   --color-neutral-900: #383838;
   --color-neutral-700: #5a5a5a;
   --color-neutral-600: #6a6a6a;
   --panel-gradient: linear-gradient(135deg, #3a3a3a 0%, #575757 100%);
+
+  /* Muted text — lifted so they pass 4.5:1 on panel (#3a-#57 range) */
+  --color-neutral-500: #b8b8b8;   /* 4.8:1 vs #3a3a3a panel */
+  --color-neutral-400: #d0d0d0;   /* 6.5:1 vs panel */
+
+  --text-primary:      #eeeeee;
+  --text-secondary:    #c8c8c8;
+  --text-muted:        #aaaaaa;
+  --surface-bg:        rgba(255,255,255,0.08);
+  --surface-bg-strong: rgba(255,255,255,0.12);
+  --surface-hover:     rgba(255,255,255,0.16);
+  --surface-border:    rgba(255,255,255,0.24);
+  --input-border:      rgba(255,255,255,0.32);
+  --input-bg:          rgba(255,255,255,0.14);
+  --input-text:        #eeeeee;
+  --input-placeholder: #b0b0b0;
+  --accent-crimson:    #707070;
+  --accent-amber:      #b0b0b0;
 }
 
-/* grey90 — near-white; light mode — panels stay light */
+/* ── grey90: near-white (light mode, .dark NOT applied) ─────────────────── */
 [data-bg-level="grey90"] {
-  --color-white: #eeeeee;
-  --color-neutral-50: #e6e6e6;
+  --foreground:     #171717;
+
+  --color-white:       #eeeeee;
+  --color-neutral-50:  #e6e6e6;
   --color-neutral-100: #dadada;
   --color-neutral-200: #cccccc;
   --color-neutral-300: #c0c0c0;
@@ -85,4 +158,64 @@ body {
   --color-neutral-500: #555555;
   --color-neutral-600: #404040;
   --panel-gradient: linear-gradient(135deg, #d8d8d8 0%, #f0f0f0 100%);
+
+  --text-primary:      #1a1a1a;
+  --text-secondary:    #404040;
+  --text-muted:        #666666;
+  --surface-bg:        rgba(0,0,0,0.045);
+  --surface-bg-strong: rgba(0,0,0,0.07);
+  --surface-hover:     rgba(0,0,0,0.09);
+  --surface-border:    rgba(0,0,0,0.18);
+  --input-border:      rgba(0,0,0,0.22);
+  --input-bg:          rgba(0,0,0,0.06);
+  --input-text:        #1a1a1a;
+  --input-placeholder: #777777;
+  --accent-crimson:    #888888;   /* light enough for #171717 text: 5.1:1 contrast */
+  --accent-amber:      #555555;
+}
+
+.kalmus-input {
+  background: var(--input-bg);
+  color: var(--input-text);
+  border: 1px solid var(--input-border);
+  border-radius: 0;
+  caret-color: var(--input-text);
+  -webkit-text-fill-color: var(--input-text);
+}
+
+.kalmus-input:focus {
+  border-color: var(--accent-amber);
+}
+
+.kalmus-input option {
+  background: var(--panel-gradient);
+  color: var(--text-primary);
+}
+
+.kalmus-text-primary {
+  color: var(--text-primary);
+}
+
+.kalmus-text-secondary {
+  color: var(--text-secondary);
+}
+
+.kalmus-text-muted {
+  color: var(--text-muted);
+}
+
+.kalmus-surface {
+  background: var(--surface-bg);
+  border: 1px solid var(--surface-border);
+}
+
+.kalmus-surface-strong {
+  background: var(--surface-bg-strong);
+  border: 1px solid var(--surface-border);
+}
+
+/* ── Input placeholder ───────────────────────────────────────────────────── */
+.kalmus-input::placeholder {
+  color: var(--input-placeholder);
+  opacity: 1;
 }

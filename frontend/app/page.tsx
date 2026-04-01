@@ -51,8 +51,6 @@ function groupResults(results: FilmSearchResult[]): GroupedFilm[] {
   return Array.from(map.values());
 }
 
-const SPECTRAL = "linear-gradient(90deg, transparent 0%, #e53935 12%, #fb8c00 26%, #fdd835 40%, #43a047 52%, #1e88e5 66%, #5e35b1 80%, transparent 100%)";
-
 export default function Home() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<FilmSearchResult[]>([]);
@@ -100,7 +98,7 @@ export default function Home() {
       <div className="fixed top-5 right-24 z-50">
         <Link
           href="/about"
-          className="font-mono text-[11px] tracking-[0.18em] uppercase text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 transition-colors"
+          className="font-mono text-[10px] tracking-[0.22em] uppercase kalmus-text-secondary hover:text-[var(--text-primary)] transition-colors"
         >
           About
         </Link>
@@ -109,9 +107,24 @@ export default function Home() {
       <main className="flex-1 flex flex-col items-center justify-center px-4 py-16">
         <div className="w-full max-w-lg">
 
-          {/* Logo + spectral motif */}
+          {/* Header */}
           <header className="text-center mb-12">
-            <div className="flex justify-center mb-6">
+            {/* Archive classification label */}
+            <div className="flex items-center justify-center gap-3 mb-6">
+              <span
+                aria-hidden
+                style={{ flex: 1, height: 1, background: 'var(--accent-crimson)', opacity: 0.6 }}
+              />
+              <span className="font-mono text-[9px] tracking-[0.35em] uppercase kalmus-text-secondary whitespace-nowrap">
+                ◈ CINEMA COLOR ARCHIVE
+              </span>
+              <span
+                aria-hidden
+                style={{ flex: 1, height: 1, background: 'var(--accent-crimson)', opacity: 0.6 }}
+              />
+            </div>
+
+            <div className="flex justify-center mb-5">
               <Image
                 src="/kalmus-logo.png"
                 alt="KALMUS"
@@ -122,12 +135,7 @@ export default function Home() {
               />
             </div>
 
-            <div
-              aria-hidden
-              style={{ height: 1, background: SPECTRAL, width: 180, margin: "0 auto 18px" }}
-            />
-
-            <p className="font-mono text-[10px] tracking-[0.28em] uppercase text-neutral-400 dark:text-neutral-500">
+            <p className="font-mono text-[10px] tracking-[0.28em] uppercase kalmus-text-secondary">
               Quantitative color analysis · Cinema
             </p>
           </header>
@@ -136,7 +144,7 @@ export default function Home() {
           <div className="mb-4">
             <div className="relative">
               <svg
-                className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 dark:text-neutral-500"
+                className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 kalmus-text-secondary"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -156,15 +164,14 @@ export default function Home() {
                 className="kalmus-input w-full pl-11 pr-4 py-4 bg-transparent text-sm font-light focus:outline-none transition-colors"
                 style={{
                   border: '1px solid var(--accent-crimson)',
-                  borderRadius: 0,
                   borderLeftWidth: '3px',
-                  color: 'var(--input-text)',
                 }}
               />
               {loading && (
                 <div className="absolute right-4 top-1/2 -translate-y-1/2">
                   <svg
-                    className="animate-spin h-4 w-4 text-neutral-400"
+                    className="animate-spin h-4 w-4"
+                    style={{ color: 'var(--accent-crimson)' }}
                     viewBox="0 0 24 24"
                   >
                     <circle
@@ -189,8 +196,15 @@ export default function Home() {
           <div className="text-center mb-14">
             <Link
               href="/upload"
-              className="inline-flex items-center gap-2 px-5 py-2 font-mono text-[11px] tracking-[0.18em] uppercase text-neutral-500 dark:text-neutral-400 border border-neutral-300 dark:border-neutral-600 hover:border-neutral-600 dark:hover:border-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 transition-colors"
-              style={{ borderRadius: 0 }}
+              className="inline-flex items-center gap-2 px-5 py-2 font-mono text-[11px] tracking-[0.22em] uppercase transition-all"
+              style={{
+                color: 'var(--accent-amber)',
+                border: '1px solid var(--accent-amber)',
+                borderRadius: 0,
+                opacity: 0.85,
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
+              onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.85')}
             >
               <svg
                 className="w-3 h-3"
@@ -214,28 +228,29 @@ export default function Home() {
             <>
               {grouped.length > 0 ? (
                 <div>
-                  <p className="font-mono text-[10px] tracking-[0.3em] uppercase text-neutral-400 dark:text-neutral-500 mb-4">
-                    {results.length} result{results.length !== 1 ? "s" : ""} found
+                  <p className="font-mono text-[9px] tracking-[0.35em] uppercase kalmus-text-secondary mb-4">
+                    ▸ {results.length} record{results.length !== 1 ? "s" : ""} retrieved
                   </p>
 
-                  <div className="divide-y divide-neutral-200 dark:divide-neutral-700/60">
+                  <div className="divide-y" style={{ borderColor: 'var(--accent-crimson)', borderTopWidth: 1, opacity: 1 }}>
                     {grouped.map((film) => (
                       <div
                         key={`${film.title}::${film.imdb_id ?? ""}`}
-                        className="py-5"
+                        className="py-5 group"
+                        style={{ borderBottomWidth: 1, borderBottomColor: 'rgba(100,100,100,0.25)' }}
                       >
                         <div className="flex items-baseline justify-between mb-3 gap-4">
-                          <h3 className="text-base font-light tracking-tight text-neutral-900 dark:text-neutral-100 leading-snug">
+                          <h3 className="text-sm tracking-tight kalmus-text-primary leading-snug font-display">
                             {film.title}
                           </h3>
                           <div className="flex items-center gap-3 shrink-0">
                             {film.released && (
-                              <span className="font-mono text-[11px] text-neutral-400 dark:text-neutral-500">
+                              <span className="font-mono text-[10px] kalmus-text-secondary">
                                 {film.released}
                               </span>
                             )}
                             {film.imdb_id && (
-                              <span className="font-mono text-[11px] text-neutral-400 dark:text-neutral-500">
+                              <span className="font-mono text-[10px] kalmus-text-secondary">
                                 {film.imdb_id}
                               </span>
                             )}
@@ -246,20 +261,21 @@ export default function Home() {
                           {film.analyses.map((a) => (
                             <div
                               key={a.id}
-                              className="flex items-center justify-between group"
+                              className="flex items-center justify-between"
                             >
-                              <div className="flex items-center gap-2 font-mono text-[11px] text-neutral-500 dark:text-neutral-400">
-                                <span className="text-neutral-700 dark:text-neutral-300">
+                              <div className="flex items-center gap-2 font-mono text-[10px] kalmus-text-secondary">
+                                <span className="kalmus-text-muted">
                                   {a.barcode_type}
                                 </span>
-                                <span className="text-neutral-300 dark:text-neutral-600">·</span>
+                                <span style={{ color: 'var(--accent-crimson)' }}>·</span>
                                 <span>{a.frame_type.replace(/_/g, " ")}</span>
-                                <span className="text-neutral-300 dark:text-neutral-600">·</span>
+                                <span style={{ color: 'var(--accent-crimson)' }}>·</span>
                                 <span>{a.metric}</span>
                               </div>
                               <Link
                                 href={`/results/${a.id}`}
-                                className="font-mono text-[11px] tracking-wider uppercase text-neutral-400 dark:text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 transition-colors"
+                                className="font-mono text-[10px] tracking-wider uppercase transition-colors"
+                                style={{ color: 'var(--accent-amber)' }}
                               >
                                 View →
                               </Link>
@@ -272,16 +288,23 @@ export default function Home() {
                 </div>
               ) : (
                 <div className="py-10 text-center">
-                  <p className="font-mono text-[10px] tracking-[0.3em] uppercase text-neutral-400 dark:text-neutral-500 mb-2">
-                    No results
+                  <p className="font-mono text-[9px] tracking-[0.35em] uppercase kalmus-text-secondary mb-2">
+                    ▸ No records found
                   </p>
-                  <p className="text-sm font-light text-neutral-500 dark:text-neutral-400 mb-8">
+                  <p className="text-sm font-light kalmus-text-secondary mb-8 font-mono">
                     &ldquo;{query.trim()}&rdquo; hasn&apos;t been analyzed yet.
                   </p>
                   <Link
                     href="/upload"
-                    className="inline-flex items-center gap-2 px-5 py-2 font-mono text-[11px] tracking-[0.18em] uppercase text-neutral-500 dark:text-neutral-400 border border-neutral-300 dark:border-neutral-600 hover:border-neutral-600 dark:hover:border-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 transition-colors"
-                    style={{ borderRadius: 0 }}
+                    className="inline-flex items-center gap-2 px-5 py-2 font-mono text-[11px] tracking-[0.22em] uppercase transition-all"
+                    style={{
+                      color: 'var(--accent-amber)',
+                      border: '1px solid var(--accent-amber)',
+                      borderRadius: 0,
+                      opacity: 0.85,
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
+                    onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.85')}
                   >
                     <svg
                       className="w-3 h-3"
@@ -308,15 +331,15 @@ export default function Home() {
       <footer className="py-8 text-center">
         <div
           aria-hidden
-          style={{ height: 1, background: SPECTRAL, width: 80, margin: "0 auto 16px", opacity: 0.35 }}
+          style={{ height: 1, background: 'var(--accent-crimson)', width: 60, margin: '0 auto 16px', opacity: 0.4 }}
         />
-        <p className="font-mono text-[10px] tracking-[0.28em] uppercase text-neutral-400 dark:text-neutral-500">
+        <p className="font-mono text-[9px] tracking-[0.28em] uppercase kalmus-text-muted">
           Powered by{" "}
           <a
             href="https://github.com/KALMUS-Color-Toolkit/KALMUS"
             target="_blank"
             rel="noopener noreferrer"
-            className="underline underline-offset-2 hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors"
+            className="underline underline-offset-2 hover:text-[var(--text-secondary)] transition-colors"
           >
             KALMUS
           </a>
