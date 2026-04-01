@@ -10,14 +10,18 @@ interface InteractiveRGBCubeProps {
   maxSamples?: number;
 }
 
-const SAMPLE_SIZE_OPTIONS = [1000, 3000, 6000, 10000];
+const SAMPLE_SIZE_OPTIONS = [1000, 3000, 6000, 10000, 20000];
+const DEFAULT_SAMPLE_SIZE = 10000;
 
 export default function InteractiveRGBCube({
   colors,
   title = "RGB Color Cube",
   maxSamples = 10000,
 }: InteractiveRGBCubeProps) {
-  const [sampleSize, setSampleSize] = useState(Math.min(10000, colors.length));
+  const maxSelectableSamples = Math.min(maxSamples, colors.length);
+  const [sampleSize, setSampleSize] = useState(
+    Math.min(DEFAULT_SAMPLE_SIZE, maxSelectableSamples)
+  );
 
   const cubeData = useMemo(() => {
     const sampled = deterministicSample(colors, sampleSize);
@@ -37,14 +41,14 @@ export default function InteractiveRGBCube({
             onChange={(e) => setSampleSize(Number(e.target.value))}
             className="kalmus-input px-2 py-1 text-xs"
           >
-            {SAMPLE_SIZE_OPTIONS.filter((s) => s <= colors.length).map((size) => (
+            {SAMPLE_SIZE_OPTIONS.filter((s) => s <= maxSelectableSamples).map((size) => (
               <option key={size} value={size}>
                 {size.toLocaleString()}
               </option>
             ))}
-            {!SAMPLE_SIZE_OPTIONS.includes(colors.length) && colors.length < SAMPLE_SIZE_OPTIONS[SAMPLE_SIZE_OPTIONS.length - 1] && (
-              <option value={colors.length}>
-                {colors.length.toLocaleString()} (all)
+            {!SAMPLE_SIZE_OPTIONS.includes(maxSelectableSamples) && (
+              <option value={maxSelectableSamples}>
+                {maxSelectableSamples.toLocaleString()} (all)
               </option>
             )}
           </select>

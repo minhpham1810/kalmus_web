@@ -455,7 +455,7 @@ export default function VisualizationPanel({
             <InteractiveRGBCube
               colors={barcodeData.colors}
               title={`RGB Color Cube - ${videoFilename}`}
-              maxSamples={10000}
+              maxSamples={20000}
             />
           )}
 
@@ -463,7 +463,7 @@ export default function VisualizationPanel({
             <InteractiveHueLightScatter
               colors={barcodeData.colors}
               title={`Hue vs Lightness - ${videoFilename}`}
-              maxSamples={10000}
+              maxSamples={20000}
             />
           )}
 

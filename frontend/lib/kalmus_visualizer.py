@@ -264,6 +264,8 @@ if __name__ == '__main__':
                        help='Visualization type')
     parser.add_argument('--results-dir', default='/shared/kalmus/results',
                        help='Results directory')
+    parser.add_argument('--sampling', type=int, default=3000,
+                       help='Number of color points to sample for RGB cube plots')
 
     args = parser.parse_args()
 
@@ -275,7 +277,7 @@ if __name__ == '__main__':
     if args.type == 'histogram':
         img = generate_hue_histogram(barcode)
     elif args.type == 'cube':
-        img = generate_rgb_cube(barcode)
+        img = generate_rgb_cube(barcode, sampling=args.sampling)
     elif args.type == 'scatter':
         img = generate_hue_light_scatter(barcode)
     elif args.type == '3dbar':

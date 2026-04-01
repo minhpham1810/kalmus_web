@@ -13,14 +13,14 @@ export async function GET(
   try {
     const { jobId } = await params;
     const { searchParams } = new URL(request.url);
-    const sampling = searchParams.get('sampling') || '3000';
+    const sampling = parseInt(searchParams.get('sampling') || '3000', 10);
 
     // Path to the visualization script
     const visualizerScript = path.join(process.cwd(), 'lib', 'kalmus_visualizer.py');
 
     // Execute the Python script to generate the RGB cube
     const { stdout, stderr } = await execAsync(
-      `python3 ${visualizerScript} --job-id ${jobId} --type cube --results-dir ${SLURM_CONFIG.resultsDir}`
+      `python3 ${visualizerScript} --job-id ${jobId} --type cube --sampling ${sampling} --results-dir ${SLURM_CONFIG.resultsDir}`
     );
 
     if (stderr) {
