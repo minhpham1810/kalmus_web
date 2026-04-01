@@ -91,7 +91,7 @@ export default function InteractiveHistogram({
           <select
             value={binStep}
             onChange={(e) => setBinStep(Number(e.target.value))}
-            className="px-2 py-1 text-xs border border-neutral-300 dark:border-neutral-600 rounded bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100"
+            className="kalmus-input px-2 py-1 text-xs"
           >
             {BIN_STEP_OPTIONS.map((step) => (
               <option key={step} value={step}>
@@ -108,7 +108,7 @@ export default function InteractiveHistogram({
             <select
               value={satThreshold}
               onChange={(e) => setSatThreshold(Number(e.target.value))}
-              className="px-2 py-1 text-xs border border-neutral-300 dark:border-neutral-600 rounded bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100"
+              className="kalmus-input px-2 py-1 text-xs"
             >
               {SATURATION_THRESHOLDS.map((t) => (
                 <option key={t} value={t}>
@@ -174,7 +174,7 @@ export default function InteractiveHistogram({
             modeBarButtonsToRemove: ["lasso2d", "select2d"],
             toImageButtonOptions: {
               format: "png",
-              filename: `histogram_${barcodeType.toLowerCase()}`,
+              filename: title.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, ""),
               height: 600,
               width: 1000,
               scale: 2,

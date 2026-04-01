@@ -117,7 +117,7 @@ export default function InteractiveHueLight3DBar({
               <select
                 value={hueResolution}
                 onChange={(e) => setHueResolution(Number(e.target.value))}
-                className="flex-1 px-2 py-1 text-xs border border-neutral-300 dark:border-neutral-600 rounded bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100"
+                className="kalmus-input flex-1 px-2 py-1 text-xs"
               >
                 {HUE_RESOLUTIONS.map((r) => (
                   <option key={r} value={r}>
@@ -134,7 +134,7 @@ export default function InteractiveHueLight3DBar({
               <select
                 value={lightResolution}
                 onChange={(e) => setLightResolution(Number(e.target.value))}
-                className="flex-1 px-2 py-1 text-xs border border-neutral-300 dark:border-neutral-600 rounded bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100"
+                className="kalmus-input flex-1 px-2 py-1 text-xs"
               >
                 {LIGHT_RESOLUTIONS.map((r) => (
                   <option key={r} value={r}>
@@ -151,7 +151,7 @@ export default function InteractiveHueLight3DBar({
               <select
                 value={saturationThreshold}
                 onChange={(e) => setSaturationThreshold(Number(e.target.value))}
-                className="flex-1 px-2 py-1 text-xs border border-neutral-300 dark:border-neutral-600 rounded bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100"
+                className="kalmus-input flex-1 px-2 py-1 text-xs"
               >
                 {SATURATION_THRESHOLDS.map((t) => (
                   <option key={t} value={t}>
@@ -225,10 +225,10 @@ export default function InteractiveHueLight3DBar({
             onChange={(e) => setRotationSpeed(Number(e.target.value))}
             className="w-32"
           />
-          <span className="text-xs text-neutral-600 dark:text-neutral-400 w-8">
+          <span className="text-xs kalmus-text-secondary w-8">
             {rotationSpeed}°
           </span>
-          <span className="text-xs text-neutral-500 dark:text-neutral-500 ml-4">
+          <span className="text-xs kalmus-text-muted ml-4">
             Use arrow keys to rotate view
           </span>
         </div>
@@ -303,7 +303,7 @@ export default function InteractiveHueLight3DBar({
             modeBarButtonsToRemove: ["lasso2d", "select2d"],
             toImageButtonOptions: {
               format: "png",
-              filename: "hue_light_3d_bar",
+              filename: title.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, ""),
               height: 800,
               width: 1000,
               scale: 2,

@@ -14,6 +14,7 @@ export interface BarcodeConfig {
   skip_over: number;
   total_frames: number;
   seconds_per_column: number;
+  save_thumbnails: boolean;
   partition?: string;
   email?: string;
 }
@@ -28,6 +29,7 @@ export default function BarcodeGenerator() {
     skip_over: 0,
     total_frames: 100000000,
     seconds_per_column: 8,
+    save_thumbnails: false,
     partition: "short",
     email: "",
   });
@@ -47,7 +49,7 @@ export default function BarcodeGenerator() {
   const movieStepComplete = movieInfo !== null && existingAnalyses.length === 0;
   const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
 
-  const handleFileSelect = (file: File) => {
+  const handleFileSelect = (file: File | null) => {
     setSelectedFile(file);
     setMovieInfo(null);
     setExistingAnalyses([]);
@@ -208,6 +210,7 @@ export default function BarcodeGenerator() {
               skip_over: config.skip_over.toString(),
               total_frames: config.total_frames.toString(),
               frames_per_column: Math.round(config.seconds_per_column * 24 / config.sampled_rate).toString(),
+              save_thumbnails: config.save_thumbnails.toString(),
               partition: config.partition || "short",
               email: config.email,
             },
@@ -235,6 +238,7 @@ export default function BarcodeGenerator() {
         formData.append("skip_over", config.skip_over.toString());
         formData.append("total_frames", config.total_frames.toString());
         formData.append("frames_per_column", Math.round(config.seconds_per_column * 24 / config.sampled_rate).toString());
+        formData.append("save_thumbnails", config.save_thumbnails.toString());
         formData.append("partition", config.partition || "short");
         formData.append("email", config.email);
         formData.append("movie", JSON.stringify(movieInfo));
@@ -258,7 +262,7 @@ export default function BarcodeGenerator() {
                 setSubmitted(true);
                 router.push(`/submitted/${data.jobId}`);
                 resolve();
-              } catch (err) {
+              } catch {
                 reject(new Error("Invalid response from server"));
               }
             } else {
@@ -322,9 +326,9 @@ export default function BarcodeGenerator() {
     <div className="space-y-6">
       {!submitted ? (
         <>
-          <div className="panel-bg border border-neutral-200 dark:border-neutral-700 rounded p-6">
-            <h2 className="text-sm font-medium mb-4 text-neutral-700 dark:text-neutral-300 uppercase tracking-wide">
-              Video Upload
+          <div className="panel-bg p-6" style={{ border: '1px solid var(--surface-border)', borderLeftWidth: 3, borderLeftColor: 'var(--accent-crimson)' }}>
+            <h2 className="font-mono text-[9px] tracking-[0.35em] uppercase kalmus-text-secondary mb-4">
+              ▸ Video Upload
             </h2>
             <FileUpload
               onFileSelect={handleFileSelect}
@@ -334,11 +338,11 @@ export default function BarcodeGenerator() {
 
           {selectedFile && (
             <>
-              <div className="panel-bg border border-neutral-200 dark:border-neutral-700 rounded p-6">
-                <h2 className="text-sm font-medium mb-1 text-neutral-700 dark:text-neutral-300 uppercase tracking-wide">
-                  Movie Title <span className="text-neutral-900 dark:text-neutral-100">*</span>
+              <div className="panel-bg p-6" style={{ border: '1px solid var(--surface-border)', borderLeftWidth: 3, borderLeftColor: 'var(--accent-crimson)' }}>
+                <h2 className="font-mono text-[9px] tracking-[0.35em] uppercase kalmus-text-secondary mb-1">
+                  ▸ Movie Title <span style={{ color: 'var(--accent-amber)' }}>*</span>
                 </h2>
-                <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-3">
+                <p className="font-mono text-[10px] kalmus-text-muted mb-3">
                   Search by title or enter an IMDb ID to attach metadata to your barcode.
                 </p>
                 <MovieSearchInput key={selectedFile.name} onChange={handleMovieChange} />
@@ -346,25 +350,26 @@ export default function BarcodeGenerator() {
 
               {/* Already-in-DB prompt */}
               {movieInfo && existingAnalyses.length > 0 && (
-                <div className="panel-bg border border-neutral-200 dark:border-neutral-700 rounded p-6">
-                  <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100 mb-1">
+                <div className="panel-bg p-6" style={{ border: '1px solid var(--surface-border)', borderLeftWidth: 3, borderLeftColor: 'var(--accent-amber)' }}>
+                  <p className="font-mono text-xs kalmus-text-primary mb-1">
                     This film has already been analyzed.
                   </p>
-                  <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-4">
+                  <p className="font-mono text-[10px] kalmus-text-secondary mb-4">
                     Would you like to view its analytics dashboard, or continue uploading?
                   </p>
                   <div className="space-y-2 mb-5">
                     {existingAnalyses.map((a) => (
-                      <div key={a.id} className="flex items-center justify-between text-xs text-neutral-600 dark:text-neutral-400">
+                      <div key={a.id} className="flex items-center justify-between font-mono text-[10px] kalmus-text-secondary">
                         <span>
-                          <span className="px-1.5 py-0.5 bg-neutral-100 dark:bg-neutral-700 rounded mr-2">
+                          <span className="px-1.5 py-0.5 mr-2" style={{ background: 'var(--surface-bg-strong)', color: 'var(--accent-amber)' }}>
                             {a.barcode_type}
                           </span>
                           {a.frame_type.replace(/_/g, " ")} · {a.metric}
                         </span>
                         <button
                           onClick={() => router.push(`/results/${a.id}`)}
-                          className="underline text-neutral-900 dark:text-neutral-100 hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors"
+                          className="underline transition-colors hover:text-[var(--text-primary)]"
+                          style={{ color: 'var(--accent-amber)' }}
                         >
                           View
                         </button>
@@ -373,7 +378,7 @@ export default function BarcodeGenerator() {
                   </div>
                   <button
                     onClick={() => setExistingAnalyses([])}
-                    className="text-xs text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 underline"
+                    className="font-mono text-[10px] underline kalmus-text-secondary hover:text-[var(--text-primary)] transition-colors"
                   >
                     Upload anyway
                   </button>
@@ -382,31 +387,31 @@ export default function BarcodeGenerator() {
 
               {movieStepComplete && (
                 <>
-                  <div className="panel-bg border border-neutral-200 dark:border-neutral-700 rounded p-6">
-                    <h2 className="text-sm font-medium mb-4 text-neutral-700 dark:text-neutral-300 uppercase tracking-wide">
-                      Configuration
+                  <div className="panel-bg p-6" style={{ border: '1px solid var(--surface-border)', borderLeftWidth: 3, borderLeftColor: 'var(--accent-crimson)' }}>
+                    <h2 className="font-mono text-[9px] tracking-[0.35em] uppercase kalmus-text-secondary mb-4">
+                      ▸ Configuration
                     </h2>
                     <ConfigPanel config={config} onConfigChange={handleConfigChange} />
                   </div>
 
                   {isSubmitting && uploadProgress > 0 && (
-                    <div className="panel-bg border border-neutral-200 dark:border-neutral-700 rounded p-6">
+                    <div className="panel-bg p-6" style={{ border: '1px solid var(--surface-border)' }}>
                       <div className="mb-2 flex justify-between items-center">
-                        <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
-                          Uploading video...
+                        <span className="font-mono text-[10px] tracking-[0.18em] uppercase kalmus-text-muted">
+                          Uploading footage...
                         </span>
-                        <span className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
+                        <span className="font-mono text-sm" style={{ color: 'var(--accent-amber)' }}>
                           {uploadProgress}%
                         </span>
                       </div>
-                      <div className="w-full bg-neutral-200 dark:bg-neutral-700 rounded-full h-2.5">
+                      <div className="w-full h-1.5" style={{ background: 'var(--surface-bg-strong)' }}>
                         <div
-                          className="bg-neutral-900 dark:bg-neutral-100 h-2.5 rounded-full transition-all duration-300"
-                          style={{ width: `${uploadProgress}%` }}
-                        ></div>
+                          className="h-1.5 transition-all duration-300"
+                          style={{ width: `${uploadProgress}%`, background: 'var(--accent-crimson)' }}
+                        />
                       </div>
                       <div className="mt-2 flex items-center justify-between">
-                        <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                        <p className="font-mono text-[10px] kalmus-text-muted">
                           {uploadProgress < 100
                             ? "Please wait while your video is being uploaded..."
                             : "Upload complete! Processing job submission..."}
@@ -414,9 +419,10 @@ export default function BarcodeGenerator() {
                         {uploadProgress < 100 && (
                           <button
                             onClick={handleCancel}
-                            className="ml-4 px-3 py-1 text-xs border border-neutral-300 dark:border-neutral-600 rounded text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
+                            className="ml-4 px-3 py-1 font-mono text-[10px] tracking-wider uppercase transition-colors kalmus-text-secondary hover:text-[var(--text-primary)]"
+                            style={{ border: '1px solid var(--input-border)' }}
                           >
-                            Cancel Upload
+                            Cancel
                           </button>
                         )}
                       </div>
@@ -427,7 +433,8 @@ export default function BarcodeGenerator() {
                     <button
                       onClick={handleSubmit}
                       disabled={isSubmitting || !config.email}
-                      className="px-6 py-2.5 bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 text-sm font-medium rounded hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-neutral-900 dark:disabled:hover:bg-neutral-100"
+                      className="px-6 py-2.5 font-mono text-[11px] tracking-[0.22em] uppercase transition-all hover:opacity-90 hover:-translate-y-0.5 disabled:opacity-40 disabled:cursor-not-allowed"
+                      style={{ background: 'var(--accent-crimson)', color: 'var(--foreground)', borderRadius: 0 }}
                     >
                       {isSubmitting ? (
                         <span className="flex items-center gap-2">
@@ -460,72 +467,69 @@ export default function BarcodeGenerator() {
           )}
         </>
       ) : (
-        <div className="panel-bg border border-neutral-200 dark:border-neutral-700 rounded p-8">
+        <div className="panel-bg p-8" style={{ border: '1px solid var(--surface-border)', borderLeftWidth: 3, borderLeftColor: 'var(--accent-crimson)' }}>
           <div>
             <div className="mb-6">
-              <div className="inline-flex items-center justify-center w-10 h-10 bg-neutral-900 dark:bg-neutral-100 rounded-full mb-4">
-                <svg
-                  className="w-5 h-5 text-white dark:text-neutral-900"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
+              <div className="flex items-center gap-3 mb-3">
+                <div
+                  className="inline-flex items-center justify-center w-10 h-10 font-mono text-sm"
+                  style={{ border: '1px solid var(--accent-amber)', color: 'var(--accent-amber)' }}
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M5 13l4 4L19 7"
-                  />
-                </svg>
+                  ✓
+                </div>
+                <div className="font-mono text-[9px] tracking-[0.35em] uppercase kalmus-text-secondary">
+                  ▸ TRANSMISSION LOGGED
+                </div>
               </div>
-              <h2 className="text-2xl font-light text-neutral-900 dark:text-neutral-100 mb-2">
+              <h2 className="font-display text-xl kalmus-text-primary mb-1">
                 Job Submitted
               </h2>
-              <p className="text-sm text-neutral-500 dark:text-neutral-400">
+              <p className="font-mono text-xs kalmus-text-secondary">
                 Your video is being processed on the HPC cluster.
               </p>
             </div>
 
-            <div className="border-l-2 border-neutral-300 dark:border-neutral-600 pl-4 mb-6 space-y-3">
+            <div className="pl-4 mb-6 space-y-2" style={{ borderLeft: '2px solid var(--surface-border)' }}>
               {movieInfo && (
-                <div className="text-sm">
-                  <span className="text-neutral-500 dark:text-neutral-400">Movie:</span>{" "}
-                  <span className="text-neutral-900 dark:text-neutral-100">
+                <div className="font-mono text-xs">
+                  <span className="kalmus-text-secondary">Movie: </span>
+                  <span className="kalmus-text-primary">
                     {movieInfo.title}{"year" in movieInfo ? ` (${movieInfo.year})` : ""}
                   </span>
                 </div>
               )}
-              <div className="text-sm">
-                <span className="text-neutral-500 dark:text-neutral-400">Partition:</span>{" "}
-                <span className="text-neutral-900 dark:text-neutral-100">{config.partition}</span>
+              <div className="font-mono text-xs">
+                <span className="kalmus-text-secondary">Partition: </span>
+                <span className="kalmus-text-primary">{config.partition}</span>
               </div>
-              <div className="text-sm">
-                <span className="text-neutral-500 dark:text-neutral-400">Email:</span>{" "}
-                <span className="text-neutral-900 dark:text-neutral-100">{config.email}</span>
+              <div className="font-mono text-xs">
+                <span className="kalmus-text-secondary">Email: </span>
+                <span className="kalmus-text-primary">{config.email}</span>
               </div>
-              <div className="text-sm">
-                <span className="text-neutral-500 dark:text-neutral-400">Expected time:</span>{" "}
-                <span className="text-neutral-900 dark:text-neutral-100">1-10 minutes</span>
+              <div className="font-mono text-xs">
+                <span className="kalmus-text-secondary">Expected time: </span>
+                <span className="kalmus-text-primary">1-10 minutes</span>
               </div>
               {jobId && (
-                <div className="text-sm">
-                  <span className="text-neutral-500 dark:text-neutral-400">Job ID:</span>{" "}
-                  <code className="text-xs font-mono text-neutral-900 dark:text-neutral-100">
+                <div className="font-mono text-xs">
+                  <span className="kalmus-text-secondary">Job ID: </span>
+                  <code className="kalmus-text-secondary">
                     {jobId.substring(0, 8)}
                   </code>
                 </div>
               )}
             </div>
 
-            <div className="bg-neutral-100 dark:bg-neutral-900 rounded p-4 mb-6">
-              <p className="text-sm text-neutral-600 dark:text-neutral-300">
-                You'll receive an email with your barcode image, data file, and processing statistics. You can close this page.
+            <div className="p-4 mb-6 kalmus-surface">
+              <p className="font-mono text-[10px] kalmus-text-secondary leading-relaxed">
+                You&apos;ll receive an email with your barcode image, data file, and processing statistics. You can close this page.
               </p>
             </div>
 
             <button
               onClick={handleNewUpload}
-              className="px-5 py-2 bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 text-sm font-medium rounded hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-colors"
+              className="px-5 py-2 font-mono text-[11px] tracking-[0.22em] uppercase transition-all hover:opacity-90 hover:-translate-y-0.5"
+              style={{ background: 'var(--accent-crimson)', color: 'var(--foreground)', borderRadius: 0 }}
             >
               Process Another Video
             </button>
@@ -534,8 +538,8 @@ export default function BarcodeGenerator() {
       )}
 
       {error && (
-        <div className="bg-neutral-100 dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-700 rounded p-4">
-          <p className="text-sm text-neutral-900 dark:text-neutral-100">{error}</p>
+        <div className="p-4 kalmus-surface-strong" style={{ border: '1px solid var(--accent-crimson)' }}>
+          <p className="font-mono text-xs kalmus-text-secondary">{error}</p>
         </div>
       )}
     </div>

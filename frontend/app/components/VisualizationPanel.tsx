@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import InteractiveHistogram from "./InteractiveHistogram";
 import InteractiveRGBCube from "./InteractiveRGBCube";
 import InteractiveHueLightScatter from "./InteractiveHueLightScatter";
@@ -9,7 +9,7 @@ import BarcodeComparison from "./BarcodeComparison";
 import ColorStatsDashboard from "./ColorStatsDashboard";
 import CSVExportButton from "./CSVExportButton";
 import BarcodePreview from "./BarcodePreview";
-import { RGB, BarcodeData } from "@/lib/barcode-utils";
+import { RGB, BarcodeData, ThumbnailManifest } from "@/lib/barcode-utils";
 
 interface FilmSearchResult {
   id: string;
@@ -48,6 +48,7 @@ interface LoadedBarcodeData {
   fps?: number;
   barcodeImageUrl?: string;
   barcodeImage?: RGB[][] | number[][];
+  thumbnails?: ThumbnailManifest | null;
 }
 
 function FilmSearch({
@@ -117,7 +118,7 @@ function FilmSearch({
 
   return (
     <div ref={containerRef} className="relative">
-      <label className="block text-xs font-medium text-neutral-600 dark:text-neutral-400 uppercase tracking-wide mb-2">
+      <label className="block font-mono text-[9px] tracking-[0.3em] uppercase kalmus-text-secondary mb-2">
         Compare with another film
       </label>
       <div className="flex gap-2">
@@ -128,11 +129,12 @@ function FilmSearch({
             onChange={handleChange}
             onFocus={() => results.length > 0 && setOpen(true)}
             placeholder="Search films in database…"
-            className="w-full px-3 py-2 text-sm border border-neutral-300 dark:border-neutral-600 rounded bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:border-neutral-500 dark:focus:border-neutral-400"
+            className="kalmus-input w-full px-3 py-2 font-mono text-xs focus:outline-none"
+            style={{ borderRadius: 0 }}
           />
           {searching && (
             <div className="absolute right-3 top-1/2 -translate-y-1/2">
-              <svg className="animate-spin h-4 w-4 text-neutral-400" viewBox="0 0 24 24">
+              <svg className="animate-spin h-4 w-4 kalmus-text-muted" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
               </svg>
@@ -142,7 +144,8 @@ function FilmSearch({
         {compareJobId && (
           <button
             onClick={handleClear}
-            className="px-3 py-2 text-sm border border-neutral-300 dark:border-neutral-600 rounded bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 transition-colors"
+            className="px-3 py-2 font-mono text-xs transition-all hover:opacity-80 hover:scale-[1.02]"
+            style={{ border: '1px solid var(--input-border)', color: 'var(--accent-crimson)', background: 'transparent', borderRadius: 0 }}
             title="Clear comparison"
           >
             ✕
@@ -151,25 +154,28 @@ function FilmSearch({
       </div>
 
       {open && results.length > 0 && (
-        <div className="absolute z-50 mt-1 w-full bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded shadow-lg max-h-64 overflow-y-auto">
+        <div className="absolute z-50 mt-1 w-full max-h-64 overflow-y-auto" style={{ background: 'var(--panel-gradient)', border: '1px solid var(--input-border)' }}>
           {results.map((r) => (
             <button
               key={r.id}
               onClick={() => handleSelect(r)}
-              className={`w-full text-left px-4 py-3 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors border-b border-neutral-100 dark:border-neutral-700 last:border-0 ${r.id === currentJobId ? "opacity-50" : ""}`}
+              className={`w-full text-left px-4 py-3 transition-colors ${r.id === currentJobId ? "opacity-40" : ""}`}
+              style={{ borderBottom: '1px solid var(--surface-border)' }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-hover)')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
             >
               <div className="flex items-center justify-between gap-2">
-                <span className="text-sm font-medium text-neutral-900 dark:text-neutral-100 truncate">
+                <span className="font-mono text-xs kalmus-text-primary truncate">
                   {r.title}
                 </span>
-                <span className="text-xs text-neutral-500 dark:text-neutral-400 shrink-0">
+                <span className="font-mono text-[10px] kalmus-text-secondary shrink-0">
                   {r.released ? r.released.slice(0, 4) : ""}
                 </span>
               </div>
               <div className="flex gap-2 mt-0.5">
-                <span className="text-xs text-neutral-500 dark:text-neutral-400">{r.barcode_type}</span>
-                <span className="text-xs text-neutral-400 dark:text-neutral-500">·</span>
-                <span className="text-xs text-neutral-500 dark:text-neutral-400">{r.frame_type}</span>
+                <span className="font-mono text-[10px] kalmus-text-secondary">{r.barcode_type}</span>
+                <span style={{ color: 'var(--accent-crimson)' }}>·</span>
+                <span className="font-mono text-[10px] kalmus-text-secondary">{r.frame_type}</span>
               </div>
             </button>
           ))}
@@ -177,8 +183,8 @@ function FilmSearch({
       )}
 
       {open && results.length === 0 && !searching && query.trim() && (
-        <div className="absolute z-50 mt-1 w-full bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded shadow-lg px-4 py-3">
-          <p className="text-sm text-neutral-500 dark:text-neutral-400">No films found.</p>
+        <div className="absolute z-50 mt-1 w-full px-4 py-3" style={{ background: 'var(--panel-gradient)', border: '1px solid var(--input-border)' }}>
+          <p className="font-mono text-xs kalmus-text-secondary">No films found.</p>
         </div>
       )}
     </div>
@@ -200,11 +206,7 @@ export default function VisualizationPanel({
   const [compareData, setCompareData] = useState<LoadedBarcodeData | null>(null);
   const [compareLoading, setCompareLoading] = useState(false);
 
-  useEffect(() => {
-    loadBarcodeData();
-  }, [jobId]);
-
-  const loadBarcodeData = async () => {
+  const loadBarcodeData = useCallback(async () => {
     setLoading(true);
     setError(null);
 
@@ -229,6 +231,7 @@ export default function VisualizationPanel({
           total_frames: barcode.total_frames,
           fps: barcode.fps,
           barcodeImage: barcode.barcode as RGB[][] | number[][],
+          thumbnails: data.thumbnails,
         });
       } else {
         throw new Error("Invalid barcode data");
@@ -238,7 +241,11 @@ export default function VisualizationPanel({
     } finally {
       setLoading(false);
     }
-  };
+  }, [jobId]);
+
+  useEffect(() => {
+    loadBarcodeData();
+  }, [loadBarcodeData]);
 
   const loadCompareData = async (cJobId: string) => {
     setCompareLoading(true);
@@ -260,6 +267,7 @@ export default function VisualizationPanel({
           total_frames: b.total_frames,
           fps: b.fps,
           barcodeImage: b.barcode as RGB[][] | number[][],
+          thumbnails: data.thumbnails,
         });
       }
     } catch {
@@ -285,13 +293,13 @@ export default function VisualizationPanel({
   if (loading) {
     return (
       <div className="space-y-6">
-        <div className="panel-bg border border-neutral-200 dark:border-neutral-700 rounded p-6">
+        <div className="panel-bg p-6" style={{ border: '1px solid var(--surface-border)' }}>
           <div className="flex items-center justify-center py-12">
             <div className="flex items-center gap-3">
-              <svg
-                className="animate-spin h-5 w-5 text-neutral-600 dark:text-neutral-400"
-                viewBox="0 0 24 24"
-              >
+                <svg
+                className="animate-spin h-5 w-5 kalmus-text-secondary"
+                  viewBox="0 0 24 24"
+                >
                 <circle
                   className="opacity-25"
                   cx="12"
@@ -307,7 +315,7 @@ export default function VisualizationPanel({
                   d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                 />
               </svg>
-              <span className="text-sm text-neutral-600 dark:text-neutral-400">
+              <span className="font-mono text-xs tracking-[0.18em] uppercase kalmus-text-secondary">
                 Loading barcode data...
               </span>
             </div>
@@ -320,12 +328,12 @@ export default function VisualizationPanel({
   if (error) {
     return (
       <div className="space-y-6">
-        <div className="panel-bg border border-neutral-200 dark:border-neutral-700 rounded p-6">
-          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded p-4 text-center">
-            <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
+        <div className="panel-bg p-6" style={{ border: '1px solid var(--accent-crimson)' }}>
+          <div className="p-4 text-center kalmus-surface-strong">
+            <p className="font-mono text-xs kalmus-text-secondary mb-3">{error}</p>
             <button
               onClick={loadBarcodeData}
-              className="mt-3 px-4 py-2 text-sm bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+              className="px-4 py-1.5 font-mono text-[10px] tracking-wider uppercase transition-all bg-[var(--accent-crimson)] text-[var(--foreground)] hover:brightness-110 hover:-translate-y-px hover:shadow-md"
             >
               Retry
             </button>
@@ -338,14 +346,17 @@ export default function VisualizationPanel({
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="panel-bg border border-neutral-200 dark:border-neutral-700 rounded p-6">
+      <div className="panel-bg p-6" style={{ border: '1px solid var(--surface-border)', borderLeftWidth: 3, borderLeftColor: 'var(--accent-crimson)' }}>
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
-            <h2 className="text-xl font-light text-neutral-900 dark:text-neutral-100 mb-1">
-              Barcode Visualizations
+            <div className="font-mono text-[9px] tracking-[0.35em] uppercase kalmus-text-secondary mb-1">
+              ▸ BARCODE VISUALIZATIONS
+            </div>
+            <h2 className="font-display text-lg kalmus-text-primary">
+              {videoFilename}
             </h2>
-            <p className="text-sm text-neutral-500 dark:text-neutral-400">
-              {videoFilename} ({barcodeData?.barcode_type} Barcode)
+            <p className="font-mono text-[10px] kalmus-text-secondary mt-0.5">
+              {barcodeData?.barcode_type} Barcode
             </p>
           </div>
 
@@ -371,28 +382,42 @@ export default function VisualizationPanel({
           sampledFrameRate={barcodeData.sampled_frame_rate}
           skipOver={barcodeData.skip_over}
           totalFrames={barcodeData.total_frames}
+          thumbnails={barcodeData.thumbnails}
         />
       )}
 
       {/* Tab Navigation */}
-      <div className="panel-bg border border-neutral-200 dark:border-neutral-700 rounded">
-        <div className="border-b border-neutral-200 dark:border-neutral-700 overflow-x-auto">
-          <nav className="flex -mb-px min-w-max" aria-label="Tabs">
+      <div className="panel-bg" style={{ border: '1px solid var(--surface-border)' }}>
+        <div className="overflow-x-auto" style={{ borderBottom: '1px solid rgba(100,100,100,0.25)' }}>
+          <nav className="flex min-w-max" aria-label="Tabs">
             {availableTabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`
-                  flex items-center gap-2 py-4 px-4 text-center text-sm font-medium border-b-2 transition-colors whitespace-nowrap
-                  ${
-                    activeTab === tab.id
-                      ? "border-neutral-900 dark:border-neutral-100 text-neutral-900 dark:text-neutral-100"
-                      : "border-transparent text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-300 hover:border-neutral-300 dark:hover:border-neutral-600"
+                className="group flex items-center gap-2 py-3 px-4 font-mono text-[10px] tracking-[0.15em] uppercase whitespace-nowrap transition-all border-b-2"
+                style={{
+                  borderBottomColor: activeTab === tab.id ? 'var(--accent-amber)' : 'transparent',
+                  color: activeTab === tab.id ? 'var(--text-primary)' : 'var(--text-secondary)',
+                  background: activeTab === tab.id ? 'var(--surface-bg-strong)' : 'transparent',
+                  boxShadow: activeTab === tab.id ? 'inset 0 -2px 0 var(--accent-amber)' : 'none',
+                }}
+                onMouseEnter={(e) => {
+                  if (activeTab !== tab.id) {
+                    e.currentTarget.style.background = 'var(--surface-bg)';
+                    e.currentTarget.style.color = 'var(--text-primary)';
+                    e.currentTarget.style.borderBottomColor = 'var(--accent-crimson)';
                   }
-                `}
+                }}
+                onMouseLeave={(e) => {
+                  if (activeTab !== tab.id) {
+                    e.currentTarget.style.background = 'transparent';
+                    e.currentTarget.style.color = 'var(--text-secondary)';
+                    e.currentTarget.style.borderBottomColor = 'transparent';
+                  }
+                }}
               >
                 <svg
-                  className="w-4 h-4"
+                  className="w-3.5 h-3.5 transition-transform group-hover:scale-110"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -479,17 +504,18 @@ export default function VisualizationPanel({
                   sampledFrameRate={barcodeData.sampled_frame_rate}
                   skipOver={barcodeData.skip_over}
                   totalFrames={barcodeData.total_frames}
+                  thumbnails={barcodeData.thumbnails}
                 />
               )}
 
               {compareLoading && (
                 <div className="flex items-center justify-center py-8">
                   <div className="flex items-center gap-3">
-                    <svg className="animate-spin h-5 w-5 text-neutral-600 dark:text-neutral-400" viewBox="0 0 24 24">
+                    <svg className="animate-spin h-4 w-4 kalmus-text-secondary" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                     </svg>
-                    <span className="text-sm text-neutral-600 dark:text-neutral-400">Loading comparison barcode...</span>
+                    <span className="font-mono text-xs tracking-[0.15em] uppercase kalmus-text-secondary">Loading comparison barcode...</span>
                   </div>
                 </div>
               )}
@@ -503,6 +529,7 @@ export default function VisualizationPanel({
                   sampledFrameRate={compareData.sampled_frame_rate}
                   skipOver={compareData.skip_over}
                   totalFrames={compareData.total_frames}
+                  thumbnails={compareData.thumbnails}
                 />
               )}
 
@@ -516,7 +543,7 @@ export default function VisualizationPanel({
               )}
 
               {!compareJobId && (
-                <p className="text-sm text-center text-neutral-500 dark:text-neutral-400 py-6">
+                <p className="font-mono text-xs text-center kalmus-text-muted py-6 tracking-wider">
                   Search for a film above to compare barcodes side by side.
                 </p>
               )}
@@ -526,11 +553,11 @@ export default function VisualizationPanel({
       </div>
 
       {/* Info Panel */}
-      <div className="bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded p-4">
-        <h4 className="text-xs font-medium text-neutral-700 dark:text-neutral-300 mb-2 uppercase tracking-wide">
-          About These Visualizations
+      <div className="p-4 kalmus-surface">
+        <h4 className="font-mono text-[9px] tracking-[0.3em] uppercase kalmus-text-secondary mb-2">
+          ▸ About These Visualizations
         </h4>
-        <ul className="text-xs text-neutral-600 dark:text-neutral-400 space-y-1">
+        <ul className="font-mono text-[10px] kalmus-text-secondary space-y-1">
           <li>
             <strong>Statistics:</strong> Overview of barcode metadata, dominant colors, and
             brightness distribution
