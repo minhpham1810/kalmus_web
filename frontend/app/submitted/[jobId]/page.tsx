@@ -1,8 +1,13 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+
+interface JobStatusResponse {
+  success: boolean;
+  status?: string;
+  estimatedTime?: string;
+}
 
 export default function SubmittedPage() {
   const params = useParams();
@@ -10,6 +15,52 @@ export default function SubmittedPage() {
   const jobId = params.jobId as string;
 
   const [copied, setCopied] = useState(false);
+  const [jobStatus, setJobStatus] = useState<JobStatusResponse | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadJobStatus = async () => {
+      try {
+        const response = await fetch(`/api/job-status/${jobId}`);
+        if (!response.ok) {
+          throw new Error("Failed to load job status");
+        }
+
+        const data = (await response.json()) as JobStatusResponse;
+        if (!cancelled) {
+          setJobStatus(data);
+        }
+      } catch {
+        if (!cancelled) {
+          setJobStatus(null);
+        }
+      }
+    };
+
+    void loadJobStatus();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [jobId]);
+
+  const formattedEstimate = useMemo(() => {
+    const estimate = jobStatus?.estimatedTime?.trim();
+    if (!estimate) {
+      return null;
+    }
+
+    const parsed = Date.parse(estimate);
+    if (Number.isNaN(parsed)) {
+      return estimate;
+    }
+
+    return new Intl.DateTimeFormat(undefined, {
+      dateStyle: "medium",
+      timeStyle: "short",
+    }).format(new Date(parsed));
+  }, [jobStatus?.estimatedTime]);
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(jobId);
@@ -44,6 +95,23 @@ export default function SubmittedPage() {
           <p className="font-mono text-xs kalmus-text-secondary mb-6 leading-relaxed">
             Your video has been queued for barcode generation on the HPC cluster.
           </p>
+
+          {/* Timing */}
+          <div className="p-4 mb-6 kalmus-surface">
+            <div className="font-mono text-[9px] tracking-[0.3em] uppercase kalmus-text-secondary mb-2">
+              Estimated Processing Time
+            </div>
+            <p className="font-mono text-sm kalmus-text-primary">
+              {formattedEstimate
+                ? `Estimated queue start: ${formattedEstimate}`
+                : "Typically 1-10 minutes"}
+            </p>
+            <p className="font-mono text-[10px] kalmus-text-secondary mt-2 leading-relaxed">
+              {formattedEstimate
+                ? "This reflects the scheduler's current start-time estimate. The analytics dashboard will be available after processing completes."
+                : "The cluster did not return a scheduler estimate. Most jobs complete within 1-10 minutes, depending on queue load and video size."}
+            </p>
+          </div>
 
           {/* Job ID */}
           <div className="p-4 mb-6 kalmus-surface">
@@ -82,7 +150,7 @@ export default function SubmittedPage() {
               {[
                 "KALMUS generates your color or brightness barcode on the HPC cluster.",
                 "You'll receive an email with your barcode image attached.",
-                "The email includes a direct link to your analytics dashboard.",
+                "When processing finishes, the email includes a direct link to your analytics dashboard.",
               ].map((step, i) => (
                 <li key={i} className="flex items-start gap-3">
                   <span
@@ -99,15 +167,6 @@ export default function SubmittedPage() {
 
           {/* Actions */}
           <div className="flex flex-col sm:flex-row gap-3">
-            <Link
-              href={`/results/${jobId}`}
-              className="flex-1 inline-flex items-center justify-center gap-2 px-5 py-2.5 font-mono text-[11px] tracking-[0.18em] uppercase transition-all bg-[var(--accent-crimson)] text-[var(--foreground)] hover:brightness-110 hover:-translate-y-0.5 hover:shadow-md"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-              </svg>
-              View Analytics Dashboard
-            </Link>
             <button
               onClick={() => router.push("/")}
               className="flex-1 inline-flex items-center justify-center gap-2 px-5 py-2.5 font-mono text-[11px] tracking-[0.18em] uppercase transition-all kalmus-text-secondary border border-[var(--accent-crimson)] hover:bg-[var(--surface-bg-strong)] hover:text-[var(--text-primary)] hover:shadow-sm"

@@ -46,11 +46,25 @@ export interface JobMetadata {
     fullName?: string;
   };
   movie?: Record<string, unknown>;
+  estimatedTime?: string;
 }
 
 interface DuplicateMarker {
   existing_job_id: string;
   detected_at: string;
+}
+
+function normalizeEstimatedTime(value?: string | null): string | undefined {
+  const normalized = value?.trim();
+  if (!normalized) {
+    return undefined;
+  }
+
+  if (["n/a", "unknown", "none"].includes(normalized.toLowerCase())) {
+    return undefined;
+  }
+
+  return normalized;
 }
 
 /**
@@ -212,6 +226,17 @@ export async function submitSlurmJob(
       throw new Error(`Failed to parse SLURM job ID from output: ${stdout}`);
     }
 
+    // Try to get estimated start time (optional, may fail)
+    let estimatedTime: string | undefined;
+    try {
+      const { stdout: timeOutput } = await execAsync(
+        `squeue -j ${slurmJobId} --format="%S" --noheader`
+      );
+      estimatedTime = normalizeEstimatedTime(timeOutput);
+    } catch {
+      // Ignore errors getting estimated time
+    }
+
     // Store job metadata
     const metadata: JobMetadata = {
       jobId,
@@ -223,6 +248,7 @@ export async function submitSlurmJob(
       status: 'PENDING',
       user: user || undefined,
       movie: movie || undefined,
+      estimatedTime,
     };
 
     await fs.writeFile(
@@ -231,17 +257,6 @@ export async function submitSlurmJob(
     );
 
     console.log(`Job submitted: ${jobId} (SLURM ID: ${slurmJobId})`);
-
-    // Try to get estimated start time (optional, may fail)
-    let estimatedTime: string | undefined;
-    try {
-      const { stdout: timeOutput } = await execAsync(
-        `squeue -j ${slurmJobId} --format="%S" --noheader`
-      );
-      estimatedTime = timeOutput.trim();
-    } catch {
-      // Ignore errors getting estimated time
-    }
 
     return { jobId, slurmJobId, estimatedTime };
   } catch (error) {
@@ -293,6 +308,7 @@ export async function checkSlurmJobStatus(jobId: string) {
         completed: true,
         reused: jobStatus === 'DUPLICATE',
         existingJobId: duplicateMarker?.existing_job_id,
+        estimatedTime: metadata.estimatedTime,
       };
     } catch {
       // Status file doesn't exist yet, check SLURM queue
@@ -301,11 +317,13 @@ export async function checkSlurmJobStatus(jobId: string) {
     // Query SLURM for job status
     try {
       const { stdout } = await execAsync(
-        `squeue -j ${slurmJobId} --format="%T|%M|%L|%r" --noheader`
+        `squeue -j ${slurmJobId} --format="%T|%M|%L|%r|%S" --noheader`
       );
 
       if (stdout.trim()) {
-        const [state, timeUsed, timeLeft, reason] = stdout.trim().split('|');
+        const [state, timeUsed, timeLeft, reason, estimatedStart] = stdout.trim().split('|');
+        const estimatedTime =
+          normalizeEstimatedTime(estimatedStart) || metadata.estimatedTime;
 
         return {
           status: state,
@@ -315,6 +333,7 @@ export async function checkSlurmJobStatus(jobId: string) {
           timeLeft,
           reason: reason !== 'None' ? reason : undefined,
           completed: false,
+          estimatedTime,
         };
       } else {
         // Job not in queue anymore, check if it completed
@@ -332,6 +351,7 @@ export async function checkSlurmJobStatus(jobId: string) {
             slurmJobId,
             submittedAt: metadata.submittedAt,
             completed: state.includes('COMPLETED') || state.includes('FAILED'),
+            estimatedTime: metadata.estimatedTime,
           };
         }
 
@@ -340,6 +360,7 @@ export async function checkSlurmJobStatus(jobId: string) {
           slurmJobId,
           submittedAt: metadata.submittedAt,
           completed: false,
+          estimatedTime: metadata.estimatedTime,
         };
       }
     } catch {
@@ -351,6 +372,7 @@ export async function checkSlurmJobStatus(jobId: string) {
           slurmJobId,
           submittedAt: metadata.submittedAt,
           completed: true,
+          estimatedTime: metadata.estimatedTime,
         };
       } catch {
         throw new Error(
