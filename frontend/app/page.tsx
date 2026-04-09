@@ -8,6 +8,10 @@ interface FilmSearchResult {
   id: string;
   title: string;
   imdb_id: string | null;
+  poster: string | null;
+  director: string | null;
+  runtime: string | null;
+  country: string | null;
   released: string | null;
   barcode_type: string;
   frame_type: string;
@@ -18,7 +22,13 @@ interface FilmSearchResult {
 interface GroupedFilm {
   title: string;
   imdb_id: string | null;
+
+  poster: string | null;
+  director: string | null;
+  runtime: string | null;
+  country: string | null;
   released: string | null;
+
   analyses: {
     id: string;
     barcode_type: string;
@@ -36,6 +46,10 @@ function groupResults(results: FilmSearchResult[]): GroupedFilm[] {
       map.set(key, {
         title: r.title,
         imdb_id: r.imdb_id,
+        poster: r.poster,
+        director: r.director,
+        runtime: r.runtime,
+        country: r.country,
         released: r.released,
         analyses: [],
       });
@@ -236,51 +250,72 @@ export default function Home() {
                     {grouped.map((film) => (
                       <div
                         key={`${film.title}::${film.imdb_id ?? ""}`}
-                        className="py-5 group"
+                        className="py-5 flex gap-5 group"
                         style={{ borderBottomWidth: 1, borderBottomColor: 'rgba(100,100,100,0.25)' }}
                       >
-                        <div className="flex items-baseline justify-between mb-3 gap-4">
-                          <h3 className="text-sm tracking-tight kalmus-text-primary leading-snug font-display">
-                            {film.title}
-                          </h3>
-                          <div className="flex items-center gap-3 shrink-0">
-                            {film.released && (
-                              <span className="font-mono text-[10px] kalmus-text-secondary">
-                                {film.released}
-                              </span>
-                            )}
-                            {film.imdb_id && (
-                              <span className="font-mono text-[10px] kalmus-text-secondary">
-                                {film.imdb_id}
-                              </span>
-                            )}
+                        {/* Poster */}
+                        {film.poster && (
+                          <div className="w-[80px] shrink-0">
+                            <img
+                              src={film.poster}
+                              alt={film.title}
+                              className="w-full h-full object-cover"
+                            />
                           </div>
-                        </div>
+                        )}
 
-                        <div className="space-y-2">
-                          {film.analyses.map((a) => (
-                            <div
-                              key={a.id}
-                              className="flex items-center justify-between"
-                            >
-                              <div className="flex items-center gap-2 font-mono text-[10px] kalmus-text-secondary">
-                                <span className="kalmus-text-muted">
-                                  {a.barcode_type}
-                                </span>
-                                <span style={{ color: 'var(--accent-crimson)' }}>·</span>
-                                <span>{a.frame_type.replace(/_/g, " ")}</span>
-                                <span style={{ color: 'var(--accent-crimson)' }}>·</span>
-                                <span>{a.metric}</span>
-                              </div>
-                              <Link
-                                href={`/results/${a.id}`}
-                                className="font-mono text-[10px] tracking-wider uppercase transition-colors"
-                                style={{ color: 'var(--accent-amber)' }}
-                              >
-                                View →
-                              </Link>
+                        {/* Content */}
+                        <div className="flex flex-col justify-between flex-1 min-w-0">
+                          {/* Title and metadata */}
+                          <div>
+                            <h3 className="text-lg tracking-tight kalmus-text-primary leading-snug font-display">
+                              {film.imdb_id ? (
+                                <a
+                                  href={`https://www.imdb.com/title/${film.imdb_id}/`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="hover:underline"
+                                >
+                                  {film.title}
+                                </a>
+                              ) : (
+                                <span>{film.title}</span>
+                              )}
+                            </h3>
+                            <div className="font-mono text-xs kalmus-text-secondary mt-1">
+                              <span>{(film.director || film.released || film.runtime || film.country) && `(`}</span>
+                              <span>{film.director && `${film.director}`}</span>
+                              <span>{film.released && `, ${new Date(film.released).getFullYear()}`}</span>
+                              <span>{film.runtime && `, ${Math.floor(Number(film.runtime) / 60)}h${Number(film.runtime) % 60}m`}</span>
+                              <span>{film.country && `, ${film.country}`}</span>
+                              <span>{(film.director || film.released || film.runtime || film.country) && `)`}</span>
                             </div>
-                          ))}
+                          </div>
+
+                          {/* Analyses summary */}
+                          <div>
+                            {film.analyses.map((a) => (
+                              <div
+                                key={a.id}
+                                className="flex items-center justify-between"
+                              >
+                                <div className="flex items-center gap-2 font-mono text-xs kalmus-text-secondary capitalize">
+                                  <span>{a.barcode_type}</span>
+                                  <span style={{ color: 'var(--accent-crimson)' }}>|</span>
+                                  <span>{a.frame_type.replace(/_/g, " ")}</span>
+                                  <span style={{ color: 'var(--accent-crimson)' }}>|</span>
+                                  <span>{a.metric}</span>
+                                </div>
+                                <Link
+                                  href={`/results/${a.id}`}
+                                  className="font-mono text-[10px] tracking-wider uppercase transition-colors"
+                                  style={{ color: 'var(--accent-amber)' }}
+                                >
+                                  View →
+                                </Link>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       </div>
                     ))}

@@ -4,6 +4,10 @@ export interface FilmSearchResult {
   id: string;
   title: string;
   imdb_id: string | null;
+  poster: string | null;
+  director: string | null;
+  runtime: string | null;
+  country: string | null;
   released: string | null;
   barcode_type: string;
   frame_type: string;
@@ -32,12 +36,35 @@ export function getDb(): Database.Database {
 export function getAnalysesByImdbId(imdbId: string): FilmSearchResult[] {
   return getDb()
     .prepare(
-      `SELECT f.id, f.title, f.imdb_id, f.released,
-              af.barcode_type, af.frame_type, af.metric, af.process_date
-       FROM films f
-       INNER JOIN analyzed_files af ON f.id = af.film_id
-       WHERE LOWER(f.imdb_id) = LOWER(?)
-       ORDER BY af.process_date DESC`
+      `SELECT 
+        f.id,
+        f.title,
+        f.imdb_id,
+        af.poster,
+        d.director,
+        f.runtime,
+        c.country,
+        f.released,
+        af.barcode_type,
+        af.frame_type,
+        af.metric,
+        af.process_date
+      FROM films f
+      INNER JOIN analyzed_files af ON af.film_id = f.id
+      LEFT JOIN (
+        SELECT fd.film_id, GROUP_CONCAT(d.director) AS director
+        FROM film_directors fd
+        JOIN directors d ON fd.director_id = d.id
+        GROUP BY fd.film_id
+      ) d ON f.id = d.film_id
+      LEFT JOIN (
+        SELECT fc.film_id, GROUP_CONCAT(c.country) AS country
+        FROM film_countries fc
+        JOIN countries c ON fc.country_id = c.id
+        GROUP BY fc.film_id
+      ) c ON f.id = c.film_id
+      WHERE LOWER(f.imdb_id) = LOWER(?)
+      ORDER BY af.process_date DESC`
     )
     .all(imdbId) as FilmSearchResult[];
 }

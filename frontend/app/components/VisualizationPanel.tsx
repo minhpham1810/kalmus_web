@@ -15,6 +15,10 @@ interface FilmSearchResult {
   id: string;
   title: string;
   imdb_id: string | null;
+  poster: string | null;
+  director: string | null;
+  runtime: string | null;
+  country: string | null;
   released: string | null;
   barcode_type: string;
   frame_type: string;
