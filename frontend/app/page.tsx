@@ -66,6 +66,7 @@ function groupResults(results: FilmSearchResult[]): GroupedFilm[] {
 }
 
 export default function Home() {
+  const [activeSelection, setActiveSelection] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<FilmSearchResult[]>([]);
   const [searched, setSearched] = useState(false);
@@ -73,6 +74,9 @@ export default function Home() {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    // Currently, searching does nothing when a selction button is active
+    if (activeSelection) return;
+
     if (debounceRef.current) clearTimeout(debounceRef.current);
 
     const trimmed = query.trim();
@@ -102,7 +106,37 @@ export default function Home() {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [query]);
+  }, [query, activeSelection]);
+
+  useEffect(() => {
+    if (!activeSelection) return;
+
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(
+          `/api/search-films?q=${encodeURIComponent(activeSelection)}&titleOnly=true`
+        );
+
+        let selectionResults: FilmSearchResult[] = (await res.json()).results || [];
+
+        if (activeSelection === "random" && selectionResults.length > 0) {
+          const randomFilm = selectionResults[Math.floor(Math.random() * selectionResults.length)];
+          selectionResults = [randomFilm];
+        }
+
+
+        const data = await res.json();
+        setResults(data.results || []);
+      } catch {
+        setResults([]);
+      } finally {
+        setSearched(true);
+        setLoading(false);
+      }
+    }, 300);
+  }, [activeSelection]);
 
   const grouped = groupResults(results);
 
@@ -205,6 +239,47 @@ export default function Home() {
               )}
             </div>
           </div>
+
+          {/* Selection Buttons */}
+          {false && /* Currently disabled since it doesn't work well with the text search and issues indexing */
+          <div className="mb-4">
+            {/* A-Z buttons */}
+            {Array.from({length: 26}, (_, i) => String.fromCharCode(65 + i)).map(letter => (
+              <button
+                key={letter}
+                className={`px-2 py-1 border rounded text-sm font-mono transition-colors ${
+                  activeSelection === letter ? "bg-indigo-600 text-white" : "bg-white text-black"
+                }`}
+                onClick={() => setActiveSelection(letter)}
+              >
+                {letter}
+              </button>
+            ))}
+
+            {/* 0-9 buttons */}
+            {Array.from({length: 10}, (_, i) => i.toString()).map(number => (
+              <button
+                key={number}
+                className={`px-2 py-1 border rounded text-sm font-mono transition-colors ${
+                  activeSelection === number ? "bg-indigo-600 text-white" : "bg-white text-black"
+                }`}
+                onClick={() => setActiveSelection(number)}
+              >
+                {number}
+              </button>
+            ))}
+
+            {/* Symbols */}
+            <button
+              onClick={() => setActiveSelection("symbols")}
+              className={`px-2 py-1 border rounded text-sm font-mono transition-colors ${
+                activeSelection === "symbols" ? "bg-indigo-600 text-white" : "bg-white text-black"
+              }`}
+            >
+              #
+            </button>
+          </div>
+          }
 
           {/* Upload CTA */}
           <div className="text-center mb-14">

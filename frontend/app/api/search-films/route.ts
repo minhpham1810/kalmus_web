@@ -6,6 +6,7 @@ const IMDB_ID_PATTERN = /^tt\d{5,8}$/i;
 
 export async function GET(request: NextRequest) {
   const q = request.nextUrl.searchParams.get("q")?.trim() || "";
+  const titleOnly = request.nextUrl.searchParams.get("titleOnly") === "true";
 
   if (!q) {
     return NextResponse.json({ results: [] });
@@ -15,53 +16,57 @@ export async function GET(request: NextRequest) {
     const db = getDb();
     let rawResults: FilmSearchResult[];
 
-    if (IMDB_ID_PATTERN.test(q)) {
+    if (!titleOnly &&IMDB_ID_PATTERN.test(q)) {
       rawResults = getAnalysesByImdbId(q);
     } else {
-      const ftsQuery = q
+      const ftsQuery = titleOnly ? `${q}%` : 
+        q
         .trim()
         .split(/\s+/)
         .map((term) => term + "*")
         .join(" ");
 
+      const sql = (
+        `SELECT 
+          f.id,
+          f.title,
+          f.imdb_id,
+          af.poster,
+          d.director,
+          f.runtime,
+          c.country,
+          f.released,
+          af.barcode_type,
+          af.frame_type,
+          af.metric,
+          af.process_date
+        FROM films_search
+        JOIN films f ON f.id = films_search.film_id
+
+        INNER JOIN analyzed_files af ON af.film_id = f.id
+
+        LEFT JOIN (
+          SELECT fd.film_id, GROUP_CONCAT(d.director) AS director
+          FROM film_directors fd
+          JOIN directors d ON fd.director_id = d.id
+          GROUP BY fd.film_id
+        ) d ON f.id = d.film_id
+
+        LEFT JOIN (
+          SELECT fc.film_id, GROUP_CONCAT(c.country) AS country
+          FROM film_countries fc
+          JOIN countries c ON fc.country_id = c.id
+          GROUP BY fc.film_id
+        ) c ON f.id = c.film_id
+
+        WHERE ${titleOnly ? "f.title LIKE ? COLLATE NOCASE" : "films_search MATCH ?"}
+        ORDER BY f.title ASC, af.process_date DESC
+        LIMIT 50`
+      );
+      
+
       rawResults = db
-        .prepare(
-          `SELECT 
-            f.id,
-            f.title,
-            f.imdb_id,
-            af.poster,
-            d.director,
-            f.runtime,
-            c.country,
-            f.released,
-            af.barcode_type,
-            af.frame_type,
-            af.metric,
-            af.process_date
-          FROM films_search
-          JOIN films f ON f.id = films_search.film_id
-
-          INNER JOIN analyzed_files af ON af.film_id = f.id
-
-          LEFT JOIN (
-            SELECT fd.film_id, GROUP_CONCAT(d.director) AS director
-            FROM film_directors fd
-            JOIN directors d ON fd.director_id = d.id
-            GROUP BY fd.film_id
-          ) d ON f.id = d.film_id
-
-          LEFT JOIN (
-            SELECT fc.film_id, GROUP_CONCAT(c.country) AS country
-            FROM film_countries fc
-            JOIN countries c ON fc.country_id = c.id
-            GROUP BY fc.film_id
-          ) c ON f.id = c.film_id
-
-          WHERE films_search MATCH ?
-          ORDER BY f.title ASC, af.process_date DESC
-          LIMIT 50`
-        )
+        .prepare(sql)
         .all(ftsQuery) as FilmSearchResult[];
     }
 

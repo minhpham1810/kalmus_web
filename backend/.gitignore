@@ -16,3 +16,6 @@ kalmus.egg-info
 
 # Database
 databases/
+
+# Secrets
+.env
