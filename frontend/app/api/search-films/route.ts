@@ -19,7 +19,13 @@ export async function GET(request: NextRequest) {
     if (!titleOnly &&IMDB_ID_PATTERN.test(q)) {
       rawResults = getAnalysesByImdbId(q);
     } else {
-      const { clause, params } = buildQuery(q.trim(), titleOnly);
+      const ret = buildQuery(q.trim(), titleOnly);
+      let clause: string = "";
+      let params: string[] = [];
+      if (ret) {
+        clause = ret["clause"]
+        params = ret["params"]
+      }
 
       const sql = (
         `SELECT 
@@ -54,11 +60,10 @@ export async function GET(request: NextRequest) {
           GROUP BY fc.film_id
         ) c ON f.id = c.film_id
 
-        WHERE ${clause}
+        ${ret && clause ? `WHERE ${clause}` : ``}
         ORDER BY f.title ASC, af.process_date DESC
         LIMIT 50`
       );
-      
 
       rawResults = db
         .prepare(sql)
@@ -110,28 +115,99 @@ function buildQuery(q: string, titleOnly: boolean) {
         }
     }
   } else {
-    return {
-      clause: `films_search MATCH ?`,
-      params: [buildFtsQuery(q)],
-    };
+    return buildFtsQuery(q);
   }
 }
 
-function buildFtsQuery(trimmed: string): string {
+function buildFtsQuery(trimmed: string) {
+  const stopwords = new Set([
+    "the",
+    "a",
+    "an",
+    "of"
+  ]);
 
+  const allowedCols = new Set([
+    "title",
+    "director",
+    "actor",
+    "country",
+    "genre",
+    "language",
+    "writer"
+  ]);
+
+  // Get phrase searches
   const phraseMatches = [...trimmed.matchAll(/"([^"]+)"/g)];
   const phrases = phraseMatches.map(m => m[1]);
 
-  const withoutPhrases = trimmed.replace(/"[^"]+"/g, "");
+  let remaining = trimmed.replace(/"[^"]+"/g, "");
 
-  const terms = withoutPhrases
+  // Get col searches
+  const colMatches = [...remaining.matchAll(/(\b\w+)\s*:\s*("[^"]+"|[^\s]+)/g)];
+  const colTerms: string[] = []
+
+  const usedSegments = new Set<string>();
+
+  // Build col searches
+  for (const match of colMatches) {
+    const col = match[1];
+    let value = match[2];
+
+    if (!allowedCols.has(col)) continue;
+
+    const isPhrase = value.startsWith('"') && value.endsWith('"');
+
+    if (isPhrase) {
+      value = value.slice(1, -1);
+      colTerms.push(`${col}:"${value}"`);
+    }
+    else {
+      const clean = value
+      .replace(/[^\w\d_]+/gu, "")
+      .replace(/\*+$/, "");
+
+      if (clean) {
+        colTerms.push(`${col}:${clean}*`);
+      }
+    }
+    
+    usedSegments.add(match[0]);
+  }
+
+  // Remove col searches
+  for (const seg of usedSegments) {
+    remaining = remaining.replace(seg, "");
+  }
+
+  const terms = remaining
     .trim()
     .split(/\s+/)
+    .map((t) => t
+        .replace(/[^\w\d_]+/gu, "")
+        .toLowerCase()
+    )
     .filter(Boolean);
 
-  const wildcardTerms = terms.map(t => `${t}*`);
+  const filteredTerms = terms.length > 1
+    ? terms.filter(t => !stopwords.has(t))
+    : terms
 
+  // Add wildcard to all remaining terms
+  const wildcardTerms = filteredTerms.map(t => `${t}*`);
+
+  // Build phrase terms
   const phraseTerms = phrases.map(p => `"${p}"`);
 
-  return [...phraseTerms, ...wildcardTerms].join(" ");
+  const allTerms = [...phraseTerms, ...colTerms, ...wildcardTerms];
+
+  // No valid search terms after cleaning
+  if (allTerms.length === 0) {
+    return null;
+  }
+
+  return {
+    clause: `films_search MATCH ?`,
+    params: [allTerms.join(" ")],
+  };
 }
