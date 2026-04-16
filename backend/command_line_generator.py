@@ -48,11 +48,12 @@ def create_db():
     # Main table, contains references to other tables
     cur.execute(
         "CREATE TABLE IF NOT EXISTS films (" \
-        "id TEXT PRIMARY KEY, " \
+        "job_id TEXT PRIMARY KEY, " \
         "title TEXT NOT NULL, " \
         "imdb_id TEXT, " \
         "released DATE, " \
-        "type TEXT" \
+        "type TEXT, " \
+        "runtime_minutes INTEGER" \
         ");"
     )
     
@@ -154,11 +155,17 @@ def create_db():
     cur.execute(
         "CREATE TABLE IF NOT EXISTS analyzed_files (" \
         "film_id TEXT PRIMARY KEY, " \
+        "uploader TEXT, " \
+        "process_date DATE NOT NULL, " \
         "json TEXT, " \
+        "poster TEXT, " \
         "barcode_type TEXT NOT NULL, " \
         "frame_type TEXT NOT NULL, " \
         "metric TEXT NOT NULL, " \
-        "process_date DATE NOT NULL, " \
+        "video_width INTEGER, " \
+        "video_height INTEGER, " \
+        "video_fps REAL, " \
+        "video_frame_count INTEGER, " \
         "FOREIGN KEY (film_id) REFERENCES films(id)" \
         ");"
     )
@@ -248,7 +255,7 @@ def update_search_table(film_id):
     con.commit()
     con.close()
 
-def add_to_db(job_id, data, json_loc, poster_loc):
+def add_to_db(job_id, data, metadata, json_loc, poster_loc):
     config = data.get("config")
     movie = data.get("movie") or {}
     raw = movie.get("raw") or {}
@@ -256,6 +263,8 @@ def add_to_db(job_id, data, json_loc, poster_loc):
     title = movie.get("title")
     imdb_id = movie.get("imdb_id")
     type_ = raw.get("Type", "")
+    runtime_raw = raw.get("Runtime", "")
+    runtime = int(runtime_raw) if runtime_raw else None
 
     released_raw = raw.get("Released")
     released = ""
@@ -275,9 +284,10 @@ def add_to_db(job_id, data, json_loc, poster_loc):
     con = sqlite3.connect(films_db)
     cur = con.cursor()
 
+    # Insert film record
     cur.execute(
-        "INSERT INTO films (id, title, imdb_id, released, type) VALUES (?, ?, ?, ?, ?)",
-        (job_id, title, imdb_id, released, type_)
+        "INSERT INTO films (id, title, imdb_id, released, type, runtime_minutes) VALUES (?, ?, ?, ?, ?, ?)",
+        (job_id, title, imdb_id, released, type_, runtime)
     )
 
     def insert_or_get_id(table, column, value):
@@ -287,7 +297,6 @@ def add_to_db(job_id, data, json_loc, poster_loc):
             return row[0]
         cur.execute(f"INSERT INTO {table} ({column}) VALUES (?)", (value,))
         return cur.lastrowid
-
     for genre in genres:
         genre_id = insert_or_get_id("genres", "genre", genre)
         cur.execute("INSERT OR IGNORE INTO film_genres (film_id, genre_id) VALUES (?, ?)", (job_id, genre_id))
@@ -307,19 +316,23 @@ def add_to_db(job_id, data, json_loc, poster_loc):
         country_id = insert_or_get_id("countries", "country", country)
         cur.execute("INSERT OR IGNORE INTO film_countries (film_id, country_id) VALUES (?, ?)", (job_id, country_id))
 
-    process_date = datetime.now().date()
-
+    # Insert job metadata
     cur.execute(
         "INSERT OR REPLACE INTO analyzed_files "
-        "(film_id, json, poster, barcode_type, frame_type, metric, process_date) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?);",
+        "(film_id, uploader, process_date, json, poster, barcode_type, frame_type, metric, video_width, video_height, video_fps, video_frame_count) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);",
         (job_id,
+         config.get("email", "").lower(),
+         datetime.now().date(),
          json_loc,
          poster_loc,
          config.get("barcode_type").lower(),
          config.get("frame_type").lower(),
          config.get("color_metric").lower(),
-         process_date)
+         upload_metadata.get("width"),
+         upload_metadata.get("height"),
+         upload_metadata.get("fps"),
+         upload_metadata.get("frame_count"))
     )
     
     con.commit()
@@ -343,22 +356,34 @@ def download_poster(url, save_dir):
     
     return output_path
 
-#NOTE: This assumes a 24fps true framerate
-# We verify the framerate within +-2 fps
-# We verify the length is within 10% of the expected runtime
-def verify_video_meta(video_path, expected_fps=24, expected_runtime_min=120):
+def get_upload_metadata(video_path):
     cap = cv.VideoCapture(video_path)
+    width = cap.get(cv.CAP_PROP_FRAME_WIDTH)
+    height = cap.get(cv.CAP_PROP_FRAME_HEIGHT)
     fps = cap.get(cv.CAP_PROP_FPS)
     frame_count = cap.get(cv.CAP_PROP_FRAME_COUNT)
     cap.release()
+
+    return {
+        "width": width,
+        "height": height,
+        "fps": fps,
+        "frame_count": frame_count,
+    }
+
+#NOTE: This assumes a 24fps true framerate
+# We verify the framerate within +-2 fps
+# We verify the length is within 10% of the expected runtime
+
+def verify_upload_metadata(upload_metadata, expected_fps=24, expected_runtime_min=120):
+    fps = upload_metadata.get("fps")
+    frame_count = upload_metadata.get("frame_count")
 
     runtime = frame_count / fps if fps > 0 else 0
     if abs(fps - expected_fps) > 2:
         print(f"WARNING: Video framerate is {fps}, which is outside the expected range of {expected_fps - 2}-{expected_fps + 2} fps.")
     if abs(runtime - expected_runtime_min * 60) > expected_runtime_min * 60 * 0.1:  # 10% of expected runtime
         print(f"WARNING: Video length is {runtime} seconds, which is outside the expected range of {expected_runtime_min * 60 * 0.9}-{expected_runtime_min * 60 * 1.1} seconds.")
-
-    return [fps, frame_count]
 
 def _extract_thumbnail_frames(video_path, barcode_obj, start_frame, end_frame):
     cap = cv.VideoCapture(video_path)
@@ -575,7 +600,7 @@ def generate_barcode(args):
 
     return barcode_obj
 
-def save_barcode(barcode_obj, args, metadata):
+def save_barcode(barcode_obj, args, film_metadata, upload_metadata):
     # Save as JSON
     json_path = os.path.join(args.output_dir, 'barcode.json')
     print(f"Saving barcode to {json_path}...")
@@ -631,18 +656,19 @@ def save_barcode(barcode_obj, args, metadata):
         json.dump(summary, f, indent=2)
 
     # Download poster if present; missing poster metadata should not fail the job.
-    movie_metadata = metadata.get("movie") or {}
+    movie_metadata = film_metadata.get("movie") or {}
     poster_path = download_poster(movie_metadata.get("poster_url"), args.output_dir)
 
     # Save to database
-    add_to_db(args.job_id, metadata, os.path.join(args.output_dir, "barcode.json"), poster_path)
+    add_to_db(args.job_id, film_metadata, upload_metadata, os.path.join(args.output_dir, "barcode.json"), poster_path)
 
     # Update search table
     update_search_table(args.job_id)
 
-    runtime_raw = ((movie_metadata.get("raw") or {}).get("Runtime") or "").split()
+def validate_video(film_metadata, upload_metadata):
+    runtime_raw = (((film_metadata.get("movie") or {}).get("raw") or {}).get("Runtime") or "").split()
     if runtime_raw:
-        fps, frame_count = verify_video_meta(args.video_path, 24, float(runtime_raw[0]))
+        verify_upload_metadata(upload_metadata, 24, float(runtime_raw[0]))
 
 def main(args=sys.argv[1:]):
     args = parse_args_into_dict(args=args)
@@ -658,12 +684,13 @@ def main(args=sys.argv[1:]):
 
     create_db()
 
-    metadata = get_metadata(args.job_id)
+    film_metadata = get_metadata(args.job_id)
+    upload_metadata = get_upload_metadata(args.video_path)
     
-    if not check_should_process((metadata.get("movie") or {}).get("imdb_id"),
-                                metadata["config"]["barcode_type"].lower(),
-                                metadata["config"]["frame_type"].lower(),
-                                metadata["config"]["color_metric"].lower()):
+    if not check_should_process((film_metadata.get("movie") or {}).get("imdb_id"),
+                                film_metadata["config"]["barcode_type"].lower(),
+                                film_metadata["config"]["frame_type"].lower(),
+                                film_metadata["config"]["color_metric"].lower()):
         return 0
 
     print()
@@ -675,7 +702,9 @@ def main(args=sys.argv[1:]):
 
     try:
         barcode_obj = generate_barcode(args)
-        save_barcode(barcode_obj, args, metadata)
+        save_barcode(barcode_obj, args, film_metadata, upload_metadata)
+
+        validate_video(film_metadata, upload_metadata)
 
         print()
         print("=" * 50)

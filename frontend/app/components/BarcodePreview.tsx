@@ -1,7 +1,142 @@
 "use client";
 
-import { useRef, useEffect, useState } from "react";
-import { RGB, ThumbnailEntry, ThumbnailManifest, ThumbnailSheet } from "@/lib/barcode-utils";
+import { useRef, useEffect, useState, useCallback } from "react";
+import { RGB, ThumbnailEntry, ThumbnailManifest, ThumbnailSheet, rgbToHsl } from "@/lib/barcode-utils";
+
+// ── Time Ruler ────────────────────────────────────────────────────────────────
+
+interface TimeRulerProps {
+  totalColorFrames: number;
+  sampledFrameRate: number;
+  fps: number;
+  skipOver: number;
+  canvasWidth: number;
+  zoom: number;
+  startFrac: number;
+  endFrac: number;
+}
+
+function TimeRuler({
+  totalColorFrames,
+  sampledFrameRate,
+  fps,
+  skipOver,
+  canvasWidth,
+  zoom,
+  startFrac,
+  endFrac,
+}: TimeRulerProps) {
+  const startSeconds = skipOver / fps;
+  const totalDuration = ((totalColorFrames - 1) * sampledFrameRate) / fps;
+  if (totalDuration <= 0 || canvasWidth === 0) return null;
+
+  const pixelWidth = canvasWidth * zoom;
+
+  let majorInterval: number;
+  let minorInterval: number;
+  if (totalDuration <= 120) {
+    majorInterval = 30; minorInterval = 10;
+  } else if (totalDuration <= 600) {
+    majorInterval = 60; minorInterval = 15;
+  } else if (totalDuration <= 3600) {
+    majorInterval = 300; minorInterval = 60;
+  } else {
+    majorInterval = 600; minorInterval = 120;
+  }
+
+  const ticks: Array<{ t: number; frac: number; major: boolean }> = [];
+  const firstTickOffset =
+    Math.ceil(startSeconds / minorInterval) * minorInterval - startSeconds;
+
+  for (
+    let offset = firstTickOffset;
+    offset <= totalDuration + minorInterval * 0.01;
+    offset += minorInterval
+  ) {
+    const frac = offset / totalDuration;
+    if (frac > 1.001) break;
+    const absTime = startSeconds + offset;
+    ticks.push({
+      t: absTime,
+      frac: Math.min(frac, 1),
+      major: Math.abs(absTime % majorInterval) < minorInterval * 0.02,
+    });
+  }
+  if (Math.abs(startSeconds % majorInterval) < minorInterval * 0.02) {
+    ticks.unshift({ t: startSeconds, frac: 0, major: true });
+  }
+
+  return (
+    <div style={{ position: "relative", width: pixelWidth, height: 28, flexShrink: 0 }}>
+      {/* Baseline */}
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 1,
+          background: "rgba(140,140,140,0.3)",
+        }}
+      />
+
+      {ticks.map((tick, i) => {
+        const inRange =
+          tick.frac >= startFrac - 0.0005 && tick.frac <= endFrac + 0.0005;
+        const lineColor = inRange
+          ? "rgba(210,175,90,0.9)"
+          : "rgba(140,140,140,0.4)";
+        const textColor = inRange
+          ? "rgba(210,175,90,0.85)"
+          : "rgba(130,130,130,0.5)";
+
+        return (
+          <div
+            key={i}
+            style={{
+              position: "absolute",
+              left: `${tick.frac * 100}%`,
+              top: 0,
+              bottom: 0,
+              transform: "translateX(-50%)",
+            }}
+          >
+            <div
+              style={{
+                position: "absolute",
+                top: 0,
+                left: "50%",
+                transform: "translateX(-50%)",
+                width: 1,
+                height: tick.major ? 10 : 5,
+                background: lineColor,
+              }}
+            />
+            {tick.major && (
+              <div
+                style={{
+                  position: "absolute",
+                  top: 12,
+                  left: "50%",
+                  transform: "translateX(-50%)",
+                  fontFamily: "monospace",
+                  fontSize: 9,
+                  lineHeight: 1,
+                  whiteSpace: "nowrap",
+                  color: textColor,
+                  userSelect: "none",
+                  pointerEvents: "none",
+                }}
+              >
+                {formatTimestamp(tick.t)}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 interface BarcodePreviewProps {
   barcode: RGB[][] | number[][];
@@ -12,6 +147,10 @@ interface BarcodePreviewProps {
   skipOver?: number;
   totalFrames?: number;
   thumbnails?: ThumbnailManifest | null;
+  // Frame range selection
+  frameRange?: [number, number];
+  totalColorFrames?: number;
+  onFrameRangeChange?: (range: [number, number]) => void;
 }
 
 interface HoverPreviewState {
@@ -19,6 +158,8 @@ interface HoverPreviewState {
   top: number;
   thumbnail: ThumbnailEntry;
   sheet: ThumbnailSheet;
+  rgb: RGB;
+  avgRgb: RGB;
 }
 
 function formatTimestamp(totalSeconds: number | null): string {
@@ -40,13 +181,25 @@ export default function BarcodePreview({
   barcode,
   barcodeType,
   title = "Barcode Preview",
+  fps,
+  sampledFrameRate,
+  skipOver,
   thumbnails = null,
+  frameRange,
+  totalColorFrames,
+  onFrameRangeChange,
 }: BarcodePreviewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
+  const rulerContainerRef = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState(1);
   const [isDark, setIsDark] = useState(false);
   const [hoverPreview, setHoverPreview] = useState<HoverPreviewState | null>(null);
+  const [dragging, setDragging] = useState<"start" | "end" | null>(null);
+  const [startInput, setStartInput] = useState("");
+  const [endInput, setEndInput] = useState("");
+
   const dimensions = {
     width: barcode[0]?.length || 0,
     height: barcode.length || 0,
@@ -54,10 +207,10 @@ export default function BarcodePreview({
 
   useEffect(() => {
     const root = document.documentElement;
-    const check = () => setIsDark(root.classList.contains('dark'));
+    const check = () => setIsDark(root.classList.contains("dark"));
     check();
     const obs = new MutationObserver(check);
-    obs.observe(root, { attributes: true, attributeFilter: ['class'] });
+    obs.observe(root, { attributes: true, attributeFilter: ["class"] });
     return () => obs.disconnect();
   }, []);
 
@@ -69,16 +222,13 @@ export default function BarcodePreview({
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    // Get barcode dimensions
     const height = barcode.length;
     const width = barcode[0]?.length || 0;
 
     if (width === 0 || height === 0) return;
 
-    // Set canvas dimensions
     canvas.width = width;
     canvas.height = height;
-    // Create image data
     const imageData = ctx.createImageData(width, height);
 
     for (let y = 0; y < height; y++) {
@@ -87,14 +237,12 @@ export default function BarcodePreview({
         const pixel = barcode[y][x];
 
         if (barcodeType === "Color" && Array.isArray(pixel)) {
-          // RGB color
           const [r, g, b] = pixel as RGB;
           imageData.data[idx] = r;
           imageData.data[idx + 1] = g;
           imageData.data[idx + 2] = b;
           imageData.data[idx + 3] = 255;
         } else {
-          // Brightness (grayscale)
           const gray = typeof pixel === "number" ? pixel : (pixel as number[])[0] || 0;
           imageData.data[idx] = gray;
           imageData.data[idx + 1] = gray;
@@ -106,6 +254,96 @@ export default function BarcodePreview({
 
     ctx.putImageData(imageData, 0, 0);
   }, [barcode, barcodeType]);
+
+  // Frame range helpers
+  const fractionToIndex = (f: number) =>
+    Math.round(
+      Math.max(0, Math.min(1, f)) * Math.max(0, (totalColorFrames ?? 1) - 1)
+    );
+
+  const indexToFraction = (i: number) =>
+    totalColorFrames && totalColorFrames > 1 ? i / (totalColorFrames - 1) : 0;
+
+  const indexToLabel = (idx: number): string => {
+    if (!fps || !sampledFrameRate) return `fr ${idx}`;
+    const actualFrame = (skipOver ?? 0) + idx * sampledFrameRate;
+    const secs = actualFrame / fps;
+    return `${formatTimestamp(secs)} (fr ${idx})`;
+  };
+
+  const indexToTime = (idx: number): string => {
+    if (!fps || !sampledFrameRate) return "";
+    const actualFrame = (skipOver ?? 0) + idx * sampledFrameRate;
+    return formatTimestamp(actualFrame / fps);
+  };
+
+  const commitStart = () => {
+    const val = parseInt(startInput, 10);
+    if (!isNaN(val) && frameRange && onFrameRangeChange) {
+      const clamped = Math.max(0, Math.min(val, frameRange[1]));
+      onFrameRangeChange([clamped, frameRange[1]]);
+      setStartInput(String(clamped));
+    } else if (frameRange) {
+      setStartInput(String(frameRange[0]));
+    }
+  };
+
+  const commitEnd = () => {
+    const val = parseInt(endInput, 10);
+    if (!isNaN(val) && frameRange && onFrameRangeChange) {
+      const clamped = Math.max(frameRange[0], Math.min(val, (totalColorFrames ?? 1) - 1));
+      onFrameRangeChange([frameRange[0], clamped]);
+      setEndInput(String(clamped));
+    } else if (frameRange) {
+      setEndInput(String(frameRange[1]));
+    }
+  };
+
+  const showRange =
+    !!onFrameRangeChange && !!frameRange && !!totalColorFrames && totalColorFrames > 1;
+  const startFrac = showRange ? indexToFraction(frameRange![0]) : 0;
+  const endFrac = showRange ? indexToFraction(frameRange![1]) : 1;
+
+  // Drag handlers
+  const handleMouseDown = (e: React.MouseEvent, handle: "start" | "end") => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragging(handle);
+  };
+
+  useEffect(() => {
+    if (!dragging || !onFrameRangeChange || !frameRange) return;
+
+    const onMove = (e: MouseEvent) => {
+      const overlay = overlayRef.current;
+      if (!overlay) return;
+      const rect = overlay.getBoundingClientRect();
+      const f = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      const idx = fractionToIndex(f);
+      if (dragging === "start") {
+        onFrameRangeChange([Math.min(idx, frameRange[1]), frameRange[1]]);
+      } else {
+        onFrameRangeChange([frameRange[0], Math.max(idx, frameRange[0])]);
+      }
+    };
+
+    const onUp = () => setDragging(null);
+
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+    return () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+  }, [dragging, frameRange, onFrameRangeChange, totalColorFrames]);
+
+  // Keep text inputs in sync with external range changes (drag, reset)
+  useEffect(() => {
+    if (frameRange) {
+      setStartInput(String(frameRange[0]));
+      setEndInput(String(frameRange[1]));
+    }
+  }, [frameRange?.[0], frameRange?.[1]]);
 
   const handleDownload = () => {
     if (!canvasRef.current) return;
@@ -124,7 +362,15 @@ export default function BarcodePreview({
   };
 
   const handlePointerMove = (event: React.PointerEvent<HTMLCanvasElement>) => {
-    if (!thumbnails?.enabled || thumbnails.count === 0 || dimensions.width === 0 || dimensions.height === 0) {
+    // Don't show hover preview while dragging a range handle
+    if (dragging) return;
+
+    if (
+      !thumbnails?.enabled ||
+      thumbnails.count === 0 ||
+      dimensions.width === 0 ||
+      dimensions.height === 0
+    ) {
       return;
     }
 
@@ -164,8 +410,28 @@ export default function BarcodePreview({
       return;
     }
 
+    // Read hovered pixel color
+    const pixel = barcode[barcodeY][barcodeX];
+    const rgb: RGB =
+      barcodeType === "Color" && Array.isArray(pixel)
+        ? (pixel as RGB)
+        : [pixel as number, pixel as number, pixel as number];
+
+    // Compute column average color
+    let sumR = 0, sumG = 0, sumB = 0;
+    for (let row = 0; row < dimensions.height; row++) {
+      const p = barcode[row][barcodeX];
+      if (Array.isArray(p)) { sumR += p[0]; sumG += p[1]; sumB += p[2]; }
+      else { sumR += p as number; sumG += p as number; sumB += p as number; }
+    }
+    const avgRgb: RGB = [
+      Math.round(sumR / dimensions.height),
+      Math.round(sumG / dimensions.height),
+      Math.round(sumB / dimensions.height),
+    ];
+
     const popupWidth = thumbnail.width;
-    const popupHeight = thumbnail.height + 44;
+    const popupHeight = thumbnail.height + 56;
     const margin = 16;
 
     const left = Math.max(
@@ -177,15 +443,34 @@ export default function BarcodePreview({
       window.innerHeight - popupHeight - margin
     );
 
-    setHoverPreview({
-      left,
-      top,
-      thumbnail,
-      sheet,
-    });
+    setHoverPreview({ left, top, thumbnail, sheet, rgb, avgRgb });
   };
 
+  // Sync scroll between barcode canvas and ruler
+  const handleCanvasScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    if (rulerContainerRef.current) {
+      rulerContainerRef.current.scrollLeft = e.currentTarget.scrollLeft;
+    }
+  }, []);
+
+  const handleRulerScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    if (containerRef.current) {
+      containerRef.current.scrollLeft = e.currentTarget.scrollLeft;
+    }
+  }, []);
+
+  const showRuler =
+    showRange &&
+    !!fps &&
+    !!sampledFrameRate &&
+    !!totalColorFrames &&
+    totalColorFrames > 1;
+
   const zoomLevels = [0.5, 1, 2, 4, 8];
+
+  const isAtFullRange =
+    !showRange ||
+    (frameRange![0] === 0 && frameRange![1] === totalColorFrames! - 1);
 
   return (
     <div className="panel-bg border border-neutral-200 dark:border-neutral-700 rounded-lg overflow-hidden">
@@ -215,6 +500,11 @@ export default function BarcodePreview({
             {thumbnails?.enabled && thumbnails.count > 0 && (
               <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-1">
                 Hover the barcode to preview captured thumbnails.
+              </p>
+            )}
+            {showRange && (
+              <p className="text-[11px] mt-1" style={{ color: "var(--accent-amber)" }}>
+                Drag the handles to select a frame range.
               </p>
             )}
           </div>
@@ -256,7 +546,6 @@ export default function BarcodePreview({
               />
             </svg>
           </button>
-
         </div>
       </div>
 
@@ -265,27 +554,219 @@ export default function BarcodePreview({
         ref={containerRef}
         className="overflow-x-auto overflow-y-hidden bg-neutral-100 dark:bg-neutral-900 p-4"
         style={{ maxHeight: "400px" }}
+        onScroll={handleCanvasScroll}
       >
+        {/* Overlay wrapper: positions dim overlays and drag handles relative to the canvas */}
         <div
-          className="inline-block border border-neutral-300 dark:border-neutral-600 shadow-sm"
+          ref={overlayRef}
           style={{
-            imageRendering: zoom >= 2 ? "pixelated" : "auto",
+            position: "relative",
+            display: "inline-block",
+            cursor: dragging ? "ew-resize" : "default",
           }}
         >
-          <canvas
-            ref={canvasRef}
-            onPointerMove={handlePointerMove}
-            onPointerLeave={clearHoverPreview}
-            onPointerCancel={clearHoverPreview}
-            style={{
-              width: dimensions.width * zoom,
-              height: dimensions.height * zoom,
-              display: "block",
-              imageRendering: zoom >= 2 ? "pixelated" : "auto",
-            }}
-          />
+          <div
+            className="inline-block border border-neutral-300 dark:border-neutral-600 shadow-sm"
+            style={{ imageRendering: zoom >= 2 ? "pixelated" : "auto" }}
+          >
+            <canvas
+              ref={canvasRef}
+              onPointerMove={handlePointerMove}
+              onPointerLeave={clearHoverPreview}
+              onPointerCancel={clearHoverPreview}
+              style={{
+                width: dimensions.width * zoom,
+                height: dimensions.height * zoom,
+                display: "block",
+                imageRendering: zoom >= 2 ? "pixelated" : "auto",
+              }}
+            />
+          </div>
+
+          {/* Left dim overlay */}
+          {showRange && startFrac > 0 && (
+            <div
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: `${startFrac * 100}%`,
+                height: "100%",
+                background: "rgba(0,0,0,0.48)",
+                pointerEvents: "none",
+              }}
+            />
+          )}
+
+          {/* Right dim overlay */}
+          {showRange && endFrac < 1 && (
+            <div
+              style={{
+                position: "absolute",
+                top: 0,
+                left: `${endFrac * 100}%`,
+                width: `${(1 - endFrac) * 100}%`,
+                height: "100%",
+                background: "rgba(0,0,0,0.48)",
+                pointerEvents: "none",
+              }}
+            />
+          )}
+
+          {/* Start handle */}
+          {showRange && (
+            <div
+              onMouseDown={(e) => handleMouseDown(e, "start")}
+              title="Drag to set start frame"
+              style={{
+                position: "absolute",
+                top: 0,
+                left: `${startFrac * 100}%`,
+                height: "100%",
+                width: 6,
+                cursor: "ew-resize",
+                background: "var(--accent-amber)",
+                transform: "translateX(-50%)",
+                zIndex: 2,
+                boxShadow: "0 0 4px rgba(0,0,0,0.5)",
+              }}
+            />
+          )}
+
+          {/* End handle */}
+          {showRange && (
+            <div
+              onMouseDown={(e) => handleMouseDown(e, "end")}
+              title="Drag to set end frame"
+              style={{
+                position: "absolute",
+                top: 0,
+                left: `${endFrac * 100}%`,
+                height: "100%",
+                width: 6,
+                cursor: "ew-resize",
+                background: "var(--accent-amber)",
+                transform: "translateX(-50%)",
+                zIndex: 2,
+                boxShadow: "0 0 4px rgba(0,0,0,0.5)",
+              }}
+            />
+          )}
         </div>
       </div>
+
+      {/* Time ruler — scrolls in sync with the canvas */}
+      {showRuler && (
+        <div
+          ref={rulerContainerRef}
+          onScroll={handleRulerScroll}
+          className="overflow-x-auto overflow-y-hidden bg-neutral-50 dark:bg-neutral-900 px-4"
+          style={{
+            borderTop: "1px solid rgba(120,120,120,0.15)",
+            /* hide scrollbar — canvas scrollbar drives navigation */
+            scrollbarWidth: "none",
+            msOverflowStyle: "none",
+          }}
+        >
+          <TimeRuler
+            totalColorFrames={totalColorFrames!}
+            sampledFrameRate={sampledFrameRate!}
+            fps={fps!}
+            skipOver={skipOver ?? 0}
+            canvasWidth={dimensions.width}
+            zoom={zoom}
+            startFrac={startFrac}
+            endFrac={endFrac}
+          />
+        </div>
+      )}
+
+      {/* Range label row */}
+      {showRange && frameRange && (
+        <div
+          className="px-4 py-2 flex items-center justify-between gap-3"
+          style={{
+            borderTop: "1px solid var(--surface-border)",
+            background: "var(--surface-bg-strong)",
+          }}
+        >
+          {/* Start */}
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="font-mono text-[11px] kalmus-text-secondary flex-shrink-0">▸</span>
+            <input
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              value={startInput}
+              onChange={(e) => setStartInput(e.target.value)}
+              onBlur={commitStart}
+              onKeyDown={(e) => e.key === "Enter" && commitStart()}
+              title="Start frame"
+              className="font-mono text-[11px] bg-transparent text-center flex-shrink-0"
+              style={{
+                width: "4.5rem",
+                border: "1px solid var(--input-border)",
+                color: "var(--accent-amber)",
+                padding: "1px 4px",
+                outline: "none",
+              }}
+            />
+            {fps && sampledFrameRate && (
+              <span className="font-mono text-[11px] kalmus-text-muted truncate">
+                {indexToTime(frameRange[0])}
+              </span>
+            )}
+          </div>
+
+          {/* Center */}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <span className="font-mono text-[10px] kalmus-text-muted tracking-wider uppercase whitespace-nowrap">
+              {(frameRange[1] - frameRange[0] + 1).toLocaleString()} frames
+            </span>
+            {!isAtFullRange && (
+              <button
+                onClick={() => onFrameRangeChange!([0, totalColorFrames! - 1])}
+                className="px-2 py-0.5 font-mono text-[10px] tracking-wider uppercase transition-colors hover:opacity-80"
+                style={{
+                  border: "1px solid var(--input-border)",
+                  color: "var(--accent-amber)",
+                  background: "transparent",
+                }}
+              >
+                Reset
+              </button>
+            )}
+          </div>
+
+          {/* End */}
+          <div className="flex items-center gap-2 min-w-0 justify-end">
+            {fps && sampledFrameRate && (
+              <span className="font-mono text-[11px] kalmus-text-muted truncate">
+                {indexToTime(frameRange[1])}
+              </span>
+            )}
+            <input
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              value={endInput}
+              onChange={(e) => setEndInput(e.target.value)}
+              onBlur={commitEnd}
+              onKeyDown={(e) => e.key === "Enter" && commitEnd()}
+              title="End frame"
+              className="font-mono text-[11px] bg-transparent text-center flex-shrink-0"
+              style={{
+                width: "4.5rem",
+                border: "1px solid var(--input-border)",
+                color: "var(--accent-amber)",
+                padding: "1px 4px",
+                outline: "none",
+              }}
+            />
+            <span className="font-mono text-[11px] kalmus-text-secondary flex-shrink-0">◂</span>
+          </div>
+        </div>
+      )}
 
       {/* Footer Info */}
       <div className="px-4 py-2 border-t border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900">
@@ -317,15 +798,52 @@ export default function BarcodePreview({
             }}
           />
           <div
-            className="px-3 py-2 border-t"
-            style={{ borderColor: "var(--surface-border)", background: "var(--surface-bg-strong)" }}
+            className="px-3 py-2 border-t flex items-center gap-3"
+            style={{
+              borderColor: "var(--surface-border)",
+              background: "var(--surface-bg-strong)",
+            }}
           >
-            <div className="font-mono text-[10px] tracking-[0.16em] uppercase kalmus-text-secondary">
-              Frame {hoverPreview.thumbnail.frame_index.toLocaleString()}
+            {/* Frame info */}
+            <div className="flex flex-col justify-center flex-shrink-0">
+              <div className="font-mono text-[10px] tracking-[0.16em] uppercase kalmus-text-secondary">
+                Frame {hoverPreview.thumbnail.frame_index.toLocaleString()}
+              </div>
+              <div className="font-mono text-[11px] kalmus-text-primary mt-1">
+                {formatTimestamp(hoverPreview.thumbnail.time_seconds)}
+              </div>
             </div>
-            <div className="font-mono text-[11px] kalmus-text-primary mt-1">
-              {formatTimestamp(hoverPreview.thumbnail.time_seconds)}
-            </div>
+
+            {/* Divider */}
+            <div style={{ width: 1, alignSelf: "stretch", background: "var(--surface-border)", flexShrink: 0 }} />
+
+            {/* Avg swatch + RGB/HSL */}
+            {(() => {
+              const { rgb, avgRgb } = hoverPreview;
+              const hsl = rgbToHsl(rgb[0], rgb[1], rgb[2]);
+              return (
+                <div className="flex items-center gap-2.5">
+                  <div
+                    style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: 3,
+                      background: `rgb(${avgRgb[0]},${avgRgb[1]},${avgRgb[2]})`,
+                      flexShrink: 0,
+                      border: "1px solid rgba(255,255,255,0.12)",
+                    }}
+                  />
+                  <div className="flex flex-col justify-center">
+                    <span className="font-mono text-[10px] kalmus-text-primary">
+                      rgb({rgb[0]}, {rgb[1]}, {rgb[2]})
+                    </span>
+                    <span className="font-mono text-[10px] kalmus-text-secondary mt-0.5">
+                      hsl({Math.round(hsl[0])}°, {Math.round(hsl[1] * 100)}%, {Math.round(hsl[2] * 100)}%)
+                    </span>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </div>
       )}

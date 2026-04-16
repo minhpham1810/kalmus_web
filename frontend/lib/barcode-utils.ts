@@ -162,6 +162,71 @@ export function deterministicSample<T>(arr: T[], maxSamples: number, seed: numbe
 }
 
 /**
+ * Same as deterministicSample but also returns the original indices of selected items.
+ * Use when you need to map sampled points back to their source frame index.
+ */
+export function deterministicSampleWithIndices<T>(
+  arr: T[],
+  maxSamples: number,
+  seed: number = 42
+): { items: T[]; indices: number[] } {
+  if (arr.length <= maxSamples) {
+    return { items: arr, indices: arr.map((_, i) => i) };
+  }
+
+  const random = (s: number) => {
+    return () => {
+      s |= 0;
+      s = (s + 0x6d2b79f5) | 0;
+      let t = Math.imul(s ^ (s >>> 15), 1 | s);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  };
+
+  const rng = random(seed);
+  const idxArr = Array.from({ length: arr.length }, (_, i) => i);
+  for (let i = 0; i < maxSamples; i++) {
+    const j = i + Math.floor(rng() * (arr.length - i));
+    [idxArr[i], idxArr[j]] = [idxArr[j], idxArr[i]];
+  }
+
+  const selectedIndices = idxArr.slice(0, maxSamples);
+  return { items: selectedIndices.map((i) => arr[i]), indices: selectedIndices };
+}
+
+/**
+ * Find the thumbnail entry whose frame_index is closest to the given frame index.
+ */
+export function findClosestThumbnail(
+  manifest: ThumbnailManifest,
+  frameIndex: number
+): ThumbnailEntry | null {
+  if (!manifest.thumbnails.length) return null;
+  return manifest.thumbnails.reduce((best, t) =>
+    Math.abs(t.frame_index - frameIndex) < Math.abs(best.frame_index - frameIndex) ? t : best
+  );
+}
+
+/**
+ * Format a duration in seconds as h:mm:ss or m:ss
+ */
+export function formatTimestamp(totalSeconds: number | null): string {
+  if (totalSeconds === null || Number.isNaN(totalSeconds)) return "Time unavailable";
+
+  const rounded = Math.max(0, Math.floor(totalSeconds));
+  const hours = Math.floor(rounded / 3600);
+  const minutes = Math.floor((rounded % 3600) / 60);
+  const seconds = rounded % 60;
+
+  if (hours > 0) {
+    return `${hours}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+  }
+
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+}
+
+/**
  * Compute histogram bins for hue (0-360) or brightness (0-255)
  */
 export function computeHistogram(
@@ -269,30 +334,35 @@ export function computeHueLightBins(
 }
 
 /**
- * Prepare Hue/Light scatter data with saturation filtering
+ * Prepare Hue/Light scatter data with saturation filtering.
+ * Pass originalIndices (from deterministicSampleWithIndices) to get per-point source indices back.
  */
 export function prepareHueLightScatterData(
   colors: RGB[],
-  saturationThreshold: number = 0.15
+  saturationThreshold: number = 0.15,
+  originalIndices?: number[]
 ): {
   hueValues: number[];
   lightValues: number[];
   colorStrs: string[];
+  pointOriginalIndices: number[];
 } {
   const hueValues: number[] = [];
   const lightValues: number[] = [];
   const colorStrs: string[] = [];
+  const pointOriginalIndices: number[] = [];
 
-  for (const [r, g, b] of colors) {
+  colors.forEach(([r, g, b], i) => {
     const [h, s, v] = rgbToHsv(r, g, b);
     if (s >= saturationThreshold) {
       hueValues.push(h);
       lightValues.push(v);
       colorStrs.push(`rgb(${r},${g},${b})`);
+      pointOriginalIndices.push(originalIndices ? originalIndices[i] : i);
     }
-  }
+  });
 
-  return { hueValues, lightValues, colorStrs };
+  return { hueValues, lightValues, colorStrs, pointOriginalIndices };
 }
 
 /**

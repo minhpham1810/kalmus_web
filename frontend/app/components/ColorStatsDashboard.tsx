@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { RGB } from "@/lib/barcode-utils";
 
 interface ColorStats {
   totalFrames: number;
@@ -23,19 +24,31 @@ interface ColorStats {
 interface ColorStatsDashboardProps {
   jobId: string;
   title?: string;
+  colors?: RGB[];
+  brightness?: number[];
 }
 
 export default function ColorStatsDashboard({
   jobId,
   title = "Color Statistics",
+  colors: colorsProp,
 }: ColorStatsDashboardProps) {
   const [stats, setStats] = useState<ColorStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Store summary metadata so range changes can recompute without re-fetching
+  const summaryRef = useRef<any>(null);
 
   useEffect(() => {
     loadStats();
   }, [jobId]);
+
+  // When the colors prop changes (range adjusted), recompute color stats
+  useEffect(() => {
+    if (colorsProp !== undefined && summaryRef.current !== null) {
+      computeStats(colorsProp, summaryRef.current);
+    }
+  }, [colorsProp]);
 
   const loadStats = async () => {
     setLoading(true);
@@ -50,7 +63,13 @@ export default function ColorStatsDashboard({
       const data = await response.json();
 
       if (data.success && data.barcode && data.summary) {
-        computeStats(data.barcode, data.summary);
+        summaryRef.current = data.summary;
+        // Use passed colors if available (range-filtered), otherwise use all fetched colors
+        const colorsToUse =
+          colorsProp !== undefined
+            ? colorsProp
+            : (data.barcode.colors as RGB[] | undefined) ?? [];
+        computeStats(colorsToUse, data.summary);
       } else {
         throw new Error("Invalid barcode data");
       }
@@ -61,12 +80,28 @@ export default function ColorStatsDashboard({
     }
   };
 
-  const computeStats = (barcodeData: any, summary: any) => {
-    const colors = barcodeData.colors || [];
+  const computeStats = (colors: RGB[], summary: any) => {
+    if (colors.length === 0) {
+      // Empty range — keep metadata but zero out color stats
+      if (summaryRef.current) {
+        setStats({
+          totalFrames: summary.total_frames || 0,
+          filmLengthInFrames: summary.film_length_in_frames || 0,
+          barcodeShape: summary.barcode_shape || [0, 0, 0],
+          dominantColors: [],
+          averageColor: [0, 0, 0],
+          brightnessStats: { mean: 0, median: 0, std: 0, min: 0, max: 0 },
+          colorMetric: summary.color_metric || "Unknown",
+          frameType: summary.frame_type || "Unknown",
+          barcodeType: summary.barcode_type || "Unknown",
+        });
+      }
+      return;
+    }
 
-    // Calculate dominant colors
+    // Dominant colors
     const colorCounts = new Map<string, number>();
-    colors.forEach((color: number[]) => {
+    colors.forEach((color) => {
       const key = color.join(",");
       colorCounts.set(key, (colorCounts.get(key) || 0) + 1);
     });
@@ -79,20 +114,20 @@ export default function ColorStatsDashboard({
       .sort((a, b) => b.percentage - a.percentage)
       .slice(0, 5);
 
-    // Calculate average color
-    const avgR = colors.reduce((sum: number, c: number[]) => sum + c[0], 0) / colors.length;
-    const avgG = colors.reduce((sum: number, c: number[]) => sum + c[1], 0) / colors.length;
-    const avgB = colors.reduce((sum: number, c: number[]) => sum + c[2], 0) / colors.length;
+    // Average color
+    const avgR = colors.reduce((sum, c) => sum + c[0], 0) / colors.length;
+    const avgG = colors.reduce((sum, c) => sum + c[1], 0) / colors.length;
+    const avgB = colors.reduce((sum, c) => sum + c[2], 0) / colors.length;
 
-    // Calculate brightness statistics
-    const brightness = colors.map((c: number[]) => (c[0] * 0.299 + c[1] * 0.587 + c[2] * 0.114));
-    brightness.sort((a: number, b: number) => a - b);
+    // Brightness statistics
+    const brightness = colors
+      .map((c) => c[0] * 0.299 + c[1] * 0.587 + c[2] * 0.114)
+      .sort((a, b) => a - b);
 
-    const mean = brightness.reduce((sum: number, b: number) => sum + b, 0) / brightness.length;
+    const mean = brightness.reduce((sum, b) => sum + b, 0) / brightness.length;
     const median = brightness[Math.floor(brightness.length / 2)];
     const variance =
-      brightness.reduce((sum: number, b: number) => sum + Math.pow(b - mean, 2), 0) /
-      brightness.length;
+      brightness.reduce((sum, b) => sum + Math.pow(b - mean, 2), 0) / brightness.length;
     const std = Math.sqrt(variance);
 
     setStats({
@@ -114,27 +149,40 @@ export default function ColorStatsDashboard({
     });
   };
 
-  const formatNumber = (num: number) => {
-    return num.toLocaleString();
-  };
+  const formatNumber = (num: number) => num.toLocaleString();
 
-  const rgbToHex = (rgb: number[]) => {
-    return (
-      "#" +
-      rgb
-        .map((c) => {
-          const hex = c.toString(16);
-          return hex.length === 1 ? "0" + hex : hex;
-        })
-        .join("")
-    );
-  };
+  const rgbToHex = (rgb: number[]) =>
+    "#" +
+    rgb
+      .map((c) => {
+        const hex = c.toString(16);
+        return hex.length === 1 ? "0" + hex : hex;
+      })
+      .join("");
+
+  const analyzedFrames = colorsProp?.length;
+  const isFiltered =
+    analyzedFrames !== undefined && stats && analyzedFrames < stats.totalFrames;
 
   return (
     <div className="panel-bg border border-neutral-200 dark:border-neutral-700 rounded p-6">
-      <h3 className="text-sm font-medium mb-6 text-neutral-700 dark:text-neutral-300 uppercase tracking-wide">
-        {title}
-      </h3>
+      <div className="flex items-start justify-between mb-6 gap-4">
+        <h3 className="text-sm font-medium text-neutral-700 dark:text-neutral-300 uppercase tracking-wide">
+          {title}
+        </h3>
+        {isFiltered && (
+          <span
+            className="font-mono text-[10px] tracking-wider uppercase px-2 py-0.5 flex-shrink-0"
+            style={{
+              border: "1px solid var(--accent-amber)",
+              color: "var(--accent-amber)",
+              background: "transparent",
+            }}
+          >
+            {analyzedFrames!.toLocaleString()} frames (range)
+          </span>
+        )}
+      </div>
 
       {loading && (
         <div className="flex items-center justify-center py-12">
@@ -176,15 +224,21 @@ export default function ColorStatsDashboard({
           {/* Basic Info */}
           <div className="grid grid-cols-2 gap-4">
             <StatCard label="Total Frames" value={formatNumber(stats.totalFrames)} />
-            <StatCard label="Film Length" value={`${formatNumber(stats.filmLengthInFrames)} frames`} />
-            <StatCard label="Barcode Size" value={`${stats.barcodeShape[0]} × ${stats.barcodeShape[1]}`} />
+            <StatCard
+              label="Film Length"
+              value={`${formatNumber(stats.filmLengthInFrames)} frames`}
+            />
+            <StatCard
+              label="Barcode Size"
+              value={`${stats.barcodeShape[0]} × ${stats.barcodeShape[1]}`}
+            />
             <StatCard label="Color Metric" value={stats.colorMetric} />
           </div>
 
           {/* Average Color */}
           <div className="border-t border-neutral-200 dark:border-neutral-700 pt-4">
             <h4 className="text-xs font-medium text-neutral-600 dark:text-neutral-400 mb-3 uppercase tracking-wide">
-              Average Color
+              Average Color{isFiltered ? " (selected range)" : ""}
             </h4>
             <div className="flex items-center gap-4">
               <div
@@ -213,45 +267,51 @@ export default function ColorStatsDashboard({
           {/* Dominant Colors */}
           <div className="border-t border-neutral-200 dark:border-neutral-700 pt-4">
             <h4 className="text-xs font-medium text-neutral-600 dark:text-neutral-400 mb-3 uppercase tracking-wide">
-              Top 5 Dominant Colors
+              Top 5 Dominant Colors{isFiltered ? " (selected range)" : ""}
             </h4>
-            <div className="space-y-2">
-              {stats.dominantColors.map((color, index) => (
-                <div key={index} className="flex items-center gap-3">
-                  <div
-                    className="w-10 h-10 rounded border border-neutral-300 dark:border-neutral-600 flex-shrink-0"
-                    style={{
-                      backgroundColor: `rgb(${color.rgb[0]}, ${color.rgb[1]}, ${color.rgb[2]})`,
-                    }}
-                  />
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between text-xs mb-1">
-                      <code className="text-neutral-600 dark:text-neutral-400 font-mono">
-                        {rgbToHex(color.rgb)}
-                      </code>
-                      <span className="text-neutral-900 dark:text-neutral-100 font-medium">
-                        {color.percentage.toFixed(2)}%
-                      </span>
-                    </div>
-                    <div className="w-full bg-neutral-200 dark:bg-neutral-700 rounded-full h-1.5">
-                      <div
-                        className="h-1.5 rounded-full"
-                        style={{
-                          width: `${color.percentage}%`,
-                          backgroundColor: `rgb(${color.rgb[0]}, ${color.rgb[1]}, ${color.rgb[2]})`,
-                        }}
-                      />
+            {stats.dominantColors.length === 0 ? (
+              <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                No color data for selected range.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {stats.dominantColors.map((color, index) => (
+                  <div key={index} className="flex items-center gap-3">
+                    <div
+                      className="w-10 h-10 rounded border border-neutral-300 dark:border-neutral-600 flex-shrink-0"
+                      style={{
+                        backgroundColor: `rgb(${color.rgb[0]}, ${color.rgb[1]}, ${color.rgb[2]})`,
+                      }}
+                    />
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between text-xs mb-1">
+                        <code className="text-neutral-600 dark:text-neutral-400 font-mono">
+                          {rgbToHex(color.rgb)}
+                        </code>
+                        <span className="text-neutral-900 dark:text-neutral-100 font-medium">
+                          {color.percentage.toFixed(2)}%
+                        </span>
+                      </div>
+                      <div className="w-full bg-neutral-200 dark:bg-neutral-700 rounded-full h-1.5">
+                        <div
+                          className="h-1.5 rounded-full"
+                          style={{
+                            width: `${color.percentage}%`,
+                            backgroundColor: `rgb(${color.rgb[0]}, ${color.rgb[1]}, ${color.rgb[2]})`,
+                          }}
+                        />
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Brightness Statistics */}
           <div className="border-t border-neutral-200 dark:border-neutral-700 pt-4">
             <h4 className="text-xs font-medium text-neutral-600 dark:text-neutral-400 mb-3 uppercase tracking-wide">
-              Brightness Distribution
+              Brightness Distribution{isFiltered ? " (selected range)" : ""}
             </h4>
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
               <BrightnessStatCard label="Mean" value={stats.brightnessStats.mean} />
