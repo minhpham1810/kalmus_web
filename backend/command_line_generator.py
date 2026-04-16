@@ -208,41 +208,41 @@ def update_search_table(film_id):
     con = sqlite3.connect(films_db)
     cur = con.cursor()
 
-    cur.execute("""
-INSERT INTO films_search (
-    film_id, title, directors, actors, countries, genres, languages, writers, released
-)
-SELECT
-    f.id,
-    f.title,
-    IFNULL((SELECT GROUP_CONCAT(DISTINCT d.director)
-            FROM film_directors fd
-            JOIN directors d ON fd.director_id = d.id
-            WHERE fd.film_id = f.id), ''),
-    IFNULL((SELECT GROUP_CONCAT(DISTINCT a.actor)
-            FROM film_actors fa
-            JOIN actors a ON fa.actor_id = a.id
-            WHERE fa.film_id = f.id), ''),
-    IFNULL((SELECT GROUP_CONCAT(DISTINCT c.country)
-            FROM film_countries fc
-            JOIN countries c ON fc.country_id = c.id
-            WHERE fc.film_id = f.id), ''),
-    IFNULL((SELECT GROUP_CONCAT(DISTINCT g.genre)
-            FROM film_genres fg
-            JOIN genres g ON fg.genre_id = g.id
-            WHERE fg.film_id = f.id), ''),
-    IFNULL((SELECT GROUP_CONCAT(DISTINCT l.language)
-            FROM film_languages fl
-            JOIN languages l ON fl.language_id = l.id
-            WHERE fl.film_id = f.id), ''),
-    IFNULL((SELECT GROUP_CONCAT(DISTINCT w.writer)
-            FROM film_writers fw
-            JOIN writers w ON fw.writer_id = w.id
-            WHERE fw.film_id = f.id), ''),
-    IFNULL(CAST(f.released AS TEXT), '')
-FROM films f
-WHERE f.id = ?;
-""", (film_id,)
+    cur.execute(
+        "INSERT INTO films_search (" \
+            "film_id, title, directors, actors, countries, genres, languages, writers, released" \
+        ") " \
+        "SELECT " \
+            "f.id, " \
+            "f.title, " \
+            "IFNULL((SELECT GROUP_CONCAT(DISTINCT d.director) "\
+                "FROM film_directors fd " \
+                "JOIN directors d ON fd.director_id = d.id " \
+            "WHERE fd.film_id = f.id), ''), " \
+            "IFNULL((SELECT GROUP_CONCAT(DISTINCT a.actor) " \
+                "FROM film_actors fa " \
+                "JOIN actors a ON fa.actor_id = a.id " \
+            "WHERE fa.film_id = f.id), ''), " \
+            "IFNULL((SELECT GROUP_CONCAT(DISTINCT c.country) " \
+                "FROM film_countries fc " \
+                "JOIN countries c ON fc.country_id = c.id " \
+            "WHERE fc.film_id = f.id), ''), " \
+            "IFNULL((SELECT GROUP_CONCAT(DISTINCT g.genre) " \
+                "FROM film_genres fg " \
+                "JOIN genres g ON fg.genre_id = g.id " \
+            "WHERE fg.film_id = f.id), ''), " \
+            "IFNULL((SELECT GROUP_CONCAT(DISTINCT l.language) " \
+                "FROM film_languages fl " \
+                "JOIN languages l ON fl.language_id = l.id " \
+            "WHERE fl.film_id = f.id), ''), " \
+            "IFNULL((SELECT GROUP_CONCAT(DISTINCT w.writer) " \
+                "FROM film_writers fw " \
+                "JOIN writers w ON fw.writer_id = w.id " \
+            "WHERE fw.film_id = f.id), ''), " \
+            "IFNULL(CAST(f.released AS TEXT), '') " \
+        "FROM films f " \
+        "WHERE f.id = ?" \
+        ";", (film_id,)
     )
 
     con.commit()
@@ -346,7 +346,7 @@ def download_poster(url, save_dir):
 #NOTE: This assumes a 24fps true framerate
 # We verify the framerate within +-2 fps
 # We verify the length is within 10% of the expected runtime
-def verify_video(video_path, expected_fps=24, expected_runtime_min=120):
+def verify_video_meta(video_path, expected_fps=24, expected_runtime_min=120):
     cap = cv.VideoCapture(video_path)
     fps = cap.get(cv.CAP_PROP_FPS)
     frame_count = cap.get(cv.CAP_PROP_FRAME_COUNT)
@@ -357,6 +357,8 @@ def verify_video(video_path, expected_fps=24, expected_runtime_min=120):
         print(f"WARNING: Video framerate is {fps}, which is outside the expected range of {expected_fps - 2}-{expected_fps + 2} fps.")
     if abs(runtime - expected_runtime_min * 60) > expected_runtime_min * 60 * 0.1:  # 10% of expected runtime
         print(f"WARNING: Video length is {runtime} seconds, which is outside the expected range of {expected_runtime_min * 60 * 0.9}-{expected_runtime_min * 60 * 1.1} seconds.")
+
+    return [fps, frame_count]
 
 def _extract_thumbnail_frames(video_path, barcode_obj, start_frame, end_frame):
     cap = cv.VideoCapture(video_path)
@@ -531,6 +533,117 @@ def maybe_generate_thumbnail_manifest(video_path, barcode_obj, output_dir, start
 
     return manifest
 
+def check_should_process(imdb_id, barcode_type, frame_type, metric):
+    existing_job_id = find_existing_analysis(imdb_id, barcode_type, frame_type, metric)
+    if existing_job_id and not args.force_reprocess:
+        # NOTE: This prevents rerunning a film with the same parameters
+        # This should not be an issue unless a film had issues with how it was ripped
+        print(f"Equivalent analysis already exists for this movie/configuration: {existing_job_id}")
+        write_duplicate_marker(args.output_dir, existing_job_id)
+        return False
+    
+    return True
+
+def generate_barcode(args):
+    # Registered types
+    import kalmus.barcodes
+    import kalmus.frames
+    import kalmus.metrics
+
+    print("Initializing BarcodeGenerator...")
+    generator = BarcodeGenerator(
+        color_metric=args.color_metric,
+        frame_type=args.frame_type,
+        barcode_type=args.barcode_type,
+        skip_over=args.skip_over,
+        sampled_frame_rate=args.sampled_rate,
+        total_frames=args.total_frames
+    )
+
+    print("Generating barcode (this may take several minutes)...")
+    generator.generate_barcode(
+        video_file_path=args.video_path,
+        num_thread=4,  # Use 4 threads as specified in SLURM script
+        save_frames=False,
+    )
+
+    print("Processing barcode data...")
+    barcode_obj = generator.get_barcode()
+
+    # Reshape barcode for visualization
+    barcode_obj.reshape_barcode(frames_per_column=args.frames_per_column)
+
+    return barcode_obj
+
+def save_barcode(barcode_obj, args, metadata):
+    # Save as JSON
+    json_path = os.path.join(args.output_dir, 'barcode.json')
+    print(f"Saving barcode to {json_path}...")
+    barcode_obj.save_as_json(filename=json_path)
+
+    # Save as PNG image for email attachment
+    image_path = os.path.join(args.output_dir, 'barcode.png')
+    print(f"Saving barcode image to {image_path}...")
+
+    # Get barcode data as numpy array
+    barcode_data = barcode_obj.get_barcode()
+
+    # Convert to uint8 if needed (KALMUS uses float values 0-255)
+    if barcode_data.dtype != np.uint8:
+        barcode_data = barcode_data.astype(np.uint8)
+
+    # Create PIL Image and save as PNG
+    img = Image.fromarray(barcode_data)
+    img.save(image_path, 'PNG')
+
+    thumbnail_manifest = None
+    if args.save_thumbnails:
+        print("Generating hover-preview thumbnails...")
+        processed_source_frames = int(barcode_obj.total_frames * barcode_obj.sampled_frame_rate)
+        thumbnail_manifest = maybe_generate_thumbnail_manifest(
+            args.video_path,
+            barcode_obj,
+            args.output_dir,
+            args.skip_over,
+            processed_source_frames,
+        )
+
+    # Also save a summary with metadata
+    summary_path = os.path.join(args.output_dir, 'summary.json')
+    summary = {
+        'job_id': args.job_id,
+        'video_path': args.video_path,
+        'total_frames': int(barcode_obj.total_frames),
+        'film_length_in_frames': int(barcode_obj.film_length_in_frames),
+        'barcode_shape': list(barcode_obj.get_barcode().shape),
+        'color_metric': args.color_metric,
+        'frame_type': args.frame_type,
+        'barcode_type': args.barcode_type,
+        'sampled_frame_rate': args.sampled_rate,
+        'frames_per_column': args.frames_per_column,
+        'thumbnails_enabled': bool(thumbnail_manifest),
+        'thumbnail_count': thumbnail_manifest["count"] if thumbnail_manifest else 0,
+        'thumbnail_interval_frames': THUMBNAIL_CAPTURE_INTERVAL_FRAMES,
+        'thumbnail_sheet_count': len(thumbnail_manifest["sheets"]) if thumbnail_manifest else 0,
+    }
+
+    with open(summary_path, 'w') as f:
+        json.dump(summary, f, indent=2)
+
+    # Download poster if present; missing poster metadata should not fail the job.
+    movie_metadata = metadata.get("movie") or {}
+    poster_path = download_poster(movie_metadata.get("poster_url"), args.output_dir)
+
+    # Save to database
+    add_to_db(args.job_id, metadata, os.path.join(args.output_dir, "barcode.json"), poster_path)
+
+    # Update search table
+    update_search_table(args.job_id)
+
+    runtime_raw = ((movie_metadata.get("raw") or {}).get("Runtime") or "").split()
+    if runtime_raw:
+        fps, frame_count = verify_video_meta(args.video_path, 24, float(runtime_raw[0]))
+
 def main(args=sys.argv[1:]):
     args = parse_args_into_dict(args=args)
 
@@ -539,22 +652,18 @@ def main(args=sys.argv[1:]):
         print(f"ERROR: Video file not found: {args.video_path}")
         sys.exit(1)
 
-    # Create output directory
+    # Create directories
+    os.makedirs("/home/kalmus/kalmus/app/backend/databases", exist_ok=True)
     os.makedirs(args.output_dir, exist_ok=True)
 
     create_db()
 
     metadata = get_metadata(args.job_id)
-    movie_metadata = metadata.get("movie") or {}
-    existing_job_id = find_existing_analysis(movie_metadata.get("imdb_id"),
-             metadata["config"]["barcode_type"].lower(),
-             metadata["config"]["frame_type"].lower(),
-             metadata["config"]["color_metric"].lower())
-    if existing_job_id and not args.force_reprocess:
-        # NOTE: This prevents rerunning a film with the same parameters
-        # This should not be an issue unless a film had issues with how it was ripped
-        print(f"Equivalent analysis already exists for this movie/configuration: {existing_job_id}")
-        write_duplicate_marker(args.output_dir, existing_job_id)
+    
+    if not check_should_process((metadata.get("movie") or {}).get("imdb_id"),
+                                metadata["config"]["barcode_type"].lower(),
+                                metadata["config"]["frame_type"].lower(),
+                                metadata["config"]["color_metric"].lower()):
         return 0
 
     print()
@@ -565,101 +674,8 @@ def main(args=sys.argv[1:]):
     print()
 
     try:
-        # Registered types
-        import kalmus.barcodes
-        import kalmus.frames
-        import kalmus.metrics
-
-        print("Initializing BarcodeGenerator...")
-        generator = BarcodeGenerator(
-            color_metric=args.color_metric,
-            frame_type=args.frame_type,
-            barcode_type=args.barcode_type,
-            skip_over=args.skip_over,
-            sampled_frame_rate=args.sampled_rate,
-            total_frames=args.total_frames
-        )
-
-        print("Generating barcode (this may take several minutes)...")
-        generator.generate_barcode(
-            video_file_path=args.video_path,
-            num_thread=4,  # Use 4 threads as specified in SLURM script
-            save_frames=False,
-        )
-
-        print("Processing barcode data...")
-        barcode_obj = generator.get_barcode()
-
-        # Reshape barcode for visualization
-        barcode_obj.reshape_barcode(frames_per_column=args.frames_per_column)
-
-        # Save as JSON
-        json_path = os.path.join(args.output_dir, 'barcode.json')
-        print(f"Saving barcode to {json_path}...")
-        barcode_obj.save_as_json(filename=json_path)
-
-        # Save as PNG image for email attachment
-        image_path = os.path.join(args.output_dir, 'barcode.png')
-        print(f"Saving barcode image to {image_path}...")
-
-        # Get barcode data as numpy array
-        barcode_data = barcode_obj.get_barcode()
-
-        # Convert to uint8 if needed (KALMUS uses float values 0-255)
-        if barcode_data.dtype != np.uint8:
-            barcode_data = barcode_data.astype(np.uint8)
-
-        # Create PIL Image and save as PNG
-        img = Image.fromarray(barcode_data)
-        img.save(image_path, 'PNG')
-
-        thumbnail_manifest = None
-        if args.save_thumbnails:
-            print("Generating hover-preview thumbnails...")
-            processed_source_frames = int(barcode_obj.total_frames * barcode_obj.sampled_frame_rate)
-            thumbnail_manifest = maybe_generate_thumbnail_manifest(
-                args.video_path,
-                barcode_obj,
-                args.output_dir,
-                args.skip_over,
-                processed_source_frames,
-            )
-
-        # Also save a summary with metadata
-        summary_path = os.path.join(args.output_dir, 'summary.json')
-        summary = {
-            'job_id': args.job_id,
-            'video_path': args.video_path,
-            'total_frames': int(barcode_obj.total_frames),
-            'film_length_in_frames': int(barcode_obj.film_length_in_frames),
-            'barcode_shape': list(barcode_obj.get_barcode().shape),
-            'color_metric': args.color_metric,
-            'frame_type': args.frame_type,
-            'barcode_type': args.barcode_type,
-            'sampled_frame_rate': args.sampled_rate,
-            'frames_per_column': args.frames_per_column,
-            'thumbnails_enabled': bool(thumbnail_manifest),
-            'thumbnail_count': thumbnail_manifest["count"] if thumbnail_manifest else 0,
-            'thumbnail_interval_frames': THUMBNAIL_CAPTURE_INTERVAL_FRAMES,
-            'thumbnail_sheet_count': len(thumbnail_manifest["sheets"]) if thumbnail_manifest else 0,
-        }
-
-        with open(summary_path, 'w') as f:
-            json.dump(summary, f, indent=2)
-
-        # Download poster if present; missing poster metadata should not fail the job.
-        movie_metadata = metadata.get("movie") or {}
-        poster_path = download_poster(movie_metadata.get("poster_url"), args.output_dir)
-
-        # Save to database
-        add_to_db(args.job_id, metadata, os.path.join(args.output_dir, "barcode.json"), poster_path)
-
-        # Update search table
-        update_search_table(args.job_id)
-
-        runtime_raw = ((movie_metadata.get("raw") or {}).get("Runtime") or "").split()
-        if runtime_raw:
-            verify_video(args.video_path, 24, float(runtime_raw[0]))
+        barcode_obj = generate_barcode(args)
+        save_barcode(barcode_obj, args, metadata)
 
         print()
         print("=" * 50)
@@ -669,9 +685,6 @@ def main(args=sys.argv[1:]):
         print(f"Barcode shape: {barcode_obj.get_barcode().shape}")
         print(f"Output saved to: {args.output_dir}")
         print("=" * 50)
-
-        return 0
-
     except Exception as e:
         print()
         print("=" * 50)
@@ -682,6 +695,7 @@ def main(args=sys.argv[1:]):
         import traceback
         traceback.print_exc()
         return 1
+    return 0
 
 
 if __name__ == "__main__":
