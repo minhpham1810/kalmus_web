@@ -115,8 +115,19 @@ export default function Home() {
 
     debounceRef.current = setTimeout(async () => {
       try {
+        let search: string;
+        if (activeSelection === "numbers") {
+          search = "numbers";
+        }
+        else if (activeSelection === "symbols") {
+          search = "symbols";
+        }
+        else {
+          search = `title:^${activeSelection}`
+        }
+
         const res = await fetch(
-          `/api/search-films?q=${encodeURIComponent(activeSelection)}&titleOnly=true`
+          `/api/search-films?q=${encodeURIComponent(search)}`
         );
 
         let selectionResults: FilmSearchResult[] = (await res.json()).results || [];

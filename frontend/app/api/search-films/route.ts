@@ -6,7 +6,6 @@ const IMDB_ID_PATTERN = /^tt\d{5,8}$/i;
 
 export async function GET(request: NextRequest) {
   const q = request.nextUrl.searchParams.get("q")?.trim() || "";
-  const titleOnly = request.nextUrl.searchParams.get("titleOnly") === "true";
 
   if (!q) {
     return NextResponse.json({ results: [] });
@@ -16,10 +15,10 @@ export async function GET(request: NextRequest) {
     const db = getDb();
     let rawResults: FilmSearchResult[];
 
-    if (!titleOnly &&IMDB_ID_PATTERN.test(q)) {
+    if (IMDB_ID_PATTERN.test(q)) {
       rawResults = getAnalysesByImdbId(q);
     } else {
-      const ret = buildQuery(q.trim(), titleOnly);
+      const ret = buildQuery(q.trim());
       let clause: string = "";
       let params: string[] = [];
       if (ret) {
@@ -95,26 +94,20 @@ export async function GET(request: NextRequest) {
   }
 }
 
-function buildQuery(q: string, titleOnly: boolean) {
-  if (titleOnly) {
-    switch (q) {
-      case "0-9":
-        return {
-          clause: `f.title GLOB '[0-9]*'`,
-          params: [],
-        };
-      case "symbols":
-        return {
-          clause: `f.title GLOB '[^A-Za-z0-9]*'`,
-          params: [],
-        };
-      default:
-        return {
-          clause: `f.title LIKE ?`,
-          params: [`${q.trim()}%`],
-        }
-    }
-  } else {
+function buildQuery(q: string) {
+  if (q === "numbers") {
+    return {
+      clause: `f.title GLOB '[0-9]*'`,
+      params: [],
+    };
+  }
+  else if (q === "symbols") {
+    return {
+      clause: `f.title GLOB '[^A-Za-z0-9]*'`,
+      params: [],
+    };
+  }
+  else {
     return buildFtsQuery(q);
   }
 }
@@ -164,7 +157,7 @@ function buildFtsQuery(trimmed: string) {
     }
     else {
       const clean = value
-      .replace(/[^\w\d_]+/gu, "")
+      // .replace(/[^\w\d_\^]+/gu, "")
       .replace(/\*+$/, "");
 
       if (clean) {
@@ -184,7 +177,7 @@ function buildFtsQuery(trimmed: string) {
     .trim()
     .split(/\s+/)
     .map((t) => t
-        .replace(/[^\w\d_]+/gu, "")
+        // .replace(/[^\w\d_]+/gu, "")
         .toLowerCase()
     )
     .filter(Boolean);
