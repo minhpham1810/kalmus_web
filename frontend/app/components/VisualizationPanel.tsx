@@ -12,12 +12,12 @@ import BarcodePreview from "./BarcodePreview";
 import { RGB, BarcodeData, ThumbnailManifest } from "@/lib/barcode-utils";
 
 interface FilmSearchResult {
-  id: string;
+  job_id: string;
   title: string;
   imdb_id: string | null;
   poster: string | null;
   director: string | null;
-  runtime: string | null;
+  runtime_minutes: string | null;
   country: string | null;
   released: string | null;
   barcode_type: string;
@@ -63,7 +63,7 @@ function FilmSearch({
 }: {
   currentJobId: string;
   compareJobId: string | null;
-  onSelect: (id: string, title: string) => void;
+  onSelect: (job_id: string, title: string) => void;
   onClear: () => void;
 }) {
   const [query, setQuery] = useState("");
@@ -110,7 +110,7 @@ function FilmSearch({
   const handleSelect = (r: FilmSearchResult) => {
     setQuery(r.title);
     setOpen(false);
-    onSelect(r.id, r.title);
+    onSelect(r.job_id, r.title);
   };
 
   const handleClear = () => {
@@ -161,9 +161,9 @@ function FilmSearch({
         <div className="absolute z-50 mt-1 w-full max-h-64 overflow-y-auto" style={{ background: 'var(--panel-gradient)', border: '1px solid var(--input-border)' }}>
           {results.map((r) => (
             <button
-              key={r.id}
+              key={r.job_id}
               onClick={() => handleSelect(r)}
-              className={`w-full text-left px-4 py-3 transition-colors ${r.id === currentJobId ? "opacity-40" : ""}`}
+              className={`w-full text-left px-4 py-3 transition-colors ${r.job_id === currentJobId ? "opacity-40" : ""}`}
               style={{ borderBottom: '1px solid var(--surface-border)' }}
               onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-hover)')}
               onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
@@ -487,10 +487,10 @@ export default function VisualizationPanel({
               <FilmSearch
                 currentJobId={jobId}
                 compareJobId={compareJobId}
-                onSelect={(id, title) => {
-                  setCompareJobId(id);
+                onSelect={(job_id, title) => {
+                  setCompareJobId(job_id);
                   setCompareTitle(title);
-                  loadCompareData(id);
+                  loadCompareData(job_id);
                 }}
                 onClear={() => {
                   setCompareJobId(null);

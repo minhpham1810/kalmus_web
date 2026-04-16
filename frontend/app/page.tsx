@@ -5,12 +5,12 @@ import Image from "next/image";
 import { useState, useEffect, useRef } from "react";
 
 interface FilmSearchResult {
-  id: string;
+  job_id: string;
   title: string;
   imdb_id: string | null;
   poster: string | null;
   director: string | null;
-  runtime: string | null;
+  runtime_minutes: string | null;
   country: string | null;
   released: string | null;
   barcode_type: string;
@@ -25,12 +25,12 @@ interface GroupedFilm {
 
   poster: string | null;
   director: string | null;
-  runtime: string | null;
+  runtime_minutes: string | null;
   country: string | null;
   released: string | null;
 
   analyses: {
-    id: string;
+    job_id: string;
     barcode_type: string;
     frame_type: string;
     metric: string;
@@ -48,14 +48,14 @@ function groupResults(results: FilmSearchResult[]): GroupedFilm[] {
         imdb_id: r.imdb_id,
         poster: r.poster,
         director: r.director,
-        runtime: r.runtime,
+        runtime_minutes: r.runtime_minutes,
         country: r.country,
         released: r.released,
         analyses: [],
       });
     }
     map.get(key)!.analyses.push({
-      id: r.id,
+      job_id: r.job_id,
       barcode_type: r.barcode_type,
       frame_type: r.frame_type,
       metric: r.metric,
@@ -363,12 +363,12 @@ export default function Home() {
                               )}
                             </h3>
                             <div className="font-mono text-xs kalmus-text-secondary mt-1">
-                              <span>{(film.director || film.released || film.runtime || film.country) && `(`}</span>
+                              <span>{(film.director || film.released || film.runtime_minutes || film.country) && `(`}</span>
                               <span>{film.director && `${film.director}`}</span>
                               <span>{film.released && `, ${new Date(film.released).getFullYear()}`}</span>
-                              <span>{film.runtime && `, ${Math.floor(Number(film.runtime) / 60)}h${Number(film.runtime) % 60}m`}</span>
+                              <span>{film.runtime_minutes && `, ${Math.floor(Number(film.runtime_minutes) / 60)}h${Number(film.runtime_minutes) % 60}m`}</span>
                               <span>{film.country && `, ${film.country}`}</span>
-                              <span>{(film.director || film.released || film.runtime || film.country) && `)`}</span>
+                              <span>{(film.director || film.released || film.runtime_minutes || film.country) && `)`}</span>
                             </div>
                           </div>
 
@@ -376,7 +376,7 @@ export default function Home() {
                           <div>
                             {film.analyses.map((a) => (
                               <div
-                                key={a.id}
+                                key={a.job_id}
                                 className="flex items-center justify-between"
                               >
                                 <div className="flex items-center gap-2 font-mono text-xs kalmus-text-secondary capitalize">
@@ -387,7 +387,7 @@ export default function Home() {
                                   <span>{a.metric}</span>
                                 </div>
                                 <Link
-                                  href={`/results/${a.id}`}
+                                  href={`/results/${a.job_id}`}
                                   className="font-mono text-[10px] tracking-wider uppercase transition-colors"
                                   style={{ color: 'var(--accent-amber)' }}
                                 >

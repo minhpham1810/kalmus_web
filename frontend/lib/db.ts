@@ -1,12 +1,12 @@
 import Database from "better-sqlite3";
 
 export interface FilmSearchResult {
-  id: string;
+  job_id: string;
   title: string;
   imdb_id: string | null;
   poster: string | null;
   director: string | null;
-  runtime: string | null;
+  runtime_minutes: string | null;
   country: string | null;
   released: string | null;
   barcode_type: string;
@@ -37,12 +37,12 @@ export function getAnalysesByImdbId(imdbId: string): FilmSearchResult[] {
   return getDb()
     .prepare(
       `SELECT 
-        f.id,
+        f.job_id,
         f.title,
         f.imdb_id,
         af.poster,
         d.director,
-        f.runtime,
+        f.runtime_minutes,
         c.country,
         f.released,
         af.barcode_type,
@@ -50,19 +50,19 @@ export function getAnalysesByImdbId(imdbId: string): FilmSearchResult[] {
         af.metric,
         af.process_date
       FROM films f
-      INNER JOIN analyzed_files af ON af.film_id = f.id
+      INNER JOIN analyzed_files af ON af.job_id = f.job_id
       LEFT JOIN (
-        SELECT fd.film_id, GROUP_CONCAT(d.director) AS director
+        SELECT fd.job_id, GROUP_CONCAT(d.name) AS director
         FROM film_directors fd
         JOIN directors d ON fd.director_id = d.id
-        GROUP BY fd.film_id
-      ) d ON f.id = d.film_id
+        GROUP BY fd.job_id
+      ) d ON f.job_id = d.job_id
       LEFT JOIN (
-        SELECT fc.film_id, GROUP_CONCAT(c.country) AS country
+        SELECT fc.job_id, GROUP_CONCAT(c.name) AS country
         FROM film_countries fc
         JOIN countries c ON fc.country_id = c.id
-        GROUP BY fc.film_id
-      ) c ON f.id = c.film_id
+        GROUP BY fc.job_id
+      ) c ON f.job_id = c.job_id
       WHERE LOWER(f.imdb_id) = LOWER(?)
       ORDER BY af.process_date DESC`
     )

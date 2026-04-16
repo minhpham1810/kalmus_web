@@ -61,92 +61,92 @@ def create_db():
     cur.execute(
         "CREATE TABLE IF NOT EXISTS genres (" \
         "id INTEGER PRIMARY KEY AUTOINCREMENT, " \
-        "genre TEXT NOT NULL" \
+        "name TEXT NOT NULL" \
         ");"
     )
     cur.execute(
         "CREATE TABLE IF NOT EXISTS directors (" \
         "id INTEGER PRIMARY KEY AUTOINCREMENT, " \
-        "director TEXT NOT NULL" \
+        "name TEXT NOT NULL" \
         ");"
     )
     cur.execute(
         "CREATE TABLE IF NOT EXISTS writers (" \
         "id INTEGER PRIMARY KEY AUTOINCREMENT, " \
-        "writer TEXT NOT NULL" \
+        "name TEXT NOT NULL" \
         ");"
     )
     cur.execute(
         "CREATE TABLE IF NOT EXISTS actors (" \
         "id INTEGER PRIMARY KEY AUTOINCREMENT, " \
-        "actor TEXT NOT NULL" \
+        "name TEXT NOT NULL" \
         ");"
     )
     cur.execute(
         "CREATE TABLE IF NOT EXISTS languages (" \
         "id INTEGER PRIMARY KEY AUTOINCREMENT, " \
-        "language TEXT NOT NULL" \
+        "name TEXT NOT NULL" \
         ");"
     )
     cur.execute(
         "CREATE TABLE IF NOT EXISTS countries (" \
         "id INTEGER PRIMARY KEY AUTOINCREMENT, " \
-        "country TEXT NOT NULL" \
+        "name TEXT NOT NULL" \
         ");"
     )
 
     # Many-to-many mappings
     cur.execute(
         "CREATE TABLE IF NOT EXISTS film_genres (" \
-        "film_id TEXT, " \
+        "job_id TEXT, " \
         "genre_id INTEGER, " \
-        "PRIMARY KEY (film_id, genre_id), " \
-        "FOREIGN KEY (film_id) REFERENCES films(id), " \
+        "PRIMARY KEY (job_id, genre_id), " \
+        "FOREIGN KEY (job_id) REFERENCES films(job_id), " \
         "FOREIGN KEY (genre_id) REFERENCES genres(id)" \
         ");"
     )
     cur.execute(
         "CREATE TABLE IF NOT EXISTS film_directors (" \
-        "film_id TEXT, " \
+        "job_id TEXT, " \
         "director_id INTEGER, " \
-        "PRIMARY KEY (film_id, director_id), " \
-        "FOREIGN KEY (film_id) REFERENCES films(id), " \
+        "PRIMARY KEY (job_id, director_id), " \
+        "FOREIGN KEY (job_id) REFERENCES films(job_id), " \
         "FOREIGN KEY (director_id) REFERENCES directors(id)" \
         ");"
     )
     cur.execute(
         "CREATE TABLE IF NOT EXISTS film_writers (" \
-        "film_id TEXT, " \
+        "job_id TEXT, " \
         "writer_id INTEGER, " \
-        "PRIMARY KEY (film_id, writer_id), " \
-        "FOREIGN KEY (film_id) REFERENCES films(id), " \
+        "PRIMARY KEY (job_id, writer_id), " \
+        "FOREIGN KEY (job_id) REFERENCES films(job_id), " \
         "FOREIGN KEY (writer_id) REFERENCES writers(id)" \
         ");"
     )
     cur.execute(
         "CREATE TABLE IF NOT EXISTS film_actors (" \
-        "film_id TEXT, " \
+        "job_id TEXT, " \
         "actor_id INTEGER, " \
-        "PRIMARY KEY (film_id, actor_id), " \
-        "FOREIGN KEY (film_id) REFERENCES films(id), " \
+        "PRIMARY KEY (job_id, actor_id), " \
+        "FOREIGN KEY (job_id) REFERENCES films(job_id), " \
         "FOREIGN KEY (actor_id) REFERENCES actors(id)" \
         ");"
     )
     cur.execute(
         "CREATE TABLE IF NOT EXISTS film_languages (" \
-        "film_id TEXT, " \
+        "job_id TEXT, " \
         "language_id INTEGER, " \
-        "PRIMARY KEY (film_id, language_id), " \
-        "FOREIGN KEY (film_id) REFERENCES films(id), " \
+        "PRIMARY KEY (job_id, language_id), " \
+        "FOREIGN KEY (job_id) REFERENCES films(job_id), " \
         "FOREIGN KEY (language_id) REFERENCES languages(id)" \
         ");"
     )
     cur.execute(
         "CREATE TABLE IF NOT EXISTS film_countries (" \
-        "film_id TEXT, " \
+        "job_id TEXT, " \
         "country_id INTEGER, " \
-        "PRIMARY KEY (film_id, country_id), " \
-        "FOREIGN KEY (film_id) REFERENCES films(id), " \
+        "PRIMARY KEY (job_id, country_id), " \
+        "FOREIGN KEY (job_id) REFERENCES films(job_id), " \
         "FOREIGN KEY (country_id) REFERENCES countries(id)" \
         ");"
     )
@@ -154,7 +154,7 @@ def create_db():
     # Analyzed films
     cur.execute(
         "CREATE TABLE IF NOT EXISTS analyzed_files (" \
-        "film_id TEXT PRIMARY KEY, " \
+        "job_id TEXT PRIMARY KEY, " \
         "uploader TEXT, " \
         "process_date DATE NOT NULL, " \
         "json TEXT, " \
@@ -166,14 +166,14 @@ def create_db():
         "video_height INTEGER, " \
         "video_fps REAL, " \
         "video_frame_count INTEGER, " \
-        "FOREIGN KEY (film_id) REFERENCES films(id)" \
+        "FOREIGN KEY (job_id) REFERENCES films(job_id)" \
         ");"
     )
 
     # Search table
     cur.execute(
         "CREATE VIRTUAL TABLE IF NOT EXISTS films_search USING fts5 (" \
-        "film_id UNINDEXED, " \
+        "job_id UNINDEXED, " \
         "title, " \
         "director, " \
         "actor, " \
@@ -202,9 +202,9 @@ def find_existing_analysis(imdb_id, barcode_type, frame_type, metric):
     cur = con.cursor()
 
     cur.execute(
-        "SELECT films.id " \
+        "SELECT films.job_id " \
         "FROM analyzed_files " \
-        "JOIN films ON analyzed_files.film_id = films.id " \
+        "JOIN films ON analyzed_files.job_id = films.job_id " \
         "WHERE films.imdb_id = ? " \
         "AND analyzed_files.barcode_type = ? " \
         "AND analyzed_files.frame_type = ? " \
@@ -226,13 +226,13 @@ def write_duplicate_marker(output_dir, existing_job_id):
             "detected_at": datetime.utcnow().isoformat() + "Z",
         }, f, indent=2)
 
-def update_search_table(film_id):
+def update_search_table(job_id):
     con = sqlite3.connect(films_db)
     cur = con.cursor()
 
     cur.execute(
         "INSERT INTO films_search ("
-            "film_id, "
+            "job_id, "
             "title, "
             "director, "
             "actor, "
@@ -242,7 +242,7 @@ def update_search_table(film_id):
             "writer"
         ") "
         "SELECT "
-            "f.id, "
+            "f.job_id, "
             "f.title, "
             "COALESCE(d.directors, ''), "
             "COALESCE(a.actors, ''), "
@@ -252,49 +252,49 @@ def update_search_table(film_id):
             "COALESCE(w.writers, '') "
         "FROM films f "
         "LEFT JOIN ( "
-            "SELECT fd.film_id, "
-                "GROUP_CONCAT(DISTINCT d.director) AS directors "
+            "SELECT fd.job_id, "
+                "GROUP_CONCAT(DISTINCT d.name) AS directors "
             "FROM film_directors fd "
             "JOIN directors d ON d.id = fd.director_id "
-            "GROUP BY fd.film_id "
-        ") d ON d.film_id = f.id "
+            "GROUP BY fd.job_id "
+        ") d ON d.job_id = f.job_id "
         "LEFT JOIN ( "
-            "SELECT fa.film_id, "
-                "GROUP_CONCAT(DISTINCT a.actor) AS actors "
+            "SELECT fa.job_id, "
+                "GROUP_CONCAT(DISTINCT a.name) AS actors "
             "FROM film_actors fa "
             "JOIN actors a ON a.id = fa.actor_id "
-            "GROUP BY fa.film_id "
-        ") a ON a.film_id = f.id "
+            "GROUP BY fa.job_id "
+        ") a ON a.job_id = f.job_id "
         "LEFT JOIN ( "
-            "SELECT fc.film_id, "
-                "GROUP_CONCAT(DISTINCT c.country) AS countries "
+            "SELECT fc.job_id, "
+                "GROUP_CONCAT(DISTINCT c.name) AS countries "
             "FROM film_countries fc "
             "JOIN countries c ON c.id = fc.country_id "
-            "GROUP BY fc.film_id "
-        ") c ON c.film_id = f.id "
+            "GROUP BY fc.job_id "
+        ") c ON c.job_id = f.job_id "
         "LEFT JOIN ( "
-            "SELECT fg.film_id, "
-                "GROUP_CONCAT(DISTINCT g.genre) AS genres "
+            "SELECT fg.job_id, "
+                "GROUP_CONCAT(DISTINCT g.name) AS genres "
             "FROM film_genres fg "
             "JOIN genres g ON g.id = fg.genre_id "
-            "GROUP BY fg.film_id "
-        ") g ON g.film_id = f.id "
+            "GROUP BY fg.job_id "
+        ") g ON g.job_id = f.job_id "
         "LEFT JOIN ( "
-            "SELECT fl.film_id, "
-                "GROUP_CONCAT(DISTINCT l.language) AS languages "
+            "SELECT fl.job_id, "
+                "GROUP_CONCAT(DISTINCT l.name) AS languages "
             "FROM film_languages fl "
             "JOIN languages l ON l.id = fl.language_id "
-            "GROUP BY fl.film_id "
-        ") l ON l.film_id = f.id "
+            "GROUP BY fl.job_id "
+        ") l ON l.job_id = f.job_id "
         "LEFT JOIN ( "
-            "SELECT fw.film_id, "
-                "GROUP_CONCAT(DISTINCT w.writer) AS writers "
+            "SELECT fw.job_id, "
+                "GROUP_CONCAT(DISTINCT w.name) AS writers "
             "FROM film_writers fw "
             "JOIN writers w ON w.id = fw.writer_id "
-            "GROUP BY fw.film_id "
-        ") w ON w.film_id = f.id"
-        "WHERE f.id = ?" \
-        ";", (film_id,)
+            "GROUP BY fw.job_id "
+        ") w ON w.job_id = f.job_id"
+        "WHERE f.job_id = ?" \
+        ";", (job_id,)
     )
 
     con.commit()
@@ -331,7 +331,7 @@ def add_to_db(job_id, data, metadata, json_loc, poster_loc):
 
     # Insert film record
     cur.execute(
-        "INSERT INTO films (id, title, imdb_id, released, type, runtime_minutes) VALUES (?, ?, ?, ?, ?, ?)",
+        "INSERT INTO films (job_id, title, imdb_id, released, type, runtime_minutes) VALUES (?, ?, ?, ?, ?, ?)",
         (job_id, title, imdb_id, released, type_, runtime)
     )
 
@@ -344,27 +344,27 @@ def add_to_db(job_id, data, metadata, json_loc, poster_loc):
         return cur.lastrowid
     for genre in genres:
         genre_id = insert_or_get_id("genres", "genre", genre)
-        cur.execute("INSERT OR IGNORE INTO film_genres (film_id, genre_id) VALUES (?, ?)", (job_id, genre_id))
+        cur.execute("INSERT OR IGNORE INTO film_genres (job_id, genre_id) VALUES (?, ?)", (job_id, genre_id))
     for director in directors:
         director_id = insert_or_get_id("directors", "director", director)
-        cur.execute("INSERT OR IGNORE INTO film_directors (film_id, director_id) VALUES (?, ?)", (job_id, director_id))
+        cur.execute("INSERT OR IGNORE INTO film_directors (job_id, director_id) VALUES (?, ?)", (job_id, director_id))
     for writer in writers:
         writer_id = insert_or_get_id("writers", "writer", writer)
-        cur.execute("INSERT OR IGNORE INTO film_writers (film_id, writer_id) VALUES (?, ?)", (job_id, writer_id))
+        cur.execute("INSERT OR IGNORE INTO film_writers (job_id, writer_id) VALUES (?, ?)", (job_id, writer_id))
     for actor in actors:
         actor_id = insert_or_get_id("actors", "actor", actor)
-        cur.execute("INSERT OR IGNORE INTO film_actors (film_id, actor_id) VALUES (?, ?)", (job_id, actor_id))
+        cur.execute("INSERT OR IGNORE INTO film_actors (job_id, actor_id) VALUES (?, ?)", (job_id, actor_id))
     for language in languages:
         language_id = insert_or_get_id("languages", "language", language)
-        cur.execute("INSERT OR IGNORE INTO film_languages (film_id, language_id) VALUES (?, ?)", (job_id, language_id))
+        cur.execute("INSERT OR IGNORE INTO film_languages (job_id, language_id) VALUES (?, ?)", (job_id, language_id))
     for country in countries:
         country_id = insert_or_get_id("countries", "country", country)
-        cur.execute("INSERT OR IGNORE INTO film_countries (film_id, country_id) VALUES (?, ?)", (job_id, country_id))
+        cur.execute("INSERT OR IGNORE INTO film_countries (job_id, country_id) VALUES (?, ?)", (job_id, country_id))
 
     # Insert job metadata
     cur.execute(
         "INSERT OR REPLACE INTO analyzed_files "
-        "(film_id, uploader, process_date, json, poster, barcode_type, frame_type, metric, video_width, video_height, video_fps, video_frame_count) "
+        "(job_id, uploader, process_date, json, poster, barcode_type, frame_type, metric, video_width, video_height, video_fps, video_frame_count) "
         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);",
         (job_id,
          config.get("email", "").lower(),

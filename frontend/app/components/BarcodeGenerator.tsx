@@ -20,7 +20,7 @@ export interface BarcodeConfig {
 }
 
 interface ExistingAnalysis {
-  id: string;
+  job_id: string;
   barcode_type: string;
   frame_type: string;
   metric: string;
@@ -500,7 +500,7 @@ export default function BarcodeGenerator() {
                         {exactDuplicate && (
                           <div className="flex gap-2 shrink-0">
                             <button
-                              onClick={() => router.push(`/results/${exactDuplicate.id}`)}
+                              onClick={() => router.push(`/results/${exactDuplicate.job_id}`)}
                               className="px-3 py-1.5 font-mono text-[10px] tracking-[0.12em] uppercase transition-all hover:opacity-90"
                               style={{ background: 'var(--accent-amber)', color: 'var(--background)' }}
                             >
@@ -519,9 +519,9 @@ export default function BarcodeGenerator() {
 
                       <div className="space-y-2">
                         {existingAnalyses.map((a) => {
-                          const isExactMatch = exactDuplicate?.id === a.id;
+                          const isExactMatch = exactDuplicate?.job_id === a.job_id;
                           return (
-                            <div key={a.id} className="flex items-center justify-between font-mono text-[10px] kalmus-text-secondary">
+                            <div key={a.job_id} className="flex items-center justify-between font-mono text-[10px] kalmus-text-secondary">
                               <span>
                                 <span className="px-1.5 py-0.5 mr-2" style={{ background: 'var(--surface-bg-strong)', color: isExactMatch ? 'var(--accent-amber)' : 'var(--text-secondary)' }}>
                                   {a.barcode_type}
@@ -534,7 +534,7 @@ export default function BarcodeGenerator() {
                                 )}
                               </span>
                               <button
-                                onClick={() => router.push(`/results/${a.id}`)}
+                                onClick={() => router.push(`/results/${a.job_id}`)}
                                 className="underline transition-colors hover:text-[var(--text-primary)]"
                                 style={{ color: isExactMatch ? 'var(--accent-amber)' : 'var(--text-secondary)' }}
                               >

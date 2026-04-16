@@ -29,12 +29,12 @@ export async function GET(request: NextRequest) {
 
       const sql = (
         `SELECT 
-          f.id,
+          f.job_id,
           f.title,
           f.imdb_id,
           af.poster,
           d.director,
-          f.runtime,
+          f.runtime_minutes,
           c.country,
           f.released,
           af.barcode_type,
@@ -42,23 +42,23 @@ export async function GET(request: NextRequest) {
           af.metric,
           af.process_date
         FROM films_search
-        JOIN films f ON f.id = films_search.film_id
+        JOIN films f ON f.job_id = films_search.job_id
 
-        INNER JOIN analyzed_files af ON af.film_id = f.id
+        INNER JOIN analyzed_files af ON af.job_id = f.job_id
 
         LEFT JOIN (
-          SELECT fd.film_id, GROUP_CONCAT(d.director) AS director
+          SELECT fd.job_id, GROUP_CONCAT(d.name) AS director
           FROM film_directors fd
           JOIN directors d ON fd.director_id = d.id
-          GROUP BY fd.film_id
-        ) d ON f.id = d.film_id
+          GROUP BY fd.job_id
+        ) d ON f.job_id = d.job_id
 
         LEFT JOIN (
-          SELECT fc.film_id, GROUP_CONCAT(c.country) AS country
+          SELECT fc.job_id, GROUP_CONCAT(c.name) AS country
           FROM film_countries fc
           JOIN countries c ON fc.country_id = c.id
-          GROUP BY fc.film_id
-        ) c ON f.id = c.film_id
+          GROUP BY fc.job_id
+        ) c ON f.job_id = c.job_id
 
         ${ret && clause ? `WHERE ${clause}` : ``}
         ORDER BY f.title ASC, af.process_date DESC

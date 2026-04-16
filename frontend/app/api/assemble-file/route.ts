@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({
                 success: true,
                 duplicate: true,
-                existingJobId: duplicateMatch.exactMatch.id,
+                existingJobId: duplicateMatch.exactMatch.job_id,
                 existingAnalysis: duplicateMatch.exactMatch,
             });
         }

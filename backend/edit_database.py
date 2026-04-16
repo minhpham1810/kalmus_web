@@ -15,13 +15,13 @@ def connect_db():
 
 def list_recent_films(cursor):
     cursor.execute(
-        "SELECT film_id, process_date " \
+        "SELECT job_id, process_date " \
         "FROM analyzed_files " \
         "ORDER BY process_date DESC " \
         "LIMIT 10;"
     )
     rows = cursor.fetchall()
-    print("ID | Title | Date | Uploader")
+    print("Job ID | Title | Date | Uploader")
     for row in rows:
         print(f"{row[0]} | TITLE | {row[1]} | UPLOADER")
 
@@ -31,8 +31,8 @@ def format_date_safe(date_str: str) -> str | None:
     except (ValueError, TypeError):
         return date_str  # Return original if parsing fails
 
-def edit_film(cursor, film_id):
-    cursor.execute("SELECT title, imdb_id, released, type, runtime FROM films WHERE id = ?", (film_id,))
+def edit_film(cursor, job_id):
+    cursor.execute("SELECT title, imdb_id, released, type, runtime_minutes FROM films WHERE job_id = ?", (job_id,))
     film = cursor.fetchone()
     if not film:
         print("Film not found")
@@ -70,8 +70,8 @@ def edit_film(cursor, film_id):
     new_runtime = input(f"New runtime in minutes (leave blank to keep '{new_runtime if new_runtime else   runtime}'): ").strip() or new_runtime if new_runtime else   runtime
 
     cursor.execute(
-        "UPDATE films SET title = ?, imdb_id = ?, released = ?, type = ?, runtime = ? WHERE id = ?",
-        (new_title, new_imdb, new_released, new_type, new_runtime, film_id)
+        "UPDATE films SET title = ?, imdb_id = ?, released = ?, type = ?, runtime_minutes = ? WHERE job_id = ?",
+        (new_title, new_imdb, new_released, new_type, new_runtime, job_id)
     )
     print("Film updated!")
 
@@ -82,15 +82,15 @@ def main():
     while True:
         print("\n--- Film DB Editor ---")
         print("1. List recently processed films")
-        print("2. Edit film by ID")
+        print("2. Edit film by job ID")
         print("3. Exit")
         choice = input("Choose an option: ").strip()
 
         if choice == "1":
             list_recent_films(cursor)
         elif choice == "2":
-            film_id = input("Enter film ID to edit: ").strip()
-            edit_film(cursor, film_id)
+            job_id = input("Enter job ID to edit: ").strip()
+            edit_film(cursor, job_id)
             conn.commit()
         elif choice == "3":
             break
