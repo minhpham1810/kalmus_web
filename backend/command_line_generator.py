@@ -170,6 +170,21 @@ def create_db():
         ");"
     )
 
+    # Search table
+    cur.execute(
+        "CREATE VIRTUAL TABLE IF NOT EXISTS films_search USING fts5 (" \
+        "film_id UNINDEXED, " \
+        "title, " \
+        "director, " \
+        "actor, " \
+        "country, " \
+        "genre, " \
+        "language, " \
+        "writer, " \
+        "tokenize = \"unicode61 remove_diacritics 2 tokenchars '-'\"" \
+        ");"
+    )
+
     con.commit()
     con.close()
 
@@ -216,38 +231,68 @@ def update_search_table(film_id):
     cur = con.cursor()
 
     cur.execute(
-        "INSERT INTO films_search (" \
-            "film_id, title, directors, actors, countries, genres, languages, writers, released" \
-        ") " \
-        "SELECT " \
-            "f.id, " \
-            "f.title, " \
-            "IFNULL((SELECT GROUP_CONCAT(DISTINCT d.director) "\
-                "FROM film_directors fd " \
-                "JOIN directors d ON fd.director_id = d.id " \
-            "WHERE fd.film_id = f.id), ''), " \
-            "IFNULL((SELECT GROUP_CONCAT(DISTINCT a.actor) " \
-                "FROM film_actors fa " \
-                "JOIN actors a ON fa.actor_id = a.id " \
-            "WHERE fa.film_id = f.id), ''), " \
-            "IFNULL((SELECT GROUP_CONCAT(DISTINCT c.country) " \
-                "FROM film_countries fc " \
-                "JOIN countries c ON fc.country_id = c.id " \
-            "WHERE fc.film_id = f.id), ''), " \
-            "IFNULL((SELECT GROUP_CONCAT(DISTINCT g.genre) " \
-                "FROM film_genres fg " \
-                "JOIN genres g ON fg.genre_id = g.id " \
-            "WHERE fg.film_id = f.id), ''), " \
-            "IFNULL((SELECT GROUP_CONCAT(DISTINCT l.language) " \
-                "FROM film_languages fl " \
-                "JOIN languages l ON fl.language_id = l.id " \
-            "WHERE fl.film_id = f.id), ''), " \
-            "IFNULL((SELECT GROUP_CONCAT(DISTINCT w.writer) " \
-                "FROM film_writers fw " \
-                "JOIN writers w ON fw.writer_id = w.id " \
-            "WHERE fw.film_id = f.id), ''), " \
-            "IFNULL(CAST(f.released AS TEXT), '') " \
-        "FROM films f " \
+        "INSERT INTO films_search ("
+            "film_id, "
+            "title, "
+            "director, "
+            "actor, "
+            "country, "
+            "genre, "
+            "language, "
+            "writer"
+        ") "
+        "SELECT "
+            "f.id, "
+            "f.title, "
+            "COALESCE(d.directors, ''), "
+            "COALESCE(a.actors, ''), "
+            "COALESCE(c.countries, ''), "
+            "COALESCE(g.genres, ''), "
+            "COALESCE(l.languages, ''), "
+            "COALESCE(w.writers, '') "
+        "FROM films f "
+        "LEFT JOIN ( "
+            "SELECT fd.film_id, "
+                "GROUP_CONCAT(DISTINCT d.director) AS directors "
+            "FROM film_directors fd "
+            "JOIN directors d ON d.id = fd.director_id "
+            "GROUP BY fd.film_id "
+        ") d ON d.film_id = f.id "
+        "LEFT JOIN ( "
+            "SELECT fa.film_id, "
+                "GROUP_CONCAT(DISTINCT a.actor) AS actors "
+            "FROM film_actors fa "
+            "JOIN actors a ON a.id = fa.actor_id "
+            "GROUP BY fa.film_id "
+        ") a ON a.film_id = f.id "
+        "LEFT JOIN ( "
+            "SELECT fc.film_id, "
+                "GROUP_CONCAT(DISTINCT c.country) AS countries "
+            "FROM film_countries fc "
+            "JOIN countries c ON c.id = fc.country_id "
+            "GROUP BY fc.film_id "
+        ") c ON c.film_id = f.id "
+        "LEFT JOIN ( "
+            "SELECT fg.film_id, "
+                "GROUP_CONCAT(DISTINCT g.genre) AS genres "
+            "FROM film_genres fg "
+            "JOIN genres g ON g.id = fg.genre_id "
+            "GROUP BY fg.film_id "
+        ") g ON g.film_id = f.id "
+        "LEFT JOIN ( "
+            "SELECT fl.film_id, "
+                "GROUP_CONCAT(DISTINCT l.language) AS languages "
+            "FROM film_languages fl "
+            "JOIN languages l ON l.id = fl.language_id "
+            "GROUP BY fl.film_id "
+        ") l ON l.film_id = f.id "
+        "LEFT JOIN ( "
+            "SELECT fw.film_id, "
+                "GROUP_CONCAT(DISTINCT w.writer) AS writers "
+            "FROM film_writers fw "
+            "JOIN writers w ON w.id = fw.writer_id "
+            "GROUP BY fw.film_id "
+        ") w ON w.film_id = f.id"
         "WHERE f.id = ?" \
         ";", (film_id,)
     )
