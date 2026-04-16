@@ -19,12 +19,7 @@ export async function GET(request: NextRequest) {
     if (!titleOnly &&IMDB_ID_PATTERN.test(q)) {
       rawResults = getAnalysesByImdbId(q);
     } else {
-      const ftsQuery = titleOnly ? `${q}%` : 
-        q
-        .trim()
-        .split(/\s+/)
-        .map((term) => term + "*")
-        .join(" ");
+      const { clause, params } = buildQuery(q.trim(), titleOnly);
 
       const sql = (
         `SELECT 
@@ -59,7 +54,7 @@ export async function GET(request: NextRequest) {
           GROUP BY fc.film_id
         ) c ON f.id = c.film_id
 
-        WHERE ${titleOnly ? "f.title LIKE ? COLLATE NOCASE" : "films_search MATCH ?"}
+        WHERE ${clause}
         ORDER BY f.title ASC, af.process_date DESC
         LIMIT 50`
       );
@@ -67,7 +62,7 @@ export async function GET(request: NextRequest) {
 
       rawResults = db
         .prepare(sql)
-        .all(ftsQuery) as FilmSearchResult[];
+        .all(params) as FilmSearchResult[];
     }
 
     // Map poster to browser URL
@@ -93,4 +88,50 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+function buildQuery(q: string, titleOnly: boolean) {
+  if (titleOnly) {
+    switch (q) {
+      case "0-9":
+        return {
+          clause: `f.title GLOB '[0-9]*'`,
+          params: [],
+        };
+      case "symbols":
+        return {
+          clause: `f.title GLOB '[^A-Za-z0-9]*'`,
+          params: [],
+        };
+      default:
+        return {
+          clause: `f.title LIKE ?`,
+          params: [`${q.trim()}%`],
+        }
+    }
+  } else {
+    return {
+      clause: `films_search MATCH ?`,
+      params: [buildFtsQuery(q)],
+    };
+  }
+}
+
+function buildFtsQuery(trimmed: string): string {
+
+  const phraseMatches = [...trimmed.matchAll(/"([^"]+)"/g)];
+  const phrases = phraseMatches.map(m => m[1]);
+
+  const withoutPhrases = trimmed.replace(/"[^"]+"/g, "");
+
+  const terms = withoutPhrases
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  const wildcardTerms = terms.map(t => `${t}*`);
+
+  const phraseTerms = phrases.map(p => `"${p}"`);
+
+  return [...phraseTerms, ...wildcardTerms].join(" ");
 }

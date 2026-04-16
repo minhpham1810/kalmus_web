@@ -126,9 +126,7 @@ export default function Home() {
           selectionResults = [randomFilm];
         }
 
-
-        const data = await res.json();
-        setResults(data.results || []);
+        setResults(selectionResults);
       } catch {
         setResults([]);
       } finally {
@@ -207,7 +205,10 @@ export default function Home() {
               <input
                 type="text"
                 value={query}
-                onChange={(e) => setQuery(e.target.value)}
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  setActiveSelection(null);
+                }}
                 placeholder="Search by title, year, director, etc…"
                 className="kalmus-input w-full pl-11 pr-4 py-4 bg-transparent text-sm font-light focus:outline-none transition-colors"
                 style={{
@@ -241,7 +242,6 @@ export default function Home() {
           </div>
 
           {/* Selection Buttons */}
-          {false && /* Currently disabled since it doesn't work well with the text search and issues indexing */
           <div className="mb-4">
             {/* A-Z buttons */}
             {Array.from({length: 26}, (_, i) => String.fromCharCode(65 + i)).map(letter => (
@@ -250,28 +250,34 @@ export default function Home() {
                 className={`px-2 py-1 border rounded text-sm font-mono transition-colors ${
                   activeSelection === letter ? "bg-indigo-600 text-white" : "bg-white text-black"
                 }`}
-                onClick={() => setActiveSelection(letter)}
+                onClick={() => {
+                  setActiveSelection(letter);
+                  setQuery("");
+                }}
               >
                 {letter}
               </button>
             ))}
 
-            {/* 0-9 buttons */}
-            {Array.from({length: 10}, (_, i) => i.toString()).map(number => (
+            {/* Numbers */}
               <button
-                key={number}
-                className={`px-2 py-1 border rounded text-sm font-mono transition-colors ${
-                  activeSelection === number ? "bg-indigo-600 text-white" : "bg-white text-black"
-                }`}
-                onClick={() => setActiveSelection(number)}
+              className={`px-2 py-1 border rounded text-sm font-mono transition-colors ${
+                activeSelection === "numbers" ? "bg-indigo-600 text-white" : "bg-white text-black"
+              }`}
+              onClick={() => {
+                  setActiveSelection("numbers");
+                  setQuery("");
+                }}
               >
-                {number}
+                0-9
               </button>
-            ))}
 
             {/* Symbols */}
             <button
-              onClick={() => setActiveSelection("symbols")}
+              onClick={() => {
+                setActiveSelection("symbols");
+                setQuery("");
+              }}
               className={`px-2 py-1 border rounded text-sm font-mono transition-colors ${
                 activeSelection === "symbols" ? "bg-indigo-600 text-white" : "bg-white text-black"
               }`}
@@ -279,7 +285,6 @@ export default function Home() {
               #
             </button>
           </div>
-          }
 
           {/* Upload CTA */}
           <div className="text-center mb-14">
