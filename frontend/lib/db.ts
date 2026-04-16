@@ -27,7 +27,7 @@ function normalizeAnalysisValue(value: string | null | undefined): string {
 
 export function getDb(): Database.Database {
   if (!db) {
-    db = new Database(DB_PATH, { readonly: true });
+    db = new Database(DB_PATH); // We can't use a readonly mode in case the backend needs to update while we do reads
     db.pragma("journal_mode = WAL");
   }
   return db;
