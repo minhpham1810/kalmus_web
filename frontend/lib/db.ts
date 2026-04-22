@@ -53,10 +53,10 @@ export function getAnalysesByImdbId(imdbId: string): FilmSearchResult[] {
         af.frame_type,
         af.metric,
         af.process_date,
-        af.video_width,
-        af.video_height,
-        af.video_fps,
-        af.video_frame_count
+        af.source_width,
+        af.source_height,
+        af.source_fps,
+        af.source_frame_count
       FROM films f
       INNER JOIN analyzed_files af ON af.job_id = f.job_id
       LEFT JOIN (

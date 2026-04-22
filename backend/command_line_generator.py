@@ -162,10 +162,10 @@ def create_db():
         "barcode_type TEXT NOT NULL, "
         "frame_type TEXT NOT NULL, "
         "metric TEXT NOT NULL, "
-        "video_width INTEGER, "
-        "video_height INTEGER, "
-        "video_fps REAL, "
-        "video_frame_count INTEGER, "
+        "source_width INTEGER, "
+        "source_height INTEGER, "
+        "source_fps REAL, "
+        "source_frame_count INTEGER, "
         "FOREIGN KEY (job_id) REFERENCES films(job_id)"
         ");"
     )
@@ -364,7 +364,7 @@ def add_to_db(job_id, data, metadata, json_loc, poster_loc):
     # Insert job metadata
     cur.execute(
         "INSERT OR REPLACE INTO analyzed_files "
-        "(job_id, uploader, process_date, json, poster, barcode_type, frame_type, metric, video_width, video_height, video_fps, video_frame_count) "
+        "(job_id, uploader, process_date, json, poster, barcode_type, frame_type, metric, source_width, source_height, source_fps, source_frame_count) "
         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);",
         (job_id,
          config.get("email", "").lower(),
