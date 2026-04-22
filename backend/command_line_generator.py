@@ -47,141 +47,141 @@ def create_db():
 
     # Main table, contains references to other tables
     cur.execute(
-        "CREATE TABLE IF NOT EXISTS films (" \
-        "job_id TEXT PRIMARY KEY, " \
-        "title TEXT NOT NULL, " \
-        "imdb_id TEXT, " \
-        "released DATE, " \
-        "type TEXT, " \
-        "runtime_minutes INTEGER" \
+        "CREATE TABLE IF NOT EXISTS films ("
+        "job_id TEXT PRIMARY KEY, "
+        "title TEXT NOT NULL, "
+        "imdb_id TEXT, "
+        "released DATE, "
+        "type TEXT, "
+        "runtime_minutes INTEGER"
         ");"
     )
     
     # Entity tables
     cur.execute(
-        "CREATE TABLE IF NOT EXISTS genres (" \
-        "id INTEGER PRIMARY KEY AUTOINCREMENT, " \
-        "name TEXT NOT NULL" \
+        "CREATE TABLE IF NOT EXISTS genres ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+        "name TEXT NOT NULL"
         ");"
     )
     cur.execute(
-        "CREATE TABLE IF NOT EXISTS directors (" \
-        "id INTEGER PRIMARY KEY AUTOINCREMENT, " \
-        "name TEXT NOT NULL" \
+        "CREATE TABLE IF NOT EXISTS directors ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+        "name TEXT NOT NULL"
         ");"
     )
     cur.execute(
-        "CREATE TABLE IF NOT EXISTS writers (" \
-        "id INTEGER PRIMARY KEY AUTOINCREMENT, " \
-        "name TEXT NOT NULL" \
+        "CREATE TABLE IF NOT EXISTS writers ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+        "name TEXT NOT NULL"
         ");"
     )
     cur.execute(
-        "CREATE TABLE IF NOT EXISTS actors (" \
-        "id INTEGER PRIMARY KEY AUTOINCREMENT, " \
-        "name TEXT NOT NULL" \
+        "CREATE TABLE IF NOT EXISTS actors ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+        "name TEXT NOT NULL"
         ");"
     )
     cur.execute(
-        "CREATE TABLE IF NOT EXISTS languages (" \
-        "id INTEGER PRIMARY KEY AUTOINCREMENT, " \
-        "name TEXT NOT NULL" \
+        "CREATE TABLE IF NOT EXISTS languages ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+        "name TEXT NOT NULL"
         ");"
     )
     cur.execute(
-        "CREATE TABLE IF NOT EXISTS countries (" \
-        "id INTEGER PRIMARY KEY AUTOINCREMENT, " \
-        "name TEXT NOT NULL" \
+        "CREATE TABLE IF NOT EXISTS countries ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+        "name TEXT NOT NULL"
         ");"
     )
 
     # Many-to-many mappings
     cur.execute(
-        "CREATE TABLE IF NOT EXISTS film_genres (" \
-        "job_id TEXT, " \
-        "genre_id INTEGER, " \
-        "PRIMARY KEY (job_id, genre_id), " \
-        "FOREIGN KEY (job_id) REFERENCES films(job_id), " \
-        "FOREIGN KEY (genre_id) REFERENCES genres(id)" \
+        "CREATE TABLE IF NOT EXISTS film_genres ("
+        "job_id TEXT, "
+        "genre_id INTEGER, "
+        "PRIMARY KEY (job_id, genre_id), "
+        "FOREIGN KEY (job_id) REFERENCES films(job_id), "
+        "FOREIGN KEY (genre_id) REFERENCES genres(id)"
         ");"
     )
     cur.execute(
-        "CREATE TABLE IF NOT EXISTS film_directors (" \
-        "job_id TEXT, " \
-        "director_id INTEGER, " \
-        "PRIMARY KEY (job_id, director_id), " \
-        "FOREIGN KEY (job_id) REFERENCES films(job_id), " \
-        "FOREIGN KEY (director_id) REFERENCES directors(id)" \
+        "CREATE TABLE IF NOT EXISTS film_directors ("
+        "job_id TEXT, "
+        "director_id INTEGER, "
+        "PRIMARY KEY (job_id, director_id), "
+        "FOREIGN KEY (job_id) REFERENCES films(job_id), "
+        "FOREIGN KEY (director_id) REFERENCES directors(id)"
         ");"
     )
     cur.execute(
-        "CREATE TABLE IF NOT EXISTS film_writers (" \
-        "job_id TEXT, " \
-        "writer_id INTEGER, " \
-        "PRIMARY KEY (job_id, writer_id), " \
-        "FOREIGN KEY (job_id) REFERENCES films(job_id), " \
-        "FOREIGN KEY (writer_id) REFERENCES writers(id)" \
+        "CREATE TABLE IF NOT EXISTS film_writers ("
+        "job_id TEXT, "
+        "writer_id INTEGER, "
+        "PRIMARY KEY (job_id, writer_id), "
+        "FOREIGN KEY (job_id) REFERENCES films(job_id), "
+        "FOREIGN KEY (writer_id) REFERENCES writers(id)"
         ");"
     )
     cur.execute(
-        "CREATE TABLE IF NOT EXISTS film_actors (" \
-        "job_id TEXT, " \
-        "actor_id INTEGER, " \
-        "PRIMARY KEY (job_id, actor_id), " \
-        "FOREIGN KEY (job_id) REFERENCES films(job_id), " \
-        "FOREIGN KEY (actor_id) REFERENCES actors(id)" \
+        "CREATE TABLE IF NOT EXISTS film_actors ("
+        "job_id TEXT, "
+        "actor_id INTEGER, "
+        "PRIMARY KEY (job_id, actor_id), "
+        "FOREIGN KEY (job_id) REFERENCES films(job_id), "
+        "FOREIGN KEY (actor_id) REFERENCES actors(id)"
         ");"
     )
     cur.execute(
-        "CREATE TABLE IF NOT EXISTS film_languages (" \
-        "job_id TEXT, " \
-        "language_id INTEGER, " \
-        "PRIMARY KEY (job_id, language_id), " \
-        "FOREIGN KEY (job_id) REFERENCES films(job_id), " \
-        "FOREIGN KEY (language_id) REFERENCES languages(id)" \
+        "CREATE TABLE IF NOT EXISTS film_languages ("
+        "job_id TEXT, "
+        "language_id INTEGER, "
+        "PRIMARY KEY (job_id, language_id), "
+        "FOREIGN KEY (job_id) REFERENCES films(job_id), "
+        "FOREIGN KEY (language_id) REFERENCES languages(id)"
         ");"
     )
     cur.execute(
-        "CREATE TABLE IF NOT EXISTS film_countries (" \
-        "job_id TEXT, " \
-        "country_id INTEGER, " \
-        "PRIMARY KEY (job_id, country_id), " \
-        "FOREIGN KEY (job_id) REFERENCES films(job_id), " \
-        "FOREIGN KEY (country_id) REFERENCES countries(id)" \
+        "CREATE TABLE IF NOT EXISTS film_countries ("
+        "job_id TEXT, "
+        "country_id INTEGER, "
+        "PRIMARY KEY (job_id, country_id), "
+        "FOREIGN KEY (job_id) REFERENCES films(job_id), "
+        "FOREIGN KEY (country_id) REFERENCES countries(id)"
         ");"
     )
 
     # Analyzed films
     cur.execute(
-        "CREATE TABLE IF NOT EXISTS analyzed_files (" \
-        "job_id TEXT PRIMARY KEY, " \
-        "uploader TEXT, " \
-        "process_date DATE NOT NULL, " \
-        "json TEXT, " \
-        "poster TEXT, " \
-        "barcode_type TEXT NOT NULL, " \
-        "frame_type TEXT NOT NULL, " \
-        "metric TEXT NOT NULL, " \
-        "video_width INTEGER, " \
-        "video_height INTEGER, " \
-        "video_fps REAL, " \
-        "video_frame_count INTEGER, " \
-        "FOREIGN KEY (job_id) REFERENCES films(job_id)" \
+        "CREATE TABLE IF NOT EXISTS analyzed_files ("
+        "job_id TEXT PRIMARY KEY, "
+        "uploader TEXT, "
+        "process_date DATE NOT NULL, "
+        "json TEXT, "
+        "poster TEXT, "
+        "barcode_type TEXT NOT NULL, "
+        "frame_type TEXT NOT NULL, "
+        "metric TEXT NOT NULL, "
+        "video_width INTEGER, "
+        "video_height INTEGER, "
+        "video_fps REAL, "
+        "video_frame_count INTEGER, "
+        "FOREIGN KEY (job_id) REFERENCES films(job_id)"
         ");"
     )
 
     # Search table
     cur.execute(
-        "CREATE VIRTUAL TABLE IF NOT EXISTS films_search USING fts5 (" \
-        "job_id UNINDEXED, " \
-        "title, " \
-        "director, " \
-        "actor, " \
-        "country, " \
-        "genre, " \
-        "language, " \
-        "writer, " \
-        "tokenize = \"unicode61 remove_diacritics 2 tokenchars '-'\"" \
+        "CREATE VIRTUAL TABLE IF NOT EXISTS films_search USING fts5 ("
+        "job_id UNINDEXED, "
+        "title, "
+        "director, "
+        "actor, "
+        "country, "
+        "genre, "
+        "language, "
+        "writer, "
+        "tokenize = \"unicode61 remove_diacritics 2 \""
         ");"
     )
 
@@ -202,15 +202,15 @@ def find_existing_analysis(imdb_id, barcode_type, frame_type, metric):
     cur = con.cursor()
 
     cur.execute(
-        "SELECT films.job_id " \
-        "FROM analyzed_files " \
-        "JOIN films ON analyzed_files.job_id = films.job_id " \
-        "WHERE films.imdb_id = ? " \
-        "AND analyzed_files.barcode_type = ? " \
-        "AND analyzed_files.frame_type = ? " \
-        "AND analyzed_files.metric = ? " \
-        "ORDER BY analyzed_files.process_date DESC " \
-        "LIMIT 1" \
+        "SELECT films.job_id "
+        "FROM analyzed_files "
+        "JOIN films ON analyzed_files.job_id = films.job_id "
+        "WHERE films.imdb_id = ? "
+        "AND analyzed_files.barcode_type = ? "
+        "AND analyzed_files.frame_type = ? "
+        "AND analyzed_files.metric = ? "
+        "ORDER BY analyzed_files.process_date DESC "
+        "LIMIT 1"
         ";", (imdb_id, barcode_type, frame_type, metric))
     row = cur.fetchone()
 
@@ -293,7 +293,7 @@ def update_search_table(job_id):
             "JOIN writers w ON w.id = fw.writer_id "
             "GROUP BY fw.job_id "
         ") w ON w.job_id = f.job_id"
-        "WHERE f.job_id = ?" \
+        "WHERE f.job_id = ?"
         ";", (job_id,)
     )
 
