@@ -415,31 +415,29 @@ export default function Home() {
                           {/* Analyses summary */}
                           <div>
                             {film.analyses.map((a) => (
-                              <div
+                              <Link
                                 key={a.job_id}
-                                className="grid grid-cols-[1fr_1fr_auto] items-center gap-4"
+                                href={`/results/${a.job_id}`}
+                                className="grid grid-cols-[1fr_2fr_auto] items-center gap-4 hover:underline"
+                                style={{ color: 'var(--accent-amber)' }}
                               >
-                                <div className="flex items-center gap-2 font-mono text-xs kalmus-text-secondary capitalize">
+                                <div className="flex items-center gap-1 font-mono text-xs kalmus-text-secondary capitalize">
                                   <span>{a.barcode_type}</span>
                                   <span style={{ color: 'var(--accent-crimson)' }}>|</span>
                                   <span>{a.frame_type.replace(/_/g, " ")}</span>
                                   <span style={{ color: 'var(--accent-crimson)' }}>|</span>
                                   <span>{a.metric}</span>
                                 </div>
-                                <div className="flex items-center gap-2 font-mono text-xs kalmus-text-secondary">
+                                <div className="flex items-center gap-1 font-mono text-xs kalmus-text-secondary">
                                   <span>Source File:</span>
                                   <span>{a.source_width} x {a.source_height},</span>
                                   <span>{a.source_fps} fps,</span>
                                   <span>{a.source_frame_count} frames</span>
                                 </div>
-                                <Link
-                                  href={`/results/${a.job_id}`}
-                                  className="font-mono text-[10px] tracking-wider uppercase transition-colors"
-                                  style={{ color: 'var(--accent-amber)' }}
-                                >
-                                  View →
-                                </Link>
-                              </div>
+                                <div className="font-mono text-[10px] tracking-wider uppercase transition-colors">
+                                  <span>View →</span>
+                                </div>
+                              </Link>
                             ))}
                           </div>
                         </div>
