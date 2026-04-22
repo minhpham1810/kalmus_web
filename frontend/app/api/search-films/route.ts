@@ -139,6 +139,11 @@ export async function GET(request: NextRequest) {
 }
 
 function buildQuery(q: string) {
+  const trimmed = q.trim();
+  if (!trimmed) {
+    return null;
+  }
+
   if (q === "numbers") {
     return {
       clause: `f.title GLOB '[0-9]*'`,
@@ -156,12 +161,21 @@ function buildQuery(q: string) {
   }
 }
 
-function buildFtsQuery(trimmed: string) {
+function buildFtsQuery(input: string) {
   const stopwords = new Set([
     "the",
     "a",
     "an",
     "of"
+  ]);
+
+  const operators = new Set([
+    "AND",
+    "OR",
+    "NOT",
+    "NEAR",
+    "(",
+    ")"
   ]);
 
   const allowedCols = new Set([
@@ -174,77 +188,95 @@ function buildFtsQuery(trimmed: string) {
     "writer"
   ]);
 
-  // Get phrase searches
-  const phraseMatches = [...trimmed.matchAll(/"([^"]+)"/g)];
-  const phrases = phraseMatches.map(m => m[1]);
+  let remaining = input;
 
-  let remaining = trimmed.replace(/"[^"]+"/g, "");
+  const placeholders: string[] = [];
+  const pushPlaceholder = (value: string) => {
+    const key = `__P${placeholders.length}__`;
+    placeholders.push(value);
+    return key;
+  }
+
+  // Get phrase searches
+  remaining = remaining.replace(/"((?:[^"\\]|\\.)*)"/g, (m) => {
+    return pushPlaceholder(m);
+  });
+
+  // Replace hyphens with en dash
+  // En dash is not a used character in fts5
+  // Could maybe be used in future for hyphenated words
+  remaining = remaining.replace(/-/g, "–");
 
   // Get col searches
-  const colMatches = [...remaining.matchAll(/(\b\w+)\s*:\s*("[^"]+"|[^\s]+)/g)];
-  const colTerms: string[] = []
+  remaining = remaining.replace(/\b([\w]+)\s*:\s*(?:"([^"]*)"|([^]*?))(?=\s+\b[\w]+\s*:|$)/g,
+    (m, col, quoted, unquoted) => {
+      let value = quoted ?? unquoted ?? "";
 
-  const usedSegments = new Set<string>();
-
-  // Build col searches
-  for (const match of colMatches) {
-    const col = match[1];
-    let value = match[2];
-
-    if (!allowedCols.has(col)) continue;
-
-    const isPhrase = value.startsWith('"') && value.endsWith('"');
-
-    if (isPhrase) {
-      value = value.slice(1, -1);
-      colTerms.push(`${col}:"${value}"`);
-    }
-    else {
-      const clean = value
-      // .replace(/[^\w\d_\^]+/gu, "")
-      .replace(/\*+$/, "");
-
-      if (clean) {
-        colTerms.push(`${col}:${clean}*`);
+      // Missing value
+      if (!value || value.trim() === "") {
+        return `${col}*`;
       }
+
+      // Invalid column
+      if (!allowedCols.has(col)) {
+        const clean = (value ?? "")
+          .replace(/["():]/g, "")
+          .trim();
+
+        let valuePart = clean || "";
+        if (!valuePart.endsWith("*")) {
+          valuePart = `${valuePart}*`;
+        }
+
+        return `${col}* ${valuePart}`;
+      }
+
+      value = value.trim();
+      if (!value.endsWith("*")) {
+        value = `${value}*`;
+      }
+
+      return pushPlaceholder(`${col}: ${value}`);
     }
-    
-    usedSegments.add(match[0]);
-  }
+  );
 
-  // Remove col searches
-  for (const seg of usedSegments) {
-    remaining = remaining.replace(seg, "");
-  }
+  // Get remaining tokens
+  const tokens = remaining.match(/(\(|\)|AND|OR|NOT|NEAR|[\w-]+|"[^\"]*")/gi) || [];
+  
+  const processed = tokens.map((token) => {
+    const upper = token.toUpperCase();
+    if (operators.has(upper)) {
+      return token;
+    }
 
-  const terms = remaining
-    .trim()
-    .split(/\s+/)
-    .map((t) => t
-        // .replace(/[^\w\d_]+/gu, "")
-        .toLowerCase()
-    )
-    .filter(Boolean);
+    // Skip placeholders
+    if (/^__P\d+__$/.test(token)) {
+      return token;
+    }
 
-  const filteredTerms = terms.length > 1
-    ? terms.filter(t => !stopwords.has(t))
-    : terms
+    // Skip stopwords
+    // if (stopwords.has(token.toLowerCase())) {
+    //   return "";
+    // }
 
-  // Add wildcard to all remaining terms
-  const wildcardTerms = filteredTerms.map(t => `${t}*`);
+    // Add fuzzy searches
+    if (!token.endsWith("*")) {
+      return `${token}*`;
+    }
 
-  // Build phrase terms
-  const phraseTerms = phrases.map(p => `"${p}"`);
-
-  const allTerms = [...phraseTerms, ...colTerms, ...wildcardTerms];
+    return token;
+  })
+  
+  let result = processed.join(" ");
+  result = result.replace(/__P(\d+)__/g, (_, i) => placeholders[+i]);
 
   // No valid search terms after cleaning
-  if (allTerms.length === 0) {
+  if (result.length === 0) {
     return null;
   }
 
   return {
     clause: `films_search MATCH ?`,
-    params: [allTerms.join(" ")],
+    params: [result],
   };
 }
