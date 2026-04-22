@@ -33,7 +33,11 @@ export async function GET(request: NextRequest) {
           af.barcode_type,
           af.frame_type,
           af.metric,
-          af.process_date
+          af.process_date,
+          af.video_width,
+          af.video_height,
+          af.video_fps,
+          af.video_frame_count
         FROM films_search
         JOIN films f ON f.job_id = films_search.job_id
 
@@ -83,7 +87,11 @@ export async function GET(request: NextRequest) {
           af.barcode_type,
           af.frame_type,
           af.metric,
-          af.process_date
+          af.process_date,
+          af.video_width,
+          af.video_height,
+          af.video_fps,
+          af.video_frame_count
         FROM films_search
         JOIN films f ON f.job_id = films_search.job_id
 

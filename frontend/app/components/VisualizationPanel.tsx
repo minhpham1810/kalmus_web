@@ -24,6 +24,10 @@ interface FilmSearchResult {
   frame_type: string;
   metric: string;
   process_date: string;
+  source_width: string;
+  source_height: string;
+  source_fps: string;
+  source_frame_count: string;
 }
 
 interface VisualizationPanelProps {

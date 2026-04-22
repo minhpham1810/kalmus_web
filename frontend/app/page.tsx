@@ -17,6 +17,10 @@ interface FilmSearchResult {
   frame_type: string;
   metric: string;
   process_date: string;
+  source_width: string;
+  source_height: string;
+  source_fps: string;
+  source_frame_count: string;
 }
 
 interface GroupedFilm {
@@ -35,6 +39,10 @@ interface GroupedFilm {
     frame_type: string;
     metric: string;
     process_date: string;
+    source_width: string;
+    source_height: string;
+    source_fps: string;
+    source_frame_count: string;
   }[];
 }
 
@@ -60,6 +68,10 @@ function groupResults(results: FilmSearchResult[]): GroupedFilm[] {
       frame_type: r.frame_type,
       metric: r.metric,
       process_date: r.process_date,
+      source_width: r.source_width,
+      source_height: r.source_height,
+      source_fps: r.source_fps,
+      source_frame_count: r.source_frame_count,
     });
   }
   return Array.from(map.values());
@@ -165,7 +177,7 @@ export default function Home() {
       </div>
 
       <main className="flex-1 flex flex-col items-center justify-center px-4 py-16">
-        <div className="w-full max-w-lg">
+        <div className="w-full max-w-4xl">
 
           {/* Header */}
           <header className="text-center mb-12">
@@ -256,7 +268,7 @@ export default function Home() {
           </div>
 
           {/* Selection Buttons */}
-          <div className="mb-4">
+          <div className="mb-4 flex flex-wrap justify-center gap-[0.25]">
             {/* A-Z buttons */}
             {Array.from({length: 26}, (_, i) => String.fromCharCode(65 + i)).map(letter => (
               <button
@@ -405,7 +417,7 @@ export default function Home() {
                             {film.analyses.map((a) => (
                               <div
                                 key={a.job_id}
-                                className="flex items-center justify-between"
+                                className="grid grid-cols-[1fr_1fr_auto] items-center gap-4"
                               >
                                 <div className="flex items-center gap-2 font-mono text-xs kalmus-text-secondary capitalize">
                                   <span>{a.barcode_type}</span>
@@ -413,6 +425,12 @@ export default function Home() {
                                   <span>{a.frame_type.replace(/_/g, " ")}</span>
                                   <span style={{ color: 'var(--accent-crimson)' }}>|</span>
                                   <span>{a.metric}</span>
+                                </div>
+                                <div className="flex items-center gap-2 font-mono text-xs kalmus-text-secondary">
+                                  <span>Source File:</span>
+                                  <span>{a.source_width} x {a.source_height},</span>
+                                  <span>{a.source_fps} fps,</span>
+                                  <span>{a.source_frame_count} frames</span>
                                 </div>
                                 <Link
                                   href={`/results/${a.job_id}`}

@@ -13,6 +13,10 @@ export interface FilmSearchResult {
   frame_type: string;
   metric: string;
   process_date: string;
+  source_width: string;
+  source_height: string;
+  source_fps: string;
+  source_frame_count: string;
 }
 
 const DB_PATH =
@@ -48,7 +52,11 @@ export function getAnalysesByImdbId(imdbId: string): FilmSearchResult[] {
         af.barcode_type,
         af.frame_type,
         af.metric,
-        af.process_date
+        af.process_date,
+        af.video_width,
+        af.video_height,
+        af.video_fps,
+        af.video_frame_count
       FROM films f
       INNER JOIN analyzed_files af ON af.job_id = f.job_id
       LEFT JOIN (
