@@ -6,8 +6,9 @@ const IMDB_ID_PATTERN = /^tt\d{5,8}$/i;
 
 export async function GET(request: NextRequest) {
   const q = request.nextUrl.searchParams.get("q")?.trim() || "";
+  const random = request.nextUrl.searchParams.has("random");
 
-  if (!q) {
+  if (!q && !random) {
     return NextResponse.json({ results: [] });
   }
 
@@ -17,8 +18,51 @@ export async function GET(request: NextRequest) {
 
     if (IMDB_ID_PATTERN.test(q)) {
       rawResults = getAnalysesByImdbId(q);
-    } else {
-      const ret = buildQuery(q.trim());
+    }
+    else if (random) {
+      const sql = (
+        `SELECT 
+          f.job_id,
+          f.title,
+          f.imdb_id,
+          af.poster,
+          d.director,
+          f.runtime_minutes,
+          c.country,
+          f.released,
+          af.barcode_type,
+          af.frame_type,
+          af.metric,
+          af.process_date
+        FROM films_search
+        JOIN films f ON f.job_id = films_search.job_id
+
+        INNER JOIN analyzed_files af ON af.job_id = f.job_id
+
+        LEFT JOIN (
+          SELECT fd.job_id, GROUP_CONCAT(d.name) AS director
+          FROM film_directors fd
+          JOIN directors d ON fd.director_id = d.id
+          GROUP BY fd.job_id
+        ) d ON f.job_id = d.job_id
+
+        LEFT JOIN (
+          SELECT fc.job_id, GROUP_CONCAT(c.name) AS country
+          FROM film_countries fc
+          JOIN countries c ON fc.country_id = c.id
+          GROUP BY fc.job_id
+        ) c ON f.job_id = c.job_id
+
+        ORDER BY RANDOM()
+        LIMIT 5`
+      );
+
+      rawResults = db
+        .prepare(sql)
+        .all() as FilmSearchResult[];
+    }
+    else {
+      const ret = buildQuery(q);
       let clause: string = "";
       let params: string[] = [];
       if (ret) {

@@ -115,27 +115,30 @@ export default function Home() {
 
     debounceRef.current = setTimeout(async () => {
       try {
-        let search: string;
-        if (activeSelection === "numbers") {
-          search = "numbers";
-        }
-        else if (activeSelection === "symbols") {
-          search = "symbols";
+        let res: Response
+        if (activeSelection === "random") {
+          res = await fetch(
+            `/api/search-films?random`
+          );
         }
         else {
-          search = `title:^${activeSelection}`
-        }
+          let search: string;
+          if (activeSelection === "numbers") {
+            search = "numbers";
+          }
+          else if (activeSelection === "symbols") {
+            search = "symbols";
+          }
+          else {
+            search = `title:^${activeSelection}`
+          }
 
-        const res = await fetch(
-          `/api/search-films?q=${encodeURIComponent(search)}`
-        );
+          res = await fetch(
+            `/api/search-films?q=${encodeURIComponent(search)}`
+          );
+        }
 
         let selectionResults: FilmSearchResult[] = (await res.json()).results || [];
-
-        if (activeSelection === "random" && selectionResults.length > 0) {
-          const randomFilm = selectionResults[Math.floor(Math.random() * selectionResults.length)];
-          selectionResults = [randomFilm];
-        }
 
         setResults(selectionResults);
       } catch {
@@ -294,6 +297,20 @@ export default function Home() {
               }`}
             >
               #
+            </button>
+
+            {/* Random */}
+            <button
+              onClick={() => {
+                setActiveSelection(null); // Force requery
+                setTimeout(() => {
+                  setActiveSelection("random");
+                }, 0);
+                setQuery("");
+              }}
+              className="px-2 py-1 border rounded text-sm font-mono transition-colors bg-white text-black"
+            >
+              Surprise Me!
             </button>
           </div>
 
