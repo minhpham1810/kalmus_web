@@ -1,8 +1,10 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useSyncExternalStore } from 'react';
 
 export type BgLevel = 'grey10' | 'grey40' | 'grey60' | 'grey90';
+const THEME_STORAGE_KEY = 'theme';
+const THEME_CHANGE_EVENT = 'kalmus-theme-change';
 
 export const BG_COLORS: Record<BgLevel, string> = {
   grey10: 'linear-gradient(135deg, #060606 0%, #1a1a1a 100%)',
@@ -20,32 +22,60 @@ interface ThemeContextType {
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
+function isBgLevel(value: string | null): value is BgLevel {
+  return value !== null && BG_CYCLE.includes(value as BgLevel);
+}
+
+function getThemeSnapshot(): BgLevel {
+  if (typeof window === 'undefined') {
+    return 'grey10';
+  }
+
+  const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
+  return isBgLevel(stored) ? stored : 'grey10';
+}
+
+function subscribeThemeChange(callback: () => void) {
+  if (typeof window === 'undefined') {
+    return () => {};
+  }
+
+  const handleThemeChange = () => callback();
+
+  window.addEventListener('storage', handleThemeChange);
+  window.addEventListener(THEME_CHANGE_EVENT, handleThemeChange);
+
+  return () => {
+    window.removeEventListener('storage', handleThemeChange);
+    window.removeEventListener(THEME_CHANGE_EVENT, handleThemeChange);
+  };
+}
+
+function setTheme(nextBgLevel: BgLevel) {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  window.localStorage.setItem(THEME_STORAGE_KEY, nextBgLevel);
+  window.dispatchEvent(new Event(THEME_CHANGE_EVENT));
+}
+
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [bgLevel, setBgLevel] = useState<BgLevel>('grey10');
-  const [mounted, setMounted] = useState(false);
+  const bgLevel = useSyncExternalStore<BgLevel>(
+    subscribeThemeChange,
+    getThemeSnapshot,
+    (): BgLevel => 'grey10'
+  );
 
   useEffect(() => {
-    setMounted(true);
-    const stored = localStorage.getItem('theme') as BgLevel | null;
-    if (stored && BG_CYCLE.includes(stored)) {
-      setBgLevel(stored);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!mounted) return;
-
     const root = document.documentElement;
     root.classList.toggle('dark', ['grey10', 'grey40', 'grey60'].includes(bgLevel));
     root.setAttribute('data-bg-level', bgLevel);
-    localStorage.setItem('theme', bgLevel);
-  }, [bgLevel, mounted]);
+  }, [bgLevel]);
 
   const cycleBg = () => {
-    setBgLevel(prev => {
-      const idx = BG_CYCLE.indexOf(prev);
-      return BG_CYCLE[(idx + 1) % BG_CYCLE.length];
-    });
+    const idx = BG_CYCLE.indexOf(bgLevel);
+    setTheme(BG_CYCLE[(idx + 1) % BG_CYCLE.length]);
   };
 
   return (

@@ -148,9 +148,9 @@ export default function SubmittedPage() {
             </h2>
             <ol className="space-y-3">
               {[
-                "KALMUS generates your color or brightness barcode on the HPC cluster.",
-                "You'll receive an email with your barcode image attached.",
-                "When processing finishes, the email includes a direct link to your analytics dashboard.",
+                "KALMUS generates your barcode on the HPC cluster.",
+                "You'll receive an email when the job completes, fails, or reuses an existing analysis.",
+                "The email includes a direct link to the result page.",
               ].map((step, i) => (
                 <li key={i} className="flex items-start gap-3">
                   <span

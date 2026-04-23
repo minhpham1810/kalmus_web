@@ -18,6 +18,8 @@ export const SLURM_CONFIG = {
   websiteUrl: process.env.WEBSITE_URL || 'http://localhost:3000',
 };
 
+export type NotificationStatus = 'COMPLETED' | 'FAILED' | 'DUPLICATE';
+
 export interface JobConfig {
   color_metric: string;
   frame_type: string;
@@ -29,6 +31,7 @@ export interface JobConfig {
   save_thumbnails?: boolean;
   partition?: string;
   email?: string;
+  video_title?: string;
   force_reprocess?: boolean;
 }
 
@@ -67,6 +70,36 @@ function normalizeEstimatedTime(value?: string | null): string | undefined {
   return normalized;
 }
 
+function shellQuote(value: string): string {
+  return `'${value.replace(/'/g, `'\"'\"'`)}'`;
+}
+
+export async function sendJobNotificationEmail({
+  email,
+  status,
+  resultsUrl,
+  videoTitle,
+}: {
+  email: string;
+  status: NotificationStatus;
+  resultsUrl: string;
+  videoTitle: string;
+}): Promise<void> {
+  const emailScript = shellQuote(SLURM_CONFIG.emailScript);
+  const args = [
+    '--email',
+    email,
+    '--status',
+    status,
+    '--results-url',
+    resultsUrl,
+    '--video-title',
+    videoTitle,
+  ].map(shellQuote).join(' ');
+
+  await execAsync(`python3 ${emailScript} ${args}`);
+}
+
 /**
  * Generate SLURM job script for video processing
  */
@@ -78,12 +111,11 @@ export function generateSlurmScript(
 ): string {
   const outputDir = path.join(SLURM_CONFIG.resultsDir, jobId);
   const partition = config.partition || 'short';
-  const emailDirectives = config.email
-    ? `#SBATCH --mail-user=${config.email}
-#SBATCH --mail-type=END,FAIL`
-    : '';
   const thumbnailArg = config.save_thumbnails !== false ? '  --save-thumbnails \\\n' : '';
   const forceReprocessArg = config.force_reprocess ? '  --force-reprocess \\\n' : '';
+  const notificationScript = SLURM_CONFIG.emailScript;
+  const notificationResultsUrl = `${SLURM_CONFIG.websiteUrl}/results/${jobId}`;
+  const notificationTitle = config.video_title || videoFilename;
 
   return `#!/bin/bash
 #SBATCH --job-name=kalmus_${jobId.substring(0, 8)}
@@ -95,7 +127,6 @@ export function generateSlurmScript(
 #SBATCH --time=01:00:00
 #SBATCH --output=${outputDir}/slurm_%j.stdout.txt
 #SBATCH --error=${outputDir}/slurm_%j.stderr.txt
-${emailDirectives}
 
 # Job information
 echo "========================================="
@@ -152,30 +183,56 @@ echo "========================================="
 # Create completion marker file
 if [ $EXIT_CODE -eq 0 ]; then
   if [ -f "${outputDir}/duplicate.json" ]; then
+    DUPLICATE_JOB_ID=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["existing_job_id"])' "${outputDir}/duplicate.json")
     echo "DUPLICATE" > ${outputDir}/status.txt
   else
     echo "SUCCESS" > ${outputDir}/status.txt
   fi
 
-  # Send email with barcode attachments
-  if [ -n "${config.email}" ] && [ ! -f "${outputDir}/duplicate.json" ]; then
+  # Send notification email
+  if [ -n "${config.email}" ]; then
     echo ""
-    echo "Sending barcode via email to ${config.email}..."
-    python3 ${SLURM_CONFIG.emailScript} \\
-      --email "${config.email}" \\
-      --job-id "${jobId}" \\
-      --results-dir "${outputDir}" \\
-      --video-filename "${videoFilename}"
+    echo "Sending notification email to ${config.email}..."
+    if [ -f "${outputDir}/duplicate.json" ]; then
+      python3 ${notificationScript} \\
+        --email "${config.email}" \\
+        --status "DUPLICATE" \\
+        --results-url "${SLURM_CONFIG.websiteUrl}/results/\${DUPLICATE_JOB_ID}" \\
+        --video-title "${notificationTitle}"
+    else
+      python3 ${notificationScript} \\
+        --email "${config.email}" \\
+        --status "COMPLETED" \\
+        --results-url "${notificationResultsUrl}" \\
+        --video-title "${notificationTitle}"
+    fi
 
     EMAIL_EXIT_CODE=$?
     if [ $EMAIL_EXIT_CODE -eq 0 ]; then
-      echo "Email sent successfully!"
+      echo "Notification email sent successfully!"
     else
-      echo "Warning: Email sending failed (exit code: $EMAIL_EXIT_CODE)"
+      echo "Warning: Notification email failed (exit code: $EMAIL_EXIT_CODE)"
     fi
   fi
 else
   echo "FAILED" > ${outputDir}/status.txt
+
+  if [ -n "${config.email}" ]; then
+    echo ""
+    echo "Sending failure notification email to ${config.email}..."
+    python3 ${notificationScript} \\
+      --email "${config.email}" \\
+      --status "FAILED" \\
+      --results-url "${notificationResultsUrl}" \\
+      --video-title "${notificationTitle}"
+
+    EMAIL_EXIT_CODE=$?
+    if [ $EMAIL_EXIT_CODE -eq 0 ]; then
+      echo "Notification email sent successfully!"
+    else
+      echo "Warning: Notification email failed (exit code: $EMAIL_EXIT_CODE)"
+    fi
+  fi
 fi
 
 # Clean up uploaded video to free storage space

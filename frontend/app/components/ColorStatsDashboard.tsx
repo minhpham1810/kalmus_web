@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { RGB } from "@/lib/barcode-utils";
 
 interface ColorStats {
@@ -28,6 +28,15 @@ interface ColorStatsDashboardProps {
   brightness?: number[];
 }
 
+interface SummaryData {
+  total_frames?: number;
+  film_length_in_frames?: number;
+  barcode_shape?: number[];
+  color_metric?: string;
+  frame_type?: string;
+  barcode_type?: string;
+}
+
 export default function ColorStatsDashboard({
   jobId,
   title = "Color Statistics",
@@ -37,50 +46,9 @@ export default function ColorStatsDashboard({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   // Store summary metadata so range changes can recompute without re-fetching
-  const summaryRef = useRef<any>(null);
+  const summaryRef = useRef<SummaryData | null>(null);
 
-  useEffect(() => {
-    loadStats();
-  }, [jobId]);
-
-  // When the colors prop changes (range adjusted), recompute color stats
-  useEffect(() => {
-    if (colorsProp !== undefined && summaryRef.current !== null) {
-      computeStats(colorsProp, summaryRef.current);
-    }
-  }, [colorsProp]);
-
-  const loadStats = async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const response = await fetch(`/api/job-result/${jobId}`);
-      if (!response.ok) {
-        throw new Error("Failed to load barcode data");
-      }
-
-      const data = await response.json();
-
-      if (data.success && data.barcode && data.summary) {
-        summaryRef.current = data.summary;
-        // Use passed colors if available (range-filtered), otherwise use all fetched colors
-        const colorsToUse =
-          colorsProp !== undefined
-            ? colorsProp
-            : (data.barcode.colors as RGB[] | undefined) ?? [];
-        computeStats(colorsToUse, data.summary);
-      } else {
-        throw new Error("Invalid barcode data");
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const computeStats = (colors: RGB[], summary: any) => {
+  const computeStats = useCallback((colors: RGB[], summary: SummaryData) => {
     if (colors.length === 0) {
       // Empty range — keep metadata but zero out color stats
       if (summaryRef.current) {
@@ -147,7 +115,48 @@ export default function ColorStatsDashboard({
       frameType: summary.frame_type || "Unknown",
       barcodeType: summary.barcode_type || "Unknown",
     });
-  };
+  }, []);
+
+  const loadStats = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch(`/api/job-result/${jobId}`);
+      if (!response.ok) {
+        throw new Error("Failed to load barcode data");
+      }
+
+      const data = await response.json();
+
+      if (data.success && data.barcode && data.summary) {
+        summaryRef.current = data.summary as SummaryData;
+        // Use passed colors if available (range-filtered), otherwise use all fetched colors
+        const colorsToUse =
+          colorsProp !== undefined
+            ? colorsProp
+            : (data.barcode.colors as RGB[] | undefined) ?? [];
+        computeStats(colorsToUse, data.summary as SummaryData);
+      } else {
+        throw new Error("Invalid barcode data");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setLoading(false);
+    }
+  }, [jobId, colorsProp, computeStats]);
+
+  useEffect(() => {
+    void loadStats();
+  }, [loadStats]);
+
+  // When the colors prop changes (range adjusted), recompute color stats
+  useEffect(() => {
+    if (colorsProp !== undefined && summaryRef.current !== null) {
+      computeStats(colorsProp, summaryRef.current);
+    }
+  }, [colorsProp, computeStats]);
 
   const formatNumber = (num: number) => num.toLocaleString();
 

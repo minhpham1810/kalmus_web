@@ -34,7 +34,8 @@ export async function POST(request: NextRequest) {
         // Stream chunk directly to disk (no memory buffering)
         const chunkPath = path.join(uploadDir, `chunk_${chunkIndex.toString().padStart(6, '0')}`);
         const writeStream = createWriteStream(chunkPath);
-        const readStream = Readable.fromWeb(chunk.stream() as any);
+        const webStream = chunk.stream() as unknown as import('stream/web').ReadableStream<Uint8Array>;
+        const readStream = Readable.fromWeb(webStream);
 
         await pipeline(readStream, writeStream);
 

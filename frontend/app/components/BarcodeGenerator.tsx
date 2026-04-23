@@ -676,7 +676,7 @@ export default function BarcodeGenerator() {
 
             <div className="p-4 mb-6 kalmus-surface">
               <p className="font-mono text-[10px] kalmus-text-secondary leading-relaxed">
-                You&apos;ll receive an email with your barcode image, data file, and processing statistics. You can close this page.
+                You&apos;ll receive an email when the job completes, fails, or reuses an existing analysis. The message includes a direct link to the result page.
               </p>
             </div>
 

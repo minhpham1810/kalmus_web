@@ -292,15 +292,15 @@ def update_search_table(job_id):
             "FROM film_writers fw "
             "JOIN writers w ON w.id = fw.writer_id "
             "GROUP BY fw.job_id "
-        ") w ON w.job_id = f.job_id"
-        "WHERE f.job_id = ?"
+        ") w ON w.job_id = f.job_id "
+        "WHERE f.job_id = ? "
         ";", (job_id,)
     )
 
     con.commit()
     con.close()
 
-def add_to_db(job_id, data, metadata, json_loc, poster_loc):
+def add_to_db(job_id, data, upload_metadata, json_loc, poster_loc):
     config = data.get("config")
     movie = data.get("movie") or {}
     raw = movie.get("raw") or {}
@@ -343,22 +343,22 @@ def add_to_db(job_id, data, metadata, json_loc, poster_loc):
         cur.execute(f"INSERT INTO {table} ({column}) VALUES (?)", (value,))
         return cur.lastrowid
     for genre in genres:
-        genre_id = insert_or_get_id("genres", "genre", genre)
+        genre_id = insert_or_get_id("genres", "name", genre)
         cur.execute("INSERT OR IGNORE INTO film_genres (job_id, genre_id) VALUES (?, ?)", (job_id, genre_id))
     for director in directors:
-        director_id = insert_or_get_id("directors", "director", director)
+        director_id = insert_or_get_id("directors", "name", director)
         cur.execute("INSERT OR IGNORE INTO film_directors (job_id, director_id) VALUES (?, ?)", (job_id, director_id))
     for writer in writers:
-        writer_id = insert_or_get_id("writers", "writer", writer)
+        writer_id = insert_or_get_id("writers", "name", writer)
         cur.execute("INSERT OR IGNORE INTO film_writers (job_id, writer_id) VALUES (?, ?)", (job_id, writer_id))
     for actor in actors:
-        actor_id = insert_or_get_id("actors", "actor", actor)
+        actor_id = insert_or_get_id("actors", "name", actor)
         cur.execute("INSERT OR IGNORE INTO film_actors (job_id, actor_id) VALUES (?, ?)", (job_id, actor_id))
     for language in languages:
-        language_id = insert_or_get_id("languages", "language", language)
+        language_id = insert_or_get_id("languages", "name", language)
         cur.execute("INSERT OR IGNORE INTO film_languages (job_id, language_id) VALUES (?, ?)", (job_id, language_id))
     for country in countries:
-        country_id = insert_or_get_id("countries", "country", country)
+        country_id = insert_or_get_id("countries", "name", country)
         cur.execute("INSERT OR IGNORE INTO film_countries (job_id, country_id) VALUES (?, ?)", (job_id, country_id))
 
     # Insert job metadata

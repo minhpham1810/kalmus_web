@@ -3,7 +3,7 @@ import { readdir, unlink, rm } from 'fs/promises';
 import { createReadStream } from 'fs';
 import { PassThrough } from 'stream';
 import path from 'path';
-import { submitSlurmJob, JobConfig } from '@/lib/slurm';
+import { sendJobNotificationEmail, SLURM_CONFIG, submitSlurmJob, JobConfig } from '@/lib/slurm';
 import { streamToHPC } from '@/lib/hpc-transfer';
 import { findDuplicateAnalyses } from '@/lib/db';
 
@@ -39,6 +39,10 @@ export async function POST(request: NextRequest) {
             email: config.email || undefined,
             force_reprocess: config.force_reprocess === 'true' || config.force_reprocess === true,
         };
+        const videoTitle =
+            movie && typeof movie.title === 'string' && movie.title.trim()
+                ? movie.title.trim()
+                : filename;
 
         const duplicateMatch = findDuplicateAnalyses(
             (movie?.imdb_id as string | undefined) || null,
@@ -50,6 +54,19 @@ export async function POST(request: NextRequest) {
         );
 
         if (duplicateMatch.exactMatch && !jobConfig.force_reprocess) {
+            if (jobConfig.email) {
+                try {
+                    await sendJobNotificationEmail({
+                        email: jobConfig.email,
+                        status: 'DUPLICATE',
+                        resultsUrl: `${SLURM_CONFIG.websiteUrl}/results/${duplicateMatch.exactMatch.job_id}`,
+                        videoTitle,
+                    });
+                } catch (error) {
+                    console.error('Failed to send duplicate notification email:', error);
+                }
+            }
+
             await rm(path.join(CHUNKS_DIR, uploadId), { recursive: true, force: true });
 
             return NextResponse.json({
@@ -131,7 +148,16 @@ export async function POST(request: NextRequest) {
         } : undefined;
 
         // Submit SLURM job
-        const result = await submitSlurmJob(videoPath, filename, jobConfig, user, movie as Record<string, unknown> | undefined);
+        const result = await submitSlurmJob(
+            videoPath,
+            filename,
+            {
+                ...jobConfig,
+                video_title: videoTitle,
+            },
+            user,
+            movie as Record<string, unknown> | undefined
+        );
 
         return NextResponse.json({
             success: true,

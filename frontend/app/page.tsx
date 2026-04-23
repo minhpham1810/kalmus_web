@@ -150,7 +150,7 @@ export default function Home() {
           );
         }
 
-        let selectionResults: FilmSearchResult[] = (await res.json()).results || [];
+        const selectionResults: FilmSearchResult[] = (await res.json()).results || [];
 
         setResults(selectionResults);
       } catch {

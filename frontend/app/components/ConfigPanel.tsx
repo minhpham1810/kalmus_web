@@ -96,7 +96,7 @@ export default function ConfigPanel({
           style={inputStyle}
         />
         <p className="mt-1 font-mono text-[9px] kalmus-text-muted">
-          Barcode will be sent to this email
+          Job notifications will be sent to this email
         </p>
       </div>
 

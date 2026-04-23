@@ -1,7 +1,6 @@
 'use client';
 
 import { useTheme, BG_COLORS } from './ThemeProvider';
-import { useEffect, useState } from 'react';
 
 const BG_LABELS: Record<string, string> = {
   grey10: 'BG 10%',
@@ -19,17 +18,6 @@ const TEXT_COLORS: Record<string, string> = {
 
 export function ThemeToggle() {
   const { bgLevel, cycleBg } = useTheme();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  if (!mounted) {
-    return (
-      <div className="fixed top-4 right-4 w-16 h-9 rounded-lg z-50" />
-    );
-  }
 
   return (
     <button

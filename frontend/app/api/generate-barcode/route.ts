@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { submitSlurmJob, JobConfig } from '@/lib/slurm';
+import { sendJobNotificationEmail, SLURM_CONFIG, submitSlurmJob, JobConfig } from '@/lib/slurm';
 import { streamToHPC } from '@/lib/hpc-transfer';
 import { findDuplicateAnalyses } from '@/lib/db';
 import { Readable } from 'stream';
@@ -47,6 +47,10 @@ export async function POST(request: NextRequest) {
     if (movieRaw) {
       try { movie = JSON.parse(movieRaw); } catch { /* ignore malformed */ }
     }
+    const videoTitle =
+      movie && typeof movie.title === 'string' && movie.title.trim()
+        ? movie.title.trim()
+        : videoFile.name;
 
     const duplicateMatch = findDuplicateAnalyses(
       (movie?.imdb_id as string | undefined) || null,
@@ -58,6 +62,19 @@ export async function POST(request: NextRequest) {
     );
 
     if (duplicateMatch.exactMatch && !config.force_reprocess) {
+      if (config.email) {
+        try {
+          await sendJobNotificationEmail({
+            email: config.email,
+            status: 'DUPLICATE',
+            resultsUrl: `${SLURM_CONFIG.websiteUrl}/results/${duplicateMatch.exactMatch.job_id}`,
+            videoTitle,
+          });
+        } catch (error) {
+          console.error('Failed to send duplicate notification email:', error);
+        }
+      }
+
       return NextResponse.json({
         success: true,
         duplicate: true,
@@ -89,7 +106,10 @@ export async function POST(request: NextRequest) {
     const { remotePath: videoPath } = await streamToHPC(nodeStream, filename);
 
     // Submit SLURM job
-    const result = await submitSlurmJob(videoPath, videoFile.name, config, user, movie);
+    const result = await submitSlurmJob(videoPath, videoFile.name, {
+      ...config,
+      video_title: videoTitle,
+    }, user, movie);
 
     return NextResponse.json({
       success: true,
