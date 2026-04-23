@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import InteractiveHistogram from "./InteractiveHistogram";
 import InteractiveRGBCube from "./InteractiveRGBCube";
 import InteractiveHueLightScatter from "./InteractiveHueLightScatter";
@@ -206,6 +206,7 @@ export default function VisualizationPanel({
 }: VisualizationPanelProps) {
   const [activeTab, setActiveTab] = useState<VisualizationTab>("histogram");
   const [barcodeData, setBarcodeData] = useState<LoadedBarcodeData | null>(null);
+  const [frameRange, setFrameRange] = useState<[number, number] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -286,6 +287,30 @@ export default function VisualizationPanel({
   };
 
   const isColorBarcode = barcodeData?.barcode_type === "Color";
+  const totalColorFrames =
+    barcodeData?.barcode_type === "Color"
+      ? barcodeData.colors?.length ?? 0
+      : barcodeData?.brightness?.length ?? 0;
+
+  useEffect(() => {
+    if (totalColorFrames > 0) {
+      setFrameRange([0, totalColorFrames - 1]);
+      return;
+    }
+    setFrameRange(null);
+  }, [jobId, totalColorFrames]);
+
+  const slicedColors = useMemo(() => {
+    if (!barcodeData?.colors) return undefined;
+    if (!frameRange) return barcodeData.colors;
+    return barcodeData.colors.slice(frameRange[0], frameRange[1] + 1);
+  }, [barcodeData?.colors, frameRange]);
+
+  const slicedBrightness = useMemo(() => {
+    if (!barcodeData?.brightness) return undefined;
+    if (!frameRange) return barcodeData.brightness;
+    return barcodeData.brightness.slice(frameRange[0], frameRange[1] + 1);
+  }, [barcodeData?.brightness, frameRange]);
 
   const tabs: Array<{ id: VisualizationTab; label: string; icon: string; colorOnly?: boolean }> = [
     { id: "histogram", label: isColorBarcode ? "Hue Histogram" : "Brightness Histogram", icon: "M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" },
@@ -353,44 +378,27 @@ export default function VisualizationPanel({
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="panel-bg p-6" style={{ border: '1px solid var(--surface-border)', borderLeftWidth: 3, borderLeftColor: 'var(--accent-crimson)' }}>
-        <div className="flex items-center justify-between flex-wrap gap-4">
-          <div>
-            <div className="font-mono text-[9px] tracking-[0.35em] uppercase kalmus-text-secondary mb-1">
-              ▸ BARCODE VISUALIZATIONS
-            </div>
-            <h2 className="font-display text-lg kalmus-text-primary">
-              {videoFilename}
-            </h2>
-            <p className="font-mono text-[10px] kalmus-text-secondary mt-0.5">
-              {barcodeData?.barcode_type} Barcode
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3">
-            {barcodeData && (
-              <CSVExportButton
-                barcodeData={barcodeData as BarcodeData}
-                jobId={jobId}
-                title={`${barcodeData.barcode_type}_barcode_${videoFilename}`}
-              />
-            )}
-          </div>
-        </div>
-      </div>
-
       {/* Barcode Preview (Collapsible) */}
       {barcodeData?.barcodeImage && activeTab !== "comparison" && (
         <BarcodePreview
           barcode={barcodeData.barcodeImage}
           barcodeType={barcodeData.barcode_type}
           title={`${barcodeData.barcode_type} Barcode - ${videoFilename}`}
+          headerActions={
+            <CSVExportButton
+              barcodeData={barcodeData as BarcodeData}
+              jobId={jobId}
+              title={`${barcodeData.barcode_type}_barcode_${videoFilename}`}
+            />
+          }
           fps={barcodeData.fps}
           sampledFrameRate={barcodeData.sampled_frame_rate}
           skipOver={barcodeData.skip_over}
           totalFrames={barcodeData.total_frames}
           thumbnails={barcodeData.thumbnails}
+          frameRange={frameRange ?? undefined}
+          totalColorFrames={totalColorFrames}
+          onFrameRangeChange={setFrameRange}
         />
       )}
 
@@ -448,8 +456,8 @@ export default function VisualizationPanel({
 
           {activeTab === "histogram" && barcodeData && (
             <InteractiveHistogram
-              colors={barcodeData.colors}
-              brightness={barcodeData.brightness}
+              colors={slicedColors}
+              brightness={slicedBrightness}
               barcodeType={barcodeData.barcode_type}
               title={
                 barcodeData.barcode_type === "Color"
@@ -459,31 +467,35 @@ export default function VisualizationPanel({
             />
           )}
 
-          {activeTab === "colorcube" && barcodeData?.colors && (
+          {activeTab === "colorcube" && slicedColors && (
             <InteractiveRGBCube
-              colors={barcodeData.colors}
+              colors={slicedColors}
               title={`RGB Color Cube - ${videoFilename}`}
               maxSamples={20000}
             />
           )}
 
-          {activeTab === "huelightscatter" && barcodeData?.colors && (
+          {activeTab === "huelightscatter" && slicedColors && (
             <InteractiveHueLightScatter
-              colors={barcodeData.colors}
+              colors={slicedColors}
               title={`Hue vs Lightness - ${videoFilename}`}
               maxSamples={20000}
             />
           )}
 
-          {activeTab === "huelight3d" && barcodeData?.colors && (
+          {activeTab === "huelight3d" && slicedColors && (
             <InteractiveHueLight3DBar
-              colors={barcodeData.colors}
+              colors={slicedColors}
               title={`Hue/Light 3D Distribution - ${videoFilename}`}
             />
           )}
 
           {activeTab === "stats" && (
-            <ColorStatsDashboard jobId={jobId} title={`Statistics for ${videoFilename}`} />
+            <ColorStatsDashboard
+              jobId={jobId}
+              title={`Statistics for ${videoFilename}`}
+              colors={slicedColors}
+            />
           )}
 
           {activeTab === "comparison" && barcodeData && (

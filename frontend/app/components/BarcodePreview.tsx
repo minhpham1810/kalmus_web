@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect, useState, useCallback } from "react";
+import { useRef, useEffect, useState, useCallback, type ReactNode } from "react";
 import { RGB, ThumbnailEntry, ThumbnailManifest, ThumbnailSheet, rgbToHsl } from "@/lib/barcode-utils";
 
 // ── Time Ruler ────────────────────────────────────────────────────────────────
@@ -142,6 +142,7 @@ interface BarcodePreviewProps {
   barcode: RGB[][] | number[][];
   barcodeType: "Color" | "Brightness";
   title?: string;
+  headerActions?: ReactNode;
   fps?: number;
   sampledFrameRate?: number;
   skipOver?: number;
@@ -181,6 +182,7 @@ export default function BarcodePreview({
   barcode,
   barcodeType,
   title = "Barcode Preview",
+  headerActions,
   fps,
   sampledFrameRate,
   skipOver,
@@ -511,6 +513,8 @@ export default function BarcodePreview({
         </div>
 
         <div className="flex items-center gap-2">
+          {headerActions}
+
           {/* Zoom Controls */}
           <div className="flex items-center gap-1 mr-2">
             <span className="text-xs text-neutral-500 dark:text-neutral-400 mr-1">
