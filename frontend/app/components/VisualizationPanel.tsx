@@ -8,8 +8,8 @@ import InteractiveHueLight3DBar from "./InteractiveHueLight3DBar";
 import BarcodeComparison from "./BarcodeComparison";
 import ColorStatsDashboard from "./ColorStatsDashboard";
 import CSVExportButton from "./CSVExportButton";
-import BarcodePreview from "./BarcodePreview";
-import { RGB, BarcodeData, ThumbnailManifest } from "@/lib/barcode-utils";
+import BarcodePreview, { BarcodePreviewData } from "./BarcodePreview";
+import { RGB, BarcodeData, ThumbnailManifest, formatTimestamp, rgbToHsl } from "@/lib/barcode-utils";
 
 interface FilmSearchResult {
   job_id: string;
@@ -28,6 +28,140 @@ interface FilmSearchResult {
   source_height: string;
   source_fps: string;
   source_frame_count: string;
+}
+
+function StaticPreviewPanel({
+  preview,
+  pinned,
+  onClearPin,
+}: {
+  preview: BarcodePreviewData | null;
+  pinned: boolean;
+  onClearPin: () => void;
+}) {
+  return (
+    <div className="panel-bg border border-[var(--surface-border)] rounded-lg overflow-hidden">
+      <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-[var(--surface-border)]">
+        <div>
+          <div className="font-mono text-[9px] tracking-[0.3em] uppercase kalmus-text-secondary">
+            ▸ Hover Preview
+          </div>
+          <p className="font-mono text-[10px] kalmus-text-muted mt-1">
+            {preview ? "Thumbnail and color metrics for the current barcode position." : "Hover the barcode to preview a thumbnail here."}
+          </p>
+        </div>
+        {pinned && preview && (
+          <button
+            type="button"
+            onClick={onClearPin}
+            className="px-2.5 py-1 font-mono text-[10px] tracking-[0.18em] uppercase transition-colors border border-[var(--input-border)] hover:border-[var(--accent-amber)] hover:text-[var(--text-primary)]"
+          >
+            Release
+          </button>
+        )}
+      </div>
+
+      {!preview ? (
+        <div className="px-4 py-8 text-center">
+          <p className="font-mono text-xs kalmus-text-secondary">
+            No thumbnail selected.
+          </p>
+        </div>
+      ) : (
+        <div className="grid gap-4 p-4 lg:grid-cols-[minmax(260px,1.2fr)_minmax(240px,0.8fr)]">
+          <div className="overflow-auto border border-[var(--surface-border)] bg-[var(--surface-bg-strong)]">
+            {preview.sheet.url ? (
+              <div
+                style={{
+                  width: preview.thumbnail.width,
+                  height: preview.thumbnail.height,
+                  backgroundImage: `url(${preview.sheet.url})`,
+                  backgroundPosition: `-${preview.thumbnail.x}px -${preview.thumbnail.y}px`,
+                  backgroundRepeat: "no-repeat",
+                  backgroundSize: `${preview.sheet.width}px ${preview.sheet.height}px`,
+                }}
+              />
+            ) : (
+              <div className="flex items-center justify-center min-h-[160px]">
+                <p className="font-mono text-xs kalmus-text-secondary">
+                  Thumbnail unavailable.
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="font-mono text-[9px] tracking-[0.16em] uppercase kalmus-text-secondary">
+                  Frame {preview.thumbnail.frame_index.toLocaleString()}
+                </div>
+                <div className="font-mono text-[11px] kalmus-text-primary mt-1">
+                  {formatTimestamp(preview.thumbnail.time_seconds)}
+                </div>
+              </div>
+              {pinned && (
+                <span className="font-mono text-[10px] tracking-[0.18em] uppercase px-2 py-0.5 border border-[var(--accent-amber)] text-[var(--accent-amber)]">
+                  Pinned
+                </span>
+              )}
+            </div>
+
+            <div className="grid gap-3">
+              <MetricRow
+                label="Hovered pixel"
+                swatch={`rgb(${preview.rgb[0]}, ${preview.rgb[1]}, ${preview.rgb[2]})`}
+                value={`rgb(${preview.rgb[0]}, ${preview.rgb[1]}, ${preview.rgb[2]})`}
+                subValue={(() => {
+                  const hsl = rgbToHsl(preview.rgb[0], preview.rgb[1], preview.rgb[2]);
+                  return `hsl(${Math.round(hsl[0])}°, ${Math.round(hsl[1] * 100)}%, ${Math.round(hsl[2] * 100)}%)`;
+                })()}
+              />
+              <MetricRow
+                label="Column average"
+                swatch={`rgb(${preview.avgRgb[0]}, ${preview.avgRgb[1]}, ${preview.avgRgb[2]})`}
+                value={`rgb(${preview.avgRgb[0]}, ${preview.avgRgb[1]}, ${preview.avgRgb[2]})`}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MetricRow({
+  label,
+  swatch,
+  value,
+  subValue,
+}: {
+  label: string;
+  swatch: string;
+  value: string;
+  subValue?: string;
+}) {
+  return (
+    <div className="flex items-center gap-3 border border-[var(--surface-border)] bg-[var(--surface-bg-strong)] px-3 py-2">
+      <div
+        className="h-8 w-8 shrink-0 border border-[rgba(255,255,255,0.12)]"
+        style={{ background: swatch }}
+      />
+      <div className="min-w-0">
+        <div className="font-mono text-[9px] tracking-[0.18em] uppercase kalmus-text-secondary">
+          {label}
+        </div>
+        <div className="font-mono text-[11px] kalmus-text-primary mt-1 truncate">
+          {value}
+        </div>
+        {subValue && (
+          <div className="font-mono text-[10px] kalmus-text-muted mt-0.5 truncate">
+            {subValue}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 interface VisualizationPanelProps {
@@ -207,6 +341,8 @@ export default function VisualizationPanel({
   const [activeTab, setActiveTab] = useState<VisualizationTab>("histogram");
   const [barcodeData, setBarcodeData] = useState<LoadedBarcodeData | null>(null);
   const [frameRange, setFrameRange] = useState<[number, number] | null>(null);
+  const [previewData, setPreviewData] = useState<BarcodePreviewData | null>(null);
+  const [previewPinned, setPreviewPinned] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -300,6 +436,11 @@ export default function VisualizationPanel({
     setFrameRange(null);
   }, [jobId, totalColorFrames]);
 
+  useEffect(() => {
+    setPreviewData(null);
+    setPreviewPinned(false);
+  }, [jobId]);
+
   const slicedColors = useMemo(() => {
     if (!barcodeData?.colors) return undefined;
     if (!frameRange) return barcodeData.colors;
@@ -322,6 +463,20 @@ export default function VisualizationPanel({
   ];
 
   const availableTabs = tabs.filter((tab) => !tab.colorOnly || isColorBarcode);
+
+  const handlePreviewChange = useCallback((preview: BarcodePreviewData | null) => {
+    setPreviewData((current) => (previewPinned ? current : preview));
+  }, [previewPinned]);
+
+  const handlePreviewPin = useCallback((preview: BarcodePreviewData) => {
+    setPreviewData(preview);
+    setPreviewPinned(true);
+  }, []);
+
+  const handleClearPreviewPin = useCallback(() => {
+    setPreviewPinned(false);
+    setPreviewData(null);
+  }, []);
 
   if (loading) {
     return (
@@ -399,6 +554,16 @@ export default function VisualizationPanel({
           frameRange={frameRange ?? undefined}
           totalColorFrames={totalColorFrames}
           onFrameRangeChange={setFrameRange}
+          onPreviewChange={handlePreviewChange}
+          onPreviewPin={handlePreviewPin}
+        />
+      )}
+
+      {barcodeData?.barcodeImage && activeTab !== "comparison" && (
+        <StaticPreviewPanel
+          preview={previewData}
+          pinned={previewPinned}
+          onClearPin={handleClearPreviewPin}
         />
       )}
 

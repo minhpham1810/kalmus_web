@@ -30,34 +30,6 @@ export default function InteractiveRGBCube({
 
   return (
     <div className="space-y-4">
-      {/* Controls */}
-      <div className="flex items-center gap-4 flex-wrap">
-        <div className="flex items-center gap-2">
-          <label className="text-xs text-neutral-600 dark:text-neutral-400">
-            Sample Size:
-          </label>
-          <select
-            value={sampleSize}
-            onChange={(e) => setSampleSize(Number(e.target.value))}
-            className="kalmus-input px-2 py-1 text-xs"
-          >
-            {SAMPLE_SIZE_OPTIONS.filter((s) => s <= maxSelectableSamples).map((size) => (
-              <option key={size} value={size}>
-                {size.toLocaleString()}
-              </option>
-            ))}
-            {!SAMPLE_SIZE_OPTIONS.includes(maxSelectableSamples) && (
-              <option value={maxSelectableSamples}>
-                {maxSelectableSamples.toLocaleString()} (all)
-              </option>
-            )}
-          </select>
-        </div>
-        <span className="text-xs text-neutral-500 dark:text-neutral-400">
-          Showing {cubeData.r.length.toLocaleString()} of {colors.length.toLocaleString()} colors
-        </span>
-      </div>
-
       {/* 3D Chart */}
       <div className="panel-bg rounded border border-neutral-200 dark:border-neutral-700">
         <PlotlyWrapper
@@ -129,6 +101,34 @@ export default function InteractiveRGBCube({
           useResizeHandler={true}
           style={{ width: "100%", height: "500px" }}
         />
+      </div>
+
+      {/* Controls */}
+      <div className="flex items-center gap-4 flex-wrap">
+        <div className="flex items-center gap-2">
+          <label className="text-xs text-neutral-600 dark:text-neutral-400">
+            Sample Size:
+          </label>
+          <select
+            value={sampleSize}
+            onChange={(e) => setSampleSize(Number(e.target.value))}
+            className="kalmus-input px-2 py-1 text-xs"
+          >
+            {SAMPLE_SIZE_OPTIONS.filter((s) => s <= maxSelectableSamples).map((size) => (
+              <option key={size} value={size}>
+                {size.toLocaleString()}
+              </option>
+            ))}
+            {!SAMPLE_SIZE_OPTIONS.includes(maxSelectableSamples) && (
+              <option value={maxSelectableSamples}>
+                {maxSelectableSamples.toLocaleString()} (all)
+              </option>
+            )}
+          </select>
+        </div>
+        <span className="text-xs text-neutral-500 dark:text-neutral-400">
+          Showing {cubeData.r.length.toLocaleString()} of {colors.length.toLocaleString()} colors
+        </span>
       </div>
 
       <p className="text-xs text-neutral-500 dark:text-neutral-400">

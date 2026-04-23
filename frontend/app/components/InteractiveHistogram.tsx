@@ -82,47 +82,6 @@ export default function InteractiveHistogram({
 
   return (
     <div className="space-y-4">
-      {/* Controls */}
-      <div className="flex items-center gap-4 flex-wrap">
-        <div className="flex items-center gap-2">
-          <label className="text-xs text-neutral-600 dark:text-neutral-400">
-            Bin Step:
-          </label>
-          <select
-            value={binStep}
-            onChange={(e) => setBinStep(Number(e.target.value))}
-            className="kalmus-input px-2 py-1 text-xs"
-          >
-            {BIN_STEP_OPTIONS.map((step) => (
-              <option key={step} value={step}>
-                {step}
-              </option>
-            ))}
-          </select>
-        </div>
-        {barcodeType === "Color" && (
-          <div className="flex items-center gap-2">
-            <label className="text-xs text-neutral-600 dark:text-neutral-400">
-              Chroma Filter:
-            </label>
-            <select
-              value={satThreshold}
-              onChange={(e) => setSatThreshold(Number(e.target.value))}
-              className="kalmus-input px-2 py-1 text-xs"
-            >
-              {SATURATION_THRESHOLDS.map((t) => (
-                <option key={t} value={t}>
-                  {t === 0 ? "No filter" : `≥ ${t}`}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-        <span className="text-xs text-neutral-500 dark:text-neutral-400">
-          Total samples: {histogramData.y.reduce((a, b) => a + b, 0).toLocaleString()}
-        </span>
-      </div>
-
       {/* Chart */}
       <div className="panel-bg rounded border border-neutral-200 dark:border-neutral-700">
         <PlotlyWrapper
@@ -183,6 +142,47 @@ export default function InteractiveHistogram({
           useResizeHandler={true}
           style={{ width: "100%", height: "400px" }}
         />
+      </div>
+
+      {/* Controls */}
+      <div className="flex items-center gap-4 flex-wrap">
+        <div className="flex items-center gap-2">
+          <label className="text-xs text-neutral-600 dark:text-neutral-400">
+            Bin Step:
+          </label>
+          <select
+            value={binStep}
+            onChange={(e) => setBinStep(Number(e.target.value))}
+            className="kalmus-input px-2 py-1 text-xs"
+          >
+            {BIN_STEP_OPTIONS.map((step) => (
+              <option key={step} value={step}>
+                {step}
+              </option>
+            ))}
+          </select>
+        </div>
+        {barcodeType === "Color" && (
+          <div className="flex items-center gap-2">
+            <label className="text-xs text-neutral-600 dark:text-neutral-400">
+              Chroma Filter:
+            </label>
+            <select
+              value={satThreshold}
+              onChange={(e) => setSatThreshold(Number(e.target.value))}
+              className="kalmus-input px-2 py-1 text-xs"
+            >
+              {SATURATION_THRESHOLDS.map((t) => (
+                <option key={t} value={t}>
+                  {t === 0 ? "No filter" : `≥ ${t}`}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+        <span className="text-xs text-neutral-500 dark:text-neutral-400">
+          Total samples: {histogramData.y.reduce((a, b) => a + b, 0).toLocaleString()}
+        </span>
       </div>
 
       <p className="text-xs text-neutral-500 dark:text-neutral-400">

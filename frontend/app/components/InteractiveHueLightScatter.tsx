@@ -36,52 +36,6 @@ export default function InteractiveHueLightScatter({
 
   return (
     <div className="space-y-4">
-      {/* Controls */}
-      <div className="flex items-center gap-4 flex-wrap">
-        <div className="flex items-center gap-2">
-          <label className="text-xs text-neutral-600 dark:text-neutral-400">
-            Saturation Threshold:
-          </label>
-          <select
-            value={saturationThreshold}
-            onChange={(e) => setSaturationThreshold(Number(e.target.value))}
-            className="kalmus-input px-2 py-1 text-xs"
-          >
-            {SATURATION_THRESHOLDS.map((t) => (
-              <option key={t} value={t}>
-                {t === 0 ? "No filter" : `> ${t}`}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <label className="text-xs text-neutral-600 dark:text-neutral-400">
-            Sample Size:
-          </label>
-          <select
-            value={sampleSize}
-            onChange={(e) => setSampleSize(Number(e.target.value))}
-            className="kalmus-input px-2 py-1 text-xs"
-          >
-            {SAMPLE_SIZE_OPTIONS.filter((s) => s <= maxSelectableSamples).map((size) => (
-              <option key={size} value={size}>
-                {size.toLocaleString()}
-              </option>
-            ))}
-            {!SAMPLE_SIZE_OPTIONS.includes(maxSelectableSamples) && (
-              <option value={maxSelectableSamples}>
-                {maxSelectableSamples.toLocaleString()} (all)
-              </option>
-            )}
-          </select>
-        </div>
-
-        <span className="text-xs text-neutral-500 dark:text-neutral-400">
-          Showing {scatterData.hueValues.length.toLocaleString()} points
-        </span>
-      </div>
-
       {/* Chart */}
       <div className="panel-bg rounded border border-neutral-200 dark:border-neutral-700">
         <PlotlyWrapper
@@ -140,6 +94,52 @@ export default function InteractiveHueLightScatter({
           useResizeHandler={true}
           style={{ width: "100%", height: "450px" }}
         />
+      </div>
+
+      {/* Controls */}
+      <div className="flex items-center gap-4 flex-wrap">
+        <div className="flex items-center gap-2">
+          <label className="text-xs text-neutral-600 dark:text-neutral-400">
+            Saturation Threshold:
+          </label>
+          <select
+            value={saturationThreshold}
+            onChange={(e) => setSaturationThreshold(Number(e.target.value))}
+            className="kalmus-input px-2 py-1 text-xs"
+          >
+            {SATURATION_THRESHOLDS.map((t) => (
+              <option key={t} value={t}>
+                {t === 0 ? "No filter" : `> ${t}`}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <label className="text-xs text-neutral-600 dark:text-neutral-400">
+            Sample Size:
+          </label>
+          <select
+            value={sampleSize}
+            onChange={(e) => setSampleSize(Number(e.target.value))}
+            className="kalmus-input px-2 py-1 text-xs"
+          >
+            {SAMPLE_SIZE_OPTIONS.filter((s) => s <= maxSelectableSamples).map((size) => (
+              <option key={size} value={size}>
+                {size.toLocaleString()}
+              </option>
+            ))}
+            {!SAMPLE_SIZE_OPTIONS.includes(maxSelectableSamples) && (
+              <option value={maxSelectableSamples}>
+                {maxSelectableSamples.toLocaleString()} (all)
+              </option>
+            )}
+          </select>
+        </div>
+
+        <span className="text-xs text-neutral-500 dark:text-neutral-400">
+          Showing {scatterData.hueValues.length.toLocaleString()} points
+        </span>
       </div>
 
       <p className="text-xs text-neutral-500 dark:text-neutral-400">

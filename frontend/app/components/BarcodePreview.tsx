@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useEffect, useState, useCallback, type ReactNode } from "react";
-import { RGB, ThumbnailEntry, ThumbnailManifest, ThumbnailSheet, rgbToHsl } from "@/lib/barcode-utils";
+import { RGB, ThumbnailEntry, ThumbnailManifest, ThumbnailSheet } from "@/lib/barcode-utils";
 
 // ── Time Ruler ────────────────────────────────────────────────────────────────
 
@@ -138,6 +138,13 @@ function TimeRuler({
   );
 }
 
+export interface BarcodePreviewData {
+  thumbnail: ThumbnailEntry;
+  sheet: ThumbnailSheet;
+  rgb: RGB;
+  avgRgb: RGB;
+}
+
 interface BarcodePreviewProps {
   barcode: RGB[][] | number[][];
   barcodeType: "Color" | "Brightness";
@@ -152,15 +159,8 @@ interface BarcodePreviewProps {
   frameRange?: [number, number];
   totalColorFrames?: number;
   onFrameRangeChange?: (range: [number, number]) => void;
-}
-
-interface HoverPreviewState {
-  left: number;
-  top: number;
-  thumbnail: ThumbnailEntry;
-  sheet: ThumbnailSheet;
-  rgb: RGB;
-  avgRgb: RGB;
+  onPreviewChange?: (preview: BarcodePreviewData | null) => void;
+  onPreviewPin?: (preview: BarcodePreviewData) => void;
 }
 
 function formatTimestamp(totalSeconds: number | null): string {
@@ -190,31 +190,20 @@ export default function BarcodePreview({
   frameRange,
   totalColorFrames,
   onFrameRangeChange,
+  onPreviewChange,
+  onPreviewPin,
 }: BarcodePreviewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   const rulerContainerRef = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState(1);
-  const [isDark, setIsDark] = useState(false);
-  const [hoverPreview, setHoverPreview] = useState<HoverPreviewState | null>(null);
   const [dragging, setDragging] = useState<"start" | "end" | null>(null);
-  const [startInput, setStartInput] = useState("");
-  const [endInput, setEndInput] = useState("");
 
   const dimensions = {
     width: barcode[0]?.length || 0,
     height: barcode.length || 0,
   };
-
-  useEffect(() => {
-    const root = document.documentElement;
-    const check = () => setIsDark(root.classList.contains("dark"));
-    check();
-    const obs = new MutationObserver(check);
-    obs.observe(root, { attributes: true, attributeFilter: ["class"] });
-    return () => obs.disconnect();
-  }, []);
 
   // Render barcode to canvas
   useEffect(() => {
@@ -258,20 +247,16 @@ export default function BarcodePreview({
   }, [barcode, barcodeType]);
 
   // Frame range helpers
-  const fractionToIndex = (f: number) =>
-    Math.round(
-      Math.max(0, Math.min(1, f)) * Math.max(0, (totalColorFrames ?? 1) - 1)
-    );
+  const fractionToIndex = useCallback(
+    (f: number) =>
+      Math.round(
+        Math.max(0, Math.min(1, f)) * Math.max(0, (totalColorFrames ?? 1) - 1)
+      ),
+    [totalColorFrames]
+  );
 
   const indexToFraction = (i: number) =>
     totalColorFrames && totalColorFrames > 1 ? i / (totalColorFrames - 1) : 0;
-
-  const indexToLabel = (idx: number): string => {
-    if (!fps || !sampledFrameRate) return `fr ${idx}`;
-    const actualFrame = (skipOver ?? 0) + idx * sampledFrameRate;
-    const secs = actualFrame / fps;
-    return `${formatTimestamp(secs)} (fr ${idx})`;
-  };
 
   const indexToTime = (idx: number): string => {
     if (!fps || !sampledFrameRate) return "";
@@ -279,25 +264,19 @@ export default function BarcodePreview({
     return formatTimestamp(actualFrame / fps);
   };
 
-  const commitStart = () => {
-    const val = parseInt(startInput, 10);
+  const commitStart = (value: string) => {
+    const val = parseInt(value, 10);
     if (!isNaN(val) && frameRange && onFrameRangeChange) {
       const clamped = Math.max(0, Math.min(val, frameRange[1]));
       onFrameRangeChange([clamped, frameRange[1]]);
-      setStartInput(String(clamped));
-    } else if (frameRange) {
-      setStartInput(String(frameRange[0]));
     }
   };
 
-  const commitEnd = () => {
-    const val = parseInt(endInput, 10);
+  const commitEnd = (value: string) => {
+    const val = parseInt(value, 10);
     if (!isNaN(val) && frameRange && onFrameRangeChange) {
       const clamped = Math.max(frameRange[0], Math.min(val, (totalColorFrames ?? 1) - 1));
       onFrameRangeChange([frameRange[0], clamped]);
-      setEndInput(String(clamped));
-    } else if (frameRange) {
-      setEndInput(String(frameRange[1]));
     }
   };
 
@@ -337,15 +316,7 @@ export default function BarcodePreview({
       document.removeEventListener("mousemove", onMove);
       document.removeEventListener("mouseup", onUp);
     };
-  }, [dragging, frameRange, onFrameRangeChange, totalColorFrames]);
-
-  // Keep text inputs in sync with external range changes (drag, reset)
-  useEffect(() => {
-    if (frameRange) {
-      setStartInput(String(frameRange[0]));
-      setEndInput(String(frameRange[1]));
-    }
-  }, [frameRange?.[0], frameRange?.[1]]);
+  }, [dragging, frameRange, onFrameRangeChange, fractionToIndex]);
 
   const handleDownload = () => {
     if (!canvasRef.current) return;
@@ -359,93 +330,107 @@ export default function BarcodePreview({
     link.click();
   };
 
-  const clearHoverPreview = () => {
-    setHoverPreview(null);
-  };
+  type PreviewPointerEvent = Pick<
+    React.PointerEvent<HTMLCanvasElement>,
+    "currentTarget" | "clientX" | "clientY"
+  >;
+
+  const buildPreview = useCallback(
+    (event: PreviewPointerEvent): BarcodePreviewData | null => {
+      if (
+        !thumbnails?.enabled ||
+        thumbnails.count === 0 ||
+        dimensions.width === 0 ||
+        dimensions.height === 0
+      ) {
+        return null;
+      }
+
+      const rect = event.currentTarget.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return null;
+
+      const barcodeX = Math.max(
+        0,
+        Math.min(
+          dimensions.width - 1,
+          Math.floor(((event.clientX - rect.left) / rect.width) * dimensions.width)
+        )
+      );
+      const barcodeY = Math.max(
+        0,
+        Math.min(
+          dimensions.height - 1,
+          Math.floor(((event.clientY - rect.top) / rect.height) * dimensions.height)
+        )
+      );
+
+      const normalizedPosition =
+        (barcodeX * dimensions.height + barcodeY) / (dimensions.width * dimensions.height);
+      const thumbnailIndex = Math.max(
+        0,
+        Math.min(
+          thumbnails.count - 1,
+          Math.round(normalizedPosition * Math.max(thumbnails.count - 1, 0))
+        )
+      );
+
+      const thumbnail = thumbnails.thumbnails[thumbnailIndex];
+      const sheet = thumbnails.sheets.find((entry) => entry.index === thumbnail?.sheet_index);
+      if (!thumbnail || !sheet?.url) return null;
+
+      const pixel = barcode[barcodeY][barcodeX];
+      const rgb: RGB =
+        barcodeType === "Color" && Array.isArray(pixel)
+          ? (pixel as RGB)
+          : [pixel as number, pixel as number, pixel as number];
+
+      let sumR = 0;
+      let sumG = 0;
+      let sumB = 0;
+      for (let row = 0; row < dimensions.height; row++) {
+        const p = barcode[row][barcodeX];
+        if (Array.isArray(p)) {
+          sumR += p[0];
+          sumG += p[1];
+          sumB += p[2];
+        } else {
+          sumR += p as number;
+          sumG += p as number;
+          sumB += p as number;
+        }
+      }
+
+      const avgRgb: RGB = [
+        Math.round(sumR / dimensions.height),
+        Math.round(sumG / dimensions.height),
+        Math.round(sumB / dimensions.height),
+      ];
+
+      return { thumbnail, sheet, rgb, avgRgb };
+    },
+    [barcode, barcodeType, dimensions.height, dimensions.width, thumbnails]
+  );
 
   const handlePointerMove = (event: React.PointerEvent<HTMLCanvasElement>) => {
-    // Don't show hover preview while dragging a range handle
     if (dragging) return;
+    const preview = buildPreview(event);
+    onPreviewChange?.(preview);
+  };
 
-    if (
-      !thumbnails?.enabled ||
-      thumbnails.count === 0 ||
-      dimensions.width === 0 ||
-      dimensions.height === 0
-    ) {
-      return;
-    }
+  const handlePointerLeave = () => {
+    if (dragging) return;
+    onPreviewChange?.(null);
+  };
 
-    const rect = event.currentTarget.getBoundingClientRect();
-    if (rect.width === 0 || rect.height === 0) return;
+  const handlePointerCancel = () => {
+    if (dragging) return;
+    onPreviewChange?.(null);
+  };
 
-    const barcodeX = Math.max(
-      0,
-      Math.min(
-        dimensions.width - 1,
-        Math.floor(((event.clientX - rect.left) / rect.width) * dimensions.width)
-      )
-    );
-    const barcodeY = Math.max(
-      0,
-      Math.min(
-        dimensions.height - 1,
-        Math.floor(((event.clientY - rect.top) / rect.height) * dimensions.height)
-      )
-    );
-
-    const normalizedPosition =
-      (barcodeX * dimensions.height + barcodeY) / (dimensions.width * dimensions.height);
-    const thumbnailIndex = Math.max(
-      0,
-      Math.min(
-        thumbnails.count - 1,
-        Math.round(normalizedPosition * Math.max(thumbnails.count - 1, 0))
-      )
-    );
-
-    const thumbnail = thumbnails.thumbnails[thumbnailIndex];
-    const sheet = thumbnails.sheets.find((entry) => entry.index === thumbnail?.sheet_index);
-
-    if (!thumbnail || !sheet?.url) {
-      setHoverPreview(null);
-      return;
-    }
-
-    // Read hovered pixel color
-    const pixel = barcode[barcodeY][barcodeX];
-    const rgb: RGB =
-      barcodeType === "Color" && Array.isArray(pixel)
-        ? (pixel as RGB)
-        : [pixel as number, pixel as number, pixel as number];
-
-    // Compute column average color
-    let sumR = 0, sumG = 0, sumB = 0;
-    for (let row = 0; row < dimensions.height; row++) {
-      const p = barcode[row][barcodeX];
-      if (Array.isArray(p)) { sumR += p[0]; sumG += p[1]; sumB += p[2]; }
-      else { sumR += p as number; sumG += p as number; sumB += p as number; }
-    }
-    const avgRgb: RGB = [
-      Math.round(sumR / dimensions.height),
-      Math.round(sumG / dimensions.height),
-      Math.round(sumB / dimensions.height),
-    ];
-
-    const popupWidth = thumbnail.width;
-    const popupHeight = thumbnail.height + 56;
-    const margin = 16;
-
-    const left = Math.max(
-      margin,
-      Math.min(event.clientX + 20, window.innerWidth - popupWidth - margin)
-    );
-    const top = Math.min(
-      Math.max(margin, event.clientY - popupHeight / 2),
-      window.innerHeight - popupHeight - margin
-    );
-
-    setHoverPreview({ left, top, thumbnail, sheet, rgb, avgRgb });
+  const handleClick = (event: React.MouseEvent<HTMLCanvasElement>) => {
+    if (dragging) return;
+    const preview = buildPreview(event as unknown as PreviewPointerEvent);
+    if (preview) onPreviewPin?.(preview);
   };
 
   // Sync scroll between barcode canvas and ruler
@@ -576,8 +561,9 @@ export default function BarcodePreview({
             <canvas
               ref={canvasRef}
               onPointerMove={handlePointerMove}
-              onPointerLeave={clearHoverPreview}
-              onPointerCancel={clearHoverPreview}
+              onPointerLeave={handlePointerLeave}
+              onPointerCancel={handlePointerCancel}
+              onClick={handleClick}
               style={{
                 width: dimensions.width * zoom,
                 height: dimensions.height * zoom,
@@ -701,10 +687,10 @@ export default function BarcodePreview({
               type="text"
               inputMode="numeric"
               pattern="[0-9]*"
-              value={startInput}
-              onChange={(e) => setStartInput(e.target.value)}
-              onBlur={commitStart}
-              onKeyDown={(e) => e.key === "Enter" && commitStart()}
+              defaultValue={frameRange?.[0] ?? 0}
+              key={`start-${frameRange?.[0]}-${frameRange?.[1]}`}
+              onBlur={(e) => commitStart(e.currentTarget.value)}
+              onKeyDown={(e) => e.key === "Enter" && commitStart(e.currentTarget.value)}
               title="Start frame"
               className="font-mono text-[11px] bg-transparent text-center flex-shrink-0"
               style={{
@@ -753,10 +739,10 @@ export default function BarcodePreview({
               type="text"
               inputMode="numeric"
               pattern="[0-9]*"
-              value={endInput}
-              onChange={(e) => setEndInput(e.target.value)}
-              onBlur={commitEnd}
-              onKeyDown={(e) => e.key === "Enter" && commitEnd()}
+              defaultValue={frameRange?.[1] ?? 0}
+              key={`end-${frameRange?.[0]}-${frameRange?.[1]}`}
+              onBlur={(e) => commitEnd(e.currentTarget.value)}
+              onKeyDown={(e) => e.key === "Enter" && commitEnd(e.currentTarget.value)}
               title="End frame"
               className="font-mono text-[11px] bg-transparent text-center flex-shrink-0"
               style={{
@@ -780,77 +766,6 @@ export default function BarcodePreview({
             : "Brightness barcode showing the temporal brightness distribution of the video."}
         </p>
       </div>
-
-      {hoverPreview && hoverPreview.sheet.url && (
-        <div
-          className="fixed z-50 pointer-events-none overflow-hidden rounded-md border shadow-xl"
-          style={{
-            left: hoverPreview.left,
-            top: hoverPreview.top,
-            borderColor: "var(--surface-border)",
-            background: isDark ? "var(--surface-bg-strong)" : "var(--panel-gradient)",
-          }}
-        >
-          <div
-            style={{
-              width: hoverPreview.thumbnail.width,
-              height: hoverPreview.thumbnail.height,
-              backgroundImage: `url(${hoverPreview.sheet.url})`,
-              backgroundPosition: `-${hoverPreview.thumbnail.x}px -${hoverPreview.thumbnail.y}px`,
-              backgroundRepeat: "no-repeat",
-              backgroundSize: `${hoverPreview.sheet.width}px ${hoverPreview.sheet.height}px`,
-            }}
-          />
-          <div
-            className="px-3 py-2 border-t flex items-center gap-3"
-            style={{
-              borderColor: "var(--surface-border)",
-              background: "var(--surface-bg-strong)",
-            }}
-          >
-            {/* Frame info */}
-            <div className="flex flex-col justify-center flex-shrink-0">
-              <div className="font-mono text-[10px] tracking-[0.16em] uppercase kalmus-text-secondary">
-                Frame {hoverPreview.thumbnail.frame_index.toLocaleString()}
-              </div>
-              <div className="font-mono text-[11px] kalmus-text-primary mt-1">
-                {formatTimestamp(hoverPreview.thumbnail.time_seconds)}
-              </div>
-            </div>
-
-            {/* Divider */}
-            <div style={{ width: 1, alignSelf: "stretch", background: "var(--surface-border)", flexShrink: 0 }} />
-
-            {/* Avg swatch + RGB/HSL */}
-            {(() => {
-              const { rgb, avgRgb } = hoverPreview;
-              const hsl = rgbToHsl(rgb[0], rgb[1], rgb[2]);
-              return (
-                <div className="flex items-center gap-2.5">
-                  <div
-                    style={{
-                      width: 32,
-                      height: 32,
-                      borderRadius: 3,
-                      background: `rgb(${avgRgb[0]},${avgRgb[1]},${avgRgb[2]})`,
-                      flexShrink: 0,
-                      border: "1px solid rgba(255,255,255,0.12)",
-                    }}
-                  />
-                  <div className="flex flex-col justify-center">
-                    <span className="font-mono text-[10px] kalmus-text-primary">
-                      rgb({rgb[0]}, {rgb[1]}, {rgb[2]})
-                    </span>
-                    <span className="font-mono text-[10px] kalmus-text-secondary mt-0.5">
-                      hsl({Math.round(hsl[0])}°, {Math.round(hsl[1] * 100)}%, {Math.round(hsl[2] * 100)}%)
-                    </span>
-                  </div>
-                </div>
-              );
-            })()}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

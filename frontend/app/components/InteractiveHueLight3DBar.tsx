@@ -101,6 +101,86 @@ export default function InteractiveHueLight3DBar({
 
   return (
     <div className="space-y-4" ref={containerRef} tabIndex={0}>
+      {/* 3D Chart */}
+      <div className="panel-bg rounded border border-neutral-200 dark:border-neutral-700">
+        <PlotlyWrapper
+          data={[
+            {
+              type: "scatter3d",
+              mode: "markers",
+              x: barData.hueValues,
+              y: barData.lightValues,
+              z: barData.counts,
+              marker: {
+                size: markerSizes,
+                color: barData.colors,
+                opacity: 0.85,
+                line: {
+                  color: "rgba(0,0,0,0.2)",
+                  width: 0.5,
+                },
+              },
+              hovertemplate:
+                "Hue: %{x:.0f}°<br>Light: %{y:.2f}<br>Count: %{z}<extra></extra>",
+            },
+          ]}
+          layout={{
+            title: {
+              text: title,
+              font: { size: 14 },
+            },
+            scene: {
+              xaxis: {
+                title: { text: "Hue (0-360°)" },
+                range: [0, 360],
+                tickvals: [0, 60, 120, 180, 240, 300, 360],
+                showgrid: showGrid,
+                visible: showAxis,
+                gridcolor: "rgba(128,128,128,0.3)",
+              },
+              yaxis: {
+                title: { text: "Light (0-1)" },
+                range: [0, 1],
+                tickvals: [0, 0.25, 0.5, 0.75, 1],
+                showgrid: showGrid,
+                visible: showAxis,
+                gridcolor: "rgba(128,128,128,0.3)",
+              },
+              zaxis: {
+                title: { text: "Count" },
+                showgrid: showGrid,
+                visible: showAxis,
+                gridcolor: "rgba(128,128,128,0.3)",
+              },
+              camera: camera,
+              aspectmode: "manual",
+              aspectratio: { x: 1.5, y: 1, z: 0.8 },
+              dragmode: "turntable",
+            },
+            margin: { l: 0, r: 0, t: 50, b: 0 },
+            paper_bgcolor: "transparent",
+            font: {
+              color: "#666",
+            },
+            autosize: true,
+          }}
+          config={{
+            displayModeBar: true,
+            displaylogo: false,
+            modeBarButtonsToRemove: ["lasso2d", "select2d"],
+            toImageButtonOptions: {
+              format: "png",
+              filename: title.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, ""),
+              height: 800,
+              width: 1000,
+              scale: 2,
+            },
+          }}
+          useResizeHandler={true}
+          style={{ width: "100%", height: "550px" }}
+        />
+      </div>
+
       {/* Control Panel */}
       <div className="bg-neutral-100 dark:bg-neutral-900 rounded p-4 space-y-4">
         <h4 className="text-xs font-medium text-neutral-700 dark:text-neutral-300 uppercase tracking-wide">
@@ -232,86 +312,6 @@ export default function InteractiveHueLight3DBar({
             Use arrow keys to rotate view
           </span>
         </div>
-      </div>
-
-      {/* 3D Chart */}
-      <div className="panel-bg rounded border border-neutral-200 dark:border-neutral-700">
-        <PlotlyWrapper
-          data={[
-            {
-              type: "scatter3d",
-              mode: "markers",
-              x: barData.hueValues,
-              y: barData.lightValues,
-              z: barData.counts,
-              marker: {
-                size: markerSizes,
-                color: barData.colors,
-                opacity: 0.85,
-                line: {
-                  color: "rgba(0,0,0,0.2)",
-                  width: 0.5,
-                },
-              },
-              hovertemplate:
-                "Hue: %{x:.0f}°<br>Light: %{y:.2f}<br>Count: %{z}<extra></extra>",
-            },
-          ]}
-          layout={{
-            title: {
-              text: title,
-              font: { size: 14 },
-            },
-            scene: {
-              xaxis: {
-                title: { text: "Hue (0-360°)" },
-                range: [0, 360],
-                tickvals: [0, 60, 120, 180, 240, 300, 360],
-                showgrid: showGrid,
-                visible: showAxis,
-                gridcolor: "rgba(128,128,128,0.3)",
-              },
-              yaxis: {
-                title: { text: "Light (0-1)" },
-                range: [0, 1],
-                tickvals: [0, 0.25, 0.5, 0.75, 1],
-                showgrid: showGrid,
-                visible: showAxis,
-                gridcolor: "rgba(128,128,128,0.3)",
-              },
-              zaxis: {
-                title: { text: "Count" },
-                showgrid: showGrid,
-                visible: showAxis,
-                gridcolor: "rgba(128,128,128,0.3)",
-              },
-              camera: camera,
-              aspectmode: "manual",
-              aspectratio: { x: 1.5, y: 1, z: 0.8 },
-              dragmode: "turntable",
-            },
-            margin: { l: 0, r: 0, t: 50, b: 0 },
-            paper_bgcolor: "transparent",
-            font: {
-              color: "#666",
-            },
-            autosize: true,
-          }}
-          config={{
-            displayModeBar: true,
-            displaylogo: false,
-            modeBarButtonsToRemove: ["lasso2d", "select2d"],
-            toImageButtonOptions: {
-              format: "png",
-              filename: title.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, ""),
-              height: 800,
-              width: 1000,
-              scale: 2,
-            },
-          }}
-          useResizeHandler={true}
-          style={{ width: "100%", height: "550px" }}
-        />
       </div>
 
       {/* Info */}
