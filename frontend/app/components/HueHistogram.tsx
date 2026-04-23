@@ -91,7 +91,9 @@ export default function HueHistogram({ jobId, title = "Hue Distribution" }: HueH
               className="w-full h-auto border border-neutral-200 dark:border-neutral-700 rounded"
             />
             <p className="mt-3 text-xs text-neutral-500 dark:text-neutral-400">
-              Distribution of hue values (0-360°) generated using KALMUS native visualization
+              Distribution of hue values (0-360°) generated using KALMUS native visualization.
+              Low-saturation colors are filtered out first, then the bottom 1% of hue
+              samples are trimmed to reduce the near-black and near-white spike near red.
             </p>
           </>
         )}

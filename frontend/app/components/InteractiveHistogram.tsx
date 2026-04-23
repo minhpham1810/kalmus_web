@@ -7,6 +7,7 @@ import {
   getHueValues,
   computeHistogram,
   getHueColor,
+  trimHueOutliers,
 } from "@/lib/barcode-utils";
 
 interface InteractiveHistogramProps {
@@ -26,12 +27,13 @@ export default function InteractiveHistogram({
   title = "Distribution",
 }: InteractiveHistogramProps) {
   const [binStep, setBinStep] = useState(1);
-  const [satThreshold, setSatThreshold] = useState(0);
+  const [satThreshold, setSatThreshold] = useState(0.05);
 
   const histogramData = useMemo(() => {
     if (barcodeType === "Color" && colors) {
       // Hue histogram (0-360), filter near-achromatic colors whose hue is unreliable
-      const hues = getHueValues(colors, satThreshold);
+      // and trim the low-end hue tail that is dominated by black/white samples.
+      const hues = trimHueOutliers(getHueValues(colors, satThreshold), 0.01);
       const { binCenters, counts } = computeHistogram(hues, binStep, 360);
 
       // Generate colors for each bin based on hue
@@ -187,7 +189,7 @@ export default function InteractiveHistogram({
 
       <p className="text-xs text-neutral-500 dark:text-neutral-400">
         {barcodeType === "Color"
-          ? `Distribution of hue values (0-360°) across all sampled frames. Bars are colored by their corresponding hue.${satThreshold > 0 ? ` Only colors with chroma ≥ ${satThreshold} are included.` : ""}`
+          ? `Distribution of hue values (0-360°) across all sampled frames. Bars are colored by their corresponding hue.${satThreshold > 0 ? ` Only colors with chroma ≥ ${satThreshold} are included.` : ""} The bottom 1% of hue values are trimmed before plotting.`
           : "Distribution of brightness values (0-255) across all sampled frames."}
       </p>
     </div>

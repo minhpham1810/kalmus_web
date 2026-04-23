@@ -99,6 +99,27 @@ def fig_to_base64(fig):
     return img_base64
 
 
+def trim_hue_outliers(hues, trim_fraction=0.01):
+    """
+    Trim low-end tail values from a hue sample set.
+
+    The hue histogram is sensitive to near-achromatic pixels that collapse into
+    the red range after RGB -> HSV conversion. Removing a small fraction from
+    the low end of the sorted hue distribution suppresses that spike while
+    preserving the rest of the distribution.
+    """
+    hue_values = np.asarray(hues).flatten()
+    if hue_values.size < 2:
+        return hue_values
+
+    trim_count = int(np.floor(hue_values.size * trim_fraction))
+    if trim_count <= 0 or trim_count >= hue_values.size:
+        return hue_values
+
+    sorted_hues = np.sort(hue_values)
+    return sorted_hues[trim_count:]
+
+
 def generate_hue_histogram(barcode_data, bin_step=5):
     """
     Generate hue histogram using KALMUS native method
@@ -114,8 +135,11 @@ def generate_hue_histogram(barcode_data, bin_step=5):
         normalized_barcode = barcode_data.colors.astype("float") / 255
         hsv_colors = rgb2hsv(normalized_barcode.reshape(-1, 1, 3))
         hue = hsv_colors[..., 0] * 360
+        saturation = hsv_colors[..., 1]
+        reliable_hue = hue[:, 0][saturation[:, 0] >= 0.05]
+        trimmed_hue = trim_hue_outliers(reliable_hue, trim_fraction=0.01)
 
-        N, bins, patches = ax.hist(hue[:, 0], bins=np.arange(0, 361, bin_step))
+        N, bins, patches = ax.hist(trimmed_hue, bins=np.arange(0, 361, bin_step))
 
         # Paint each bin with its corresponding color
         paint_hue_hist(bin_step, patches)
@@ -123,7 +147,7 @@ def generate_hue_histogram(barcode_data, bin_step=5):
         ax.set_xticks(np.arange(0, 361, 30))
         ax.set_xlabel("Color Hue (0 - 360)")
         ax.set_ylabel("Number of frames")
-        ax.set_title("Hue Distribution")
+        ax.set_title("Hue Distribution (sat >= 0.05, bottom 1% trimmed)")
     else:
         # Brightness histogram
         brightness = barcode_data.brightness.flatten()

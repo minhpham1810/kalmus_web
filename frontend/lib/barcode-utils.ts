@@ -266,6 +266,23 @@ export function getHueValues(colors: RGB[], chromaThreshold: number = 0): number
 }
 
 /**
+ * Trim a percentage of hue values from the low end of the sorted distribution.
+ * This removes the near-black / near-white spike without hard-coding a hue range.
+ */
+export function trimHueOutliers(values: number[], trimFraction: number = 0.01): number[] {
+  if (values.length < 2) {
+    return values;
+  }
+
+  const trimCount = Math.floor(values.length * trimFraction);
+  if (trimCount <= 0 || trimCount >= values.length) {
+    return values;
+  }
+
+  return [...values].sort((a, b) => a - b).slice(trimCount);
+}
+
+/**
  * Compute 2D Hue/Light bins for 3D bar plot
  */
 export function computeHueLightBins(
