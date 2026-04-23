@@ -82,7 +82,7 @@ export function generateSlurmScript(
     ? `#SBATCH --mail-user=${config.email}
 #SBATCH --mail-type=END,FAIL`
     : '';
-  const thumbnailArg = config.save_thumbnails ? '  --save-thumbnails \\\n' : '';
+  const thumbnailArg = config.save_thumbnails !== false ? '  --save-thumbnails \\\n' : '';
   const forceReprocessArg = config.force_reprocess ? '  --force-reprocess \\\n' : '';
 
   return `#!/bin/bash
@@ -126,7 +126,7 @@ echo "  - Sampled Rate: ${config.sampled_rate}"
 echo "  - Skip Over: ${config.skip_over}"
 echo "  - Total Frames: ${config.total_frames}"
 echo "  - Frames Per Column: ${config.frames_per_column}"
-echo "  - Save Thumbnails: ${config.save_thumbnails ? 'Yes' : 'No'}"
+echo "  - Save Thumbnails: ${config.save_thumbnails !== false ? 'Yes' : 'No'}"
 echo "  - Force Reprocess: ${config.force_reprocess ? 'Yes' : 'No'}"
 echo ""
 

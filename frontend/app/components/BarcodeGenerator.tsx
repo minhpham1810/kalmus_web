@@ -41,7 +41,7 @@ export default function BarcodeGenerator() {
     skip_over: 0,
     total_frames: 100000000,
     seconds_per_column: 8,
-    save_thumbnails: false,
+    save_thumbnails: true,
     partition: "short",
     email: "",
   });
@@ -63,6 +63,7 @@ export default function BarcodeGenerator() {
 
   const movieStepComplete = movieInfo !== null;
   const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
+  const framesPerColumn = Math.round((config.seconds_per_column * 24) / config.sampled_rate);
 
   const resetDuplicateState = () => {
     setExistingAnalyses([]);
@@ -315,8 +316,8 @@ export default function BarcodeGenerator() {
               sampled_rate: config.sampled_rate.toString(),
               skip_over: config.skip_over.toString(),
               total_frames: config.total_frames.toString(),
-              frames_per_column: Math.round(config.seconds_per_column * 24 / config.sampled_rate).toString(),
-              save_thumbnails: config.save_thumbnails.toString(),
+              frames_per_column: framesPerColumn.toString(),
+              save_thumbnails: "true",
               partition: config.partition || "short",
               email: config.email,
               force_reprocess: forceReprocess.toString(),
@@ -349,8 +350,8 @@ export default function BarcodeGenerator() {
         formData.append("sampled_rate", config.sampled_rate.toString());
         formData.append("skip_over", config.skip_over.toString());
         formData.append("total_frames", config.total_frames.toString());
-        formData.append("frames_per_column", Math.round(config.seconds_per_column * 24 / config.sampled_rate).toString());
-        formData.append("save_thumbnails", config.save_thumbnails.toString());
+        formData.append("frames_per_column", framesPerColumn.toString());
+        formData.append("save_thumbnails", "true");
         formData.append("partition", config.partition || "short");
         formData.append("email", config.email);
         formData.append("movie", JSON.stringify(movieInfo));

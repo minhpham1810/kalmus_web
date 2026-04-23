@@ -28,11 +28,13 @@ export async function POST(request: NextRequest) {
             color_metric: config.color_metric || 'Average',
             frame_type: config.frame_type || 'Whole_frame',
             barcode_type: config.barcode_type || 'Color',
-            sampled_rate: parseInt(config.sampled_rate) || 2,
+            sampled_rate: parseInt(config.sampled_rate) || 1,
             skip_over: parseInt(config.skip_over) || 0,
             total_frames: parseInt(config.total_frames) || 100000000,
-            frames_per_column: parseInt(config.frames_per_column) || 50,
-            save_thumbnails: config.save_thumbnails === 'true' || config.save_thumbnails === true,
+            frames_per_column: parseInt(config.frames_per_column) || 192,
+            save_thumbnails: config.save_thumbnails === undefined
+                ? true
+                : config.save_thumbnails === 'true' || config.save_thumbnails === true,
             partition: config.partition || 'short',
             email: config.email || undefined,
             force_reprocess: config.force_reprocess === 'true' || config.force_reprocess === true,
