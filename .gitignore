@@ -1,3 +1,5 @@
 .claude
 .codex
 AGENTS.md
+*.cpython-3.12.pyc
+__pycache__
