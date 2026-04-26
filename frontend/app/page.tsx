@@ -78,12 +78,26 @@ function groupResults(results: FilmSearchResult[]): GroupedFilm[] {
 }
 
 export default function Home() {
+  const helpRef = useRef<HTMLDivElement>(null);
+
+  const [showHelp, setShowHelp] = useState(false)
   const [activeSelection, setActiveSelection] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<FilmSearchResult[]>([]);
   const [searched, setSearched] = useState(false);
   const [loading, setLoading] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (helpRef.current && !helpRef.current.contains(e.target as Node)) {
+        setShowHelp(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
 
   useEffect(() => {
     // Currently, searching does nothing when a selction button is active
@@ -176,7 +190,7 @@ export default function Home() {
         </Link>
       </div>
 
-      <main className="flex-1 flex flex-col items-center justify-center px-4 py-16">
+      <main className="flex-1 flex flex-col items-center px-4 py-16">
         <div className="w-full max-w-4xl">
 
           {/* Header */}
@@ -228,20 +242,66 @@ export default function Home() {
                   d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
                 />
               </svg>
-              <input
-                type="text"
-                value={query}
-                onChange={(e) => {
-                  setQuery(e.target.value);
-                  setActiveSelection(null);
-                }}
-                placeholder="Search by title, year, director, etc…"
-                className="kalmus-input w-full pl-11 pr-4 py-4 bg-transparent text-sm font-light focus:outline-none transition-colors"
-                style={{
-                  border: '1px solid var(--accent-crimson)',
-                  borderLeftWidth: '3px',
-                }}
-              />
+              <div className="relative flex items-center">
+                <input
+                  type="text"
+                  value={query}
+                  onChange={(e) => {
+                    setQuery(e.target.value);
+                    setActiveSelection(null);
+                  }}
+                  placeholder="Search... e.g. country: united states director: hitchcock"
+                  className="kalmus-input w-full pl-11 pr-4 py-4 bg-transparent text-sm font-light focus:outline-none transition-colors"
+                  style={{
+                    border: '1px solid var(--accent-crimson)',
+                    borderLeftWidth: '3px',
+                  }}
+                />
+
+                {/* Help button */}
+                <div ref={helpRef} className="absolute right-3 flex items-center kalmus-input transition-colors">
+                  <button
+                    onClick={() => setShowHelp((v) => !v)}
+                    aria-label="Search help"
+                    aria-expanded={showHelp}
+                    className="w-5 h-5 rounded-full text-xs flex items-center justify-center
+                              border hover:text-gray-600 hover:border-gray-600
+                              transition-colors cursor-pointer"
+                  >?</button>
+
+                  {showHelp && (
+                    <div className="absolute top-full right-0 mt-2 w-80 z-50 rounded-xl
+                                    border border-gray-200 p-4 shadow-sm text-xs font-mono kalmus-help transition-colors">
+                      <p className="mb-4">
+                        Advanced search — search by category and conditionals.
+                      </p>
+
+                      <p className="uppercase tracking-wide mb-2">Categories</p>
+                      <div className="flex flex-wrap gap-1.5 mb-4">
+                        {['title', 'director', 'actor', 'writer', 'genre', 'country', 'language'].map((col) => (
+                          <code key={col} className="kalmus-surface-strong px-1.5 py-0.5 rounded">
+                            {col}
+                          </code>
+                        ))}
+                      </div>
+
+                      <p className="uppercase tracking-wide mb-2">Operators</p>
+                      <div className="flex gap-1.5 mb-4">
+                        {['AND', 'OR', 'NOT'].map((op) => (
+                          <code key={op} className="kalmus-surface-strong px-1.5 py-0.5 rounded">
+                            {op}
+                          </code>
+                        ))}
+                      </div>
+
+                      <p className="uppercase tracking-wide mb-1">Example</p>
+                      <code className="leading-relaxed break-words">
+                        {'(country: united states AND director: hitchcock) OR country: germany'}
+                      </code>
+                    </div>
+                  )}
+                </div>
+              </div>
               {loading && (
                 <div className="absolute right-4 top-1/2 -translate-y-1/2">
                   <svg
@@ -418,7 +478,7 @@ export default function Home() {
                               <Link
                                 key={a.job_id}
                                 href={`/results/${a.job_id}`}
-                                className="grid grid-cols-[1fr_2fr_auto] items-center gap-4 hover:underline"
+                                className="grid grid-cols-[1fr_2fr_auto] items-center gap-4 border-b-2 border-transparent hover:border-blue-500"
                                 style={{ color: 'var(--accent-amber)' }}
                               >
                                 <div className="flex items-center gap-1 font-mono text-xs kalmus-text-secondary capitalize">
