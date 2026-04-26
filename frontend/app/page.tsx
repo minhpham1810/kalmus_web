@@ -19,7 +19,7 @@ interface FilmSearchResult {
   process_date: string;
   source_width: string;
   source_height: string;
-  source_fps: string;
+  source_fps: number;
   source_frame_count: string;
 }
 
@@ -41,7 +41,7 @@ interface GroupedFilm {
     process_date: string;
     source_width: string;
     source_height: string;
-    source_fps: string;
+    source_fps: number;
     source_frame_count: string;
   }[];
 }
@@ -491,7 +491,7 @@ export default function Home() {
                                 <div className="flex items-center gap-1 font-mono text-xs kalmus-text-secondary">
                                   <span>Source File:</span>
                                   <span>{a.source_width} x {a.source_height},</span>
-                                  <span>{a.source_fps} fps,</span>
+                                  <span>{a.source_fps.toFixed(3)} fps,</span>
                                   <span>{a.source_frame_count} frames</span>
                                 </div>
                                 <div className="font-mono text-[10px] tracking-wider uppercase transition-colors">
