@@ -439,7 +439,7 @@ export default function Home() {
                             ? <img src={film.poster} alt={film.title} className="w-full h-full object-cover"/>
                             : <div className="w-full h-full kalmus-help flex items-center justify-center">No poster</div>
                           }
-                          </div>
+                        </div>
 
                         {/* Content */}
                         <div className="flex flex-col justify-between flex-1 min-w-0">
@@ -460,12 +460,20 @@ export default function Home() {
                               )}
                             </h3>
                             <div className="font-mono text-xs kalmus-text-secondary mt-1">
-                              <span>{(film.director || film.released || film.runtime_minutes || film.country) && `(`}</span>
-                              <span>{film.director && `${film.director}`}</span>
-                              <span>{film.released && `, ${new Date(film.released).getFullYear()}`}</span>
-                              <span>{film.runtime_minutes && `, ${Math.floor(Number(film.runtime_minutes) / 60)}h${Number(film.runtime_minutes) % 60}m`}</span>
-                              <span>{film.country && `, ${film.country}`}</span>
-                              <span>{(film.director || film.released || film.runtime_minutes || film.country) && `)`}</span>
+                              {(() => {
+                                const format = (val: string | null) => val ? val.split(',').join(' & ') : null;
+
+                                const parts = [
+                                  format(film.director),
+                                  film.released && new Date(film.released).getFullYear(),
+                                  film.runtime_minutes && `${Math.floor(Number(film.runtime_minutes) / 60)}h${Number(film.runtime_minutes) % 60}m`,
+                                  format(film.country),
+                                ].filter(Boolean);
+
+                                return parts.length > 0 && (
+                                  <span>({parts.join(', ')})</span>
+                                );
+                              })()}
                             </div>
                           </div>
 
