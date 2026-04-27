@@ -434,15 +434,12 @@ export default function Home() {
                         style={{ borderBottomWidth: 1, borderBottomColor: 'rgba(100,100,100,0.25)' }}
                       >
                         {/* Poster */}
-                        {film.poster && (
-                          <div className="w-[80px] shrink-0">
-                            <img
-                              src={film.poster}
-                              alt={film.title}
-                              className="w-full h-full object-cover"
-                            />
+                        <div className="w-[80px] aspect-[2/3] shrink-0">
+                          {film.poster
+                            ? <img src={film.poster} alt={film.title} className="w-full h-full object-cover"/>
+                            : <div className="w-full h-full kalmus-help flex items-center justify-center">No poster</div>
+                          }
                           </div>
-                        )}
 
                         {/* Content */}
                         <div className="flex flex-col justify-between flex-1 min-w-0">
