@@ -42,24 +42,53 @@ class BarcodeData:
     """
     Simple wrapper class to hold barcode data and metadata
     """
-    def __init__(self, colors, metadata):
-        self.colors = np.array(colors)
+    def __init__(self, sequence, metadata, barcode=None):
+        sequence_array = np.array(sequence).astype("uint8")
         self.barcode_type = metadata.get('barcode_type', 'color').lower()
         self.color_metric = metadata.get('color_metric', 'Average')
         self.frame_type = metadata.get('frame_type', 'Whole_frame')
-        self.total_frames = metadata.get('total_frames', len(colors))
-        self.film_length_in_frames = metadata.get('film_length_in_frames', len(colors))
+        self.total_frames = metadata.get('total_frames', len(sequence_array))
+        self.film_length_in_frames = metadata.get('film_length_in_frames', len(sequence_array))
         self.sampled_frame_rate = metadata.get('sampled_frame_rate', 1)
         self.fps = metadata.get('fps', 30)
         self.skip_over = metadata.get('skip_over', 0)
-        self.brightness = self.colors if self.barcode_type == 'Brightness' else None
+        self.frames_per_column = metadata.get('frames_per_column')
+        self.barcode = self._build_barcode_array(sequence_array, metadata, barcode)
+        self.colors = sequence_array if self.barcode_type == 'color' else sequence_array
+        self.brightness = sequence_array if self.barcode_type == 'brightness' else None
         self.metric = self.color_metric
         self.scale_factor = 1
         self.meta_data = {}
 
     def get_barcode(self):
         """Return barcode data as numpy array"""
-        return self.colors
+        return self.barcode
+
+    def _build_barcode_array(self, sequence, metadata, barcode):
+        if barcode is not None:
+            return np.array(barcode).astype("uint8")
+
+        frames_per_column = metadata.get('frames_per_column')
+        barcode_shape = metadata.get('barcode_shape')
+        if frames_per_column is None and barcode_shape:
+            frames_per_column = barcode_shape[0]
+        if not frames_per_column or frames_per_column <= 0:
+            frames_per_column = max(len(sequence), 1)
+
+        if sequence.ndim == 1:
+            if len(sequence) % frames_per_column == 0:
+                return sequence.reshape(frames_per_column, -1, order='F')
+            if len(sequence) < frames_per_column:
+                return sequence.reshape(-1, 1, order='F')
+            truncate_bound = int(len(sequence) / frames_per_column) * frames_per_column
+            return sequence[:truncate_bound].reshape(frames_per_column, -1, order='F')
+
+        if len(sequence) % frames_per_column == 0:
+            return sequence.reshape(frames_per_column, -1, sequence.shape[-1], order='F')
+        if len(sequence) < frames_per_column:
+            return sequence.reshape(-1, 1, sequence.shape[-1], order='F')
+        truncate_bound = int(len(sequence) / frames_per_column) * frames_per_column
+        return sequence[:truncate_bound].reshape(frames_per_column, -1, sequence.shape[-1], order='F')
 
 
 def load_barcode_from_json(json_path):
@@ -79,9 +108,51 @@ def load_barcode_from_json(json_path):
         with open(summary_path, 'r') as f:
             metadata = json.load(f)
 
-    colors = np.array(data.get('colors', []))
+    barcode_type = metadata.get('barcode_type', data.get('barcode_type', 'color')).lower()
+    if barcode_type == 'brightness':
+        sequence = np.array(data.get('brightness', []))
+    else:
+        sequence = np.array(data.get('colors', []))
 
-    return BarcodeData(colors, metadata)
+    barcode = np.array(data.get('barcode', []))
+
+    return BarcodeData(sequence, metadata, barcode=barcode)
+
+
+def slice_barcode_by_frame_range(barcode_data, start_frame, end_frame):
+    """
+    Slice a barcode down to a selected frame range and rebuild its barcode array.
+    """
+    if start_frame is None or end_frame is None:
+        raise ValueError("Both start_frame and end_frame are required")
+
+    if barcode_data.barcode_type == "color":
+        source_sequence = barcode_data.colors
+    else:
+        source_sequence = barcode_data.brightness
+
+    if source_sequence is None or len(source_sequence) == 0:
+        raise ValueError("Barcode has no frame data to slice")
+
+    if start_frame < 0 or end_frame < start_frame or end_frame >= len(source_sequence):
+        raise ValueError(
+            f"Frame range [{start_frame}, {end_frame}] is out of bounds for barcode length {len(source_sequence)}"
+        )
+
+    sliced_sequence = source_sequence[start_frame:end_frame + 1]
+    sliced_metadata = {
+        'barcode_type': barcode_data.barcode_type,
+        'color_metric': barcode_data.color_metric,
+        'frame_type': barcode_data.frame_type,
+        'total_frames': len(sliced_sequence),
+        'film_length_in_frames': len(sliced_sequence),
+        'sampled_frame_rate': barcode_data.sampled_frame_rate,
+        'fps': barcode_data.fps,
+        'skip_over': barcode_data.skip_over + start_frame * barcode_data.sampled_frame_rate,
+        'frames_per_column': barcode_data.get_barcode().shape[0],
+    }
+
+    return BarcodeData(sliced_sequence, sliced_metadata)
 
 
 def fig_to_base64(fig):

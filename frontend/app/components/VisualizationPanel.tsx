@@ -341,6 +341,8 @@ export default function VisualizationPanel({
   const [activeTab, setActiveTab] = useState<VisualizationTab>("histogram");
   const [barcodeData, setBarcodeData] = useState<LoadedBarcodeData | null>(null);
   const [frameRange, setFrameRange] = useState<[number, number] | null>(null);
+  const [comparePrimaryRange, setComparePrimaryRange] = useState<[number, number] | null>(null);
+  const [compareSecondaryRange, setCompareSecondaryRange] = useState<[number, number] | null>(null);
   const [previewData, setPreviewData] = useState<BarcodePreviewData | null>(null);
   const [previewPinned, setPreviewPinned] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -427,6 +429,10 @@ export default function VisualizationPanel({
     barcodeData?.barcode_type === "Color"
       ? barcodeData.colors?.length ?? 0
       : barcodeData?.brightness?.length ?? 0;
+  const compareTotalColorFrames =
+    compareData?.barcode_type === "Color"
+      ? compareData.colors?.length ?? 0
+      : compareData?.brightness?.length ?? 0;
 
   useEffect(() => {
     if (totalColorFrames > 0) {
@@ -435,6 +441,22 @@ export default function VisualizationPanel({
     }
     setFrameRange(null);
   }, [jobId, totalColorFrames]);
+
+  useEffect(() => {
+    if (totalColorFrames > 0) {
+      setComparePrimaryRange([0, totalColorFrames - 1]);
+      return;
+    }
+    setComparePrimaryRange(null);
+  }, [jobId, totalColorFrames]);
+
+  useEffect(() => {
+    if (compareTotalColorFrames > 0) {
+      setCompareSecondaryRange([0, compareTotalColorFrames - 1]);
+      return;
+    }
+    setCompareSecondaryRange(null);
+  }, [compareJobId, compareTotalColorFrames]);
 
   useEffect(() => {
     setPreviewData(null);
@@ -690,6 +712,9 @@ export default function VisualizationPanel({
                   skipOver={barcodeData.skip_over}
                   totalFrames={barcodeData.total_frames}
                   thumbnails={barcodeData.thumbnails}
+                  frameRange={comparePrimaryRange ?? undefined}
+                  totalColorFrames={totalColorFrames}
+                  onFrameRangeChange={setComparePrimaryRange}
                 />
               )}
 
@@ -715,6 +740,9 @@ export default function VisualizationPanel({
                   skipOver={compareData.skip_over}
                   totalFrames={compareData.total_frames}
                   thumbnails={compareData.thumbnails}
+                  frameRange={compareSecondaryRange ?? undefined}
+                  totalColorFrames={compareTotalColorFrames}
+                  onFrameRangeChange={setCompareSecondaryRange}
                 />
               )}
 
@@ -724,6 +752,8 @@ export default function VisualizationPanel({
                   jobId2={compareJobId}
                   title1={videoFilename}
                   title2={compareTitle}
+                  range1={comparePrimaryRange}
+                  range2={compareSecondaryRange}
                 />
               )}
 

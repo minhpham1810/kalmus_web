@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+
+type FrameRange = [number, number];
 
 interface ComparisonMetrics {
   nrmse: number;
@@ -16,6 +18,8 @@ interface BarcodeComparisonProps {
   jobId2: string;
   title1?: string;
   title2?: string;
+  range1?: FrameRange | null;
+  range2?: FrameRange | null;
 }
 
 export default function BarcodeComparison({
@@ -23,24 +27,35 @@ export default function BarcodeComparison({
   jobId2,
   title1 = "Barcode 1",
   title2 = "Barcode 2",
+  range1 = null,
+  range2 = null,
 }: BarcodeComparisonProps) {
   const [metrics, setMetrics] = useState<ComparisonMetrics | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadComparisonMetrics();
-  }, [jobId1, jobId2]);
-
-  const loadComparisonMetrics = async () => {
+  const loadComparisonMetrics = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
     setError(null);
 
     try {
-      // Fetch comparison metrics from KALMUS API endpoint
-      const response = await fetch(
-        `/api/visualization/compare?jobId1=${jobId1}&jobId2=${jobId2}`
-      );
+      const searchParams = new URLSearchParams({
+        jobId1,
+        jobId2,
+      });
+
+      if (range1) {
+        searchParams.set("start1", range1[0].toString());
+        searchParams.set("end1", range1[1].toString());
+      }
+      if (range2) {
+        searchParams.set("start2", range2[0].toString());
+        searchParams.set("end2", range2[1].toString());
+      }
+
+      const response = await fetch(`/api/visualization/compare?${searchParams.toString()}`, {
+        signal,
+      });
 
       if (!response.ok) {
         throw new Error("Failed to load comparison metrics");
@@ -54,11 +69,28 @@ export default function BarcodeComparison({
         throw new Error(data.error || "Failed to compute metrics");
       }
     } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") {
+        return;
+      }
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) {
+        setLoading(false);
+      }
     }
-  };
+  }, [jobId1, jobId2, range1, range2]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => {
+      loadComparisonMetrics(controller.signal);
+    }, 150);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      controller.abort();
+    };
+  }, [loadComparisonMetrics]);
 
   const getMetricColor = (value: number, metric: string) => {
     // For correlation metrics, values near 1 are good (green), near -1 are anti-similar (red)
