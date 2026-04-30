@@ -21,7 +21,7 @@ export interface FilmSearchResult {
 
 const DB_PATH =
   process.env.FILMS_DB_PATH ||
-  "/home/kalmus/kalmus/app/backend/databases/films.db";
+  "/home/kalmus/kalmus/app/databases/films.db";
 
 let db: Database.Database | null = null;
 let isShuttingDown = false; // Allows us to close and save database files on restart

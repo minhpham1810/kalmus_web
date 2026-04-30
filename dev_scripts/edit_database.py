@@ -3,10 +3,11 @@ import requests
 import os
 from dotenv import load_dotenv
 from datetime import datetime
+import json
 
 load_dotenv()
 
-DB_PATH = "/home/kalmus/kalmus/app/backend/databases/films.db"
+DB_PATH = "/home/kalmus/kalmus/app/databases/films.db"
 OMDB_KEY = os.getenv("OMDB_KEY")
 OMDB_URL = "https://www.omdbapi.com/"
 
