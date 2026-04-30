@@ -84,12 +84,12 @@ class BarcodeGenerator:
         assert frame_type in Frame.frame_types.keys(), "Invalid frame acquisition method." \
                                           " Valid frame types are: {:s}".format(str(Frame.frame_types.keys()))
         if brightness_metric is not None:
-            brightness_metric = brightness_metric.lower()
+            brightness_metric = brightness_metric.lower().replace("-", "_")
             assert brightness_metric in BrightnessMetric.brightness_metric_types.keys(), "Invalid brightness metric." \
                                                   " Valid brightness metrics are: {:s}".format(str(BrightnessMetric.brightness_metric_types.keys()))
             self.metric = brightness_metric
         else:
-            color_metric = color_metric.lower()
+            color_metric = color_metric.lower().replace("-", "_")
             assert color_metric in ColorMetric.color_metric_types.keys(), "Invalid color metric." \
                                                   " Valid color metrics are: {:s}".format(str(ColorMetric.color_metric_types.keys()))
             self.metric = color_metric
