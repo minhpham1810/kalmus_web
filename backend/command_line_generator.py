@@ -309,7 +309,7 @@ def add_to_db(job_id, data, upload_metadata, json_loc, poster_loc):
     imdb_id = movie.get("imdb_id")
     type_ = raw.get("Type", "")
     runtime_raw = raw.get("Runtime", "")
-    runtime = int(runtime_raw) if runtime_raw else None
+    runtime = int(runtime_raw.split()[0]) if runtime_raw else None
 
     released_raw = raw.get("Released")
     released = ""
