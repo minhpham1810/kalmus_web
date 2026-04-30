@@ -24,6 +24,7 @@ const DB_PATH =
   "/home/kalmus/kalmus/app/backend/databases/films.db";
 
 let db: Database.Database | null = null;
+let isShuttingDown = false; // Allows us to close and save database files on restart
 
 function normalizeAnalysisValue(value: string | null | undefined): string {
   return (value || "").trim().toLowerCase();
@@ -31,10 +32,45 @@ function normalizeAnalysisValue(value: string | null | undefined): string {
 
 export function getDb(): Database.Database {
   if (!db) {
-    db = new Database(DB_PATH); // We can't use a readonly mode in case the backend needs to update while we do reads
+    db = new Database(DB_PATH); // Causes errors if in readonly mode
     db.pragma("journal_mode = WAL");
   }
   return db;
+}
+
+export function closeDb() {
+  if (isShuttingDown) return;
+  isShuttingDown = true;
+
+  if (db) {
+    try {
+      // Flush WAL → main DB
+      db.pragma("wal_checkpoint(FULL)");
+    } catch (err) {
+      console.error("WAL checkpoint failed:", err);
+    }
+
+    try {
+      db.close();
+    } catch (err) {
+      console.error("DB close failed:", err);
+    } finally {
+      db = null;
+    }
+  }
+}
+
+// Prevent multiple registrations
+declare global {
+  var __dbShutdownHookAdded: boolean | undefined;
+}
+
+if (typeof process !== "undefined" && !global.__dbShutdownHookAdded) {
+  global.__dbShutdownHookAdded = true;
+
+  process.once("SIGINT", closeDb);
+  process.once("SIGTERM", closeDb);
+  process.once("exit", closeDb);
 }
 
 export function getAnalysesByImdbId(imdbId: string): FilmSearchResult[] {
