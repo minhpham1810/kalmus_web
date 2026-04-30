@@ -3,3 +3,6 @@
 AGENTS.md
 *.cpython-3.12.pyc
 __pycache__
+
+# Database
+databases/
