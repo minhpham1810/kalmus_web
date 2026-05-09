@@ -13,6 +13,9 @@ import {
 interface InteractiveHueLight3DBarProps {
   colors: RGB[];
   title?: string;
+  frameIndexOffset?: number;
+  onPreviewFrameChange?: (frameIndex: number | null) => void;
+  onPreviewFramePin?: (frameIndex: number) => void;
 }
 
 const HUE_RESOLUTIONS = [5, 10, 15, 30];
@@ -22,6 +25,9 @@ const SATURATION_THRESHOLDS = [0, 0.05, 0.10, 0.15, 0.20, 0.30];
 export default function InteractiveHueLight3DBar({
   colors,
   title = "Hue vs Light 3D Distribution",
+  frameIndexOffset = 0,
+  onPreviewFrameChange,
+  onPreviewFramePin,
 }: InteractiveHueLight3DBarProps) {
   const [hueResolution, setHueResolution] = useState(5);
   const [lightResolution, setLightResolution] = useState(0.01);
@@ -120,6 +126,7 @@ export default function InteractiveHueLight3DBar({
                   width: 0.5,
                 },
               },
+              customdata: barData.representativeFrameIndices,
               hovertemplate:
                 "Hue: %{x:.0f}°<br>Light: %{y:.2f}<br>Count: %{z}<extra></extra>",
             },
@@ -175,6 +182,21 @@ export default function InteractiveHueLight3DBar({
               width: 1000,
               scale: 2,
             },
+          }}
+          onHover={(event) => {
+            const point = event.points?.[0];
+            const frameIndex = point?.customdata;
+            onPreviewFrameChange?.(
+              typeof frameIndex === "number" ? frameIndex + frameIndexOffset : null
+            );
+          }}
+          onUnhover={() => onPreviewFrameChange?.(null)}
+          onClick={(event) => {
+            const point = event.points?.[0];
+            const frameIndex = point?.customdata;
+            if (typeof frameIndex === "number") {
+              onPreviewFramePin?.(frameIndex + frameIndexOffset);
+            }
           }}
           useResizeHandler={true}
           style={{ width: "100%", height: "550px" }}

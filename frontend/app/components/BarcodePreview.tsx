@@ -1,7 +1,19 @@
 "use client";
 
 import { useRef, useEffect, useState, useCallback, type ReactNode } from "react";
-import { RGB, ThumbnailEntry, ThumbnailManifest, ThumbnailSheet } from "@/lib/barcode-utils";
+import {
+  buildPreviewFromFrameIndex,
+  type BarcodePreviewData,
+  RGB,
+  ThumbnailManifest,
+} from "@/lib/barcode-utils";
+
+export interface BarcodePreviewMovie {
+  title: string;
+  year?: string;
+  posterUrl?: string | null;
+  metadata: string[];
+}
 
 // ── Time Ruler ────────────────────────────────────────────────────────────────
 
@@ -138,17 +150,13 @@ function TimeRuler({
   );
 }
 
-export interface BarcodePreviewData {
-  thumbnail: ThumbnailEntry;
-  sheet: ThumbnailSheet;
-  rgb: RGB;
-  avgRgb: RGB;
-}
-
 interface BarcodePreviewProps {
   barcode: RGB[][] | number[][];
   barcodeType: "Color" | "Brightness";
-  title?: string;
+  movie?: BarcodePreviewMovie | null;
+  detailLines?: string[];
+  fallbackTitle?: string;
+  downloadTitle?: string;
   headerActions?: ReactNode;
   fps?: number;
   sampledFrameRate?: number;
@@ -181,7 +189,10 @@ function formatTimestamp(totalSeconds: number | null): string {
 export default function BarcodePreview({
   barcode,
   barcodeType,
-  title = "Barcode Preview",
+  movie = null,
+  detailLines = [],
+  fallbackTitle = "Video",
+  downloadTitle = "barcode_preview",
   headerActions,
   fps,
   sampledFrameRate,
@@ -320,7 +331,7 @@ export default function BarcodePreview({
 
   const handleDownload = () => {
     if (!canvasRef.current) return;
-    const slug = title
+    const slug = downloadTitle
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "_")
       .replace(/^_|_$/g, "");
@@ -364,51 +375,16 @@ export default function BarcodePreview({
         )
       );
 
-      const normalizedPosition =
-        (barcodeX * dimensions.height + barcodeY) / (dimensions.width * dimensions.height);
-      const thumbnailIndex = Math.max(
-        0,
-        Math.min(
-          thumbnails.count - 1,
-          Math.round(normalizedPosition * Math.max(thumbnails.count - 1, 0))
-        )
-      );
-
-      const thumbnail = thumbnails.thumbnails[thumbnailIndex];
-      const sheet = thumbnails.sheets.find((entry) => entry.index === thumbnail?.sheet_index);
-      if (!thumbnail || !sheet?.url) return null;
-
-      const pixel = barcode[barcodeY][barcodeX];
-      const rgb: RGB =
-        barcodeType === "Color" && Array.isArray(pixel)
-          ? (pixel as RGB)
-          : [pixel as number, pixel as number, pixel as number];
-
-      let sumR = 0;
-      let sumG = 0;
-      let sumB = 0;
-      for (let row = 0; row < dimensions.height; row++) {
-        const p = barcode[row][barcodeX];
-        if (Array.isArray(p)) {
-          sumR += p[0];
-          sumG += p[1];
-          sumB += p[2];
-        } else {
-          sumR += p as number;
-          sumG += p as number;
-          sumB += p as number;
-        }
-      }
-
-      const avgRgb: RGB = [
-        Math.round(sumR / dimensions.height),
-        Math.round(sumG / dimensions.height),
-        Math.round(sumB / dimensions.height),
-      ];
-
-      return { thumbnail, sheet, rgb, avgRgb };
+      return buildPreviewFromFrameIndex({
+        barcode,
+        barcodeType,
+        thumbnails,
+        frameIndex: barcodeX * dimensions.height + barcodeY,
+        sampledFrameRate,
+        skipOver,
+      });
     },
-    [barcode, barcodeType, dimensions.height, dimensions.width, thumbnails]
+    [barcode, barcodeType, dimensions.height, dimensions.width, sampledFrameRate, skipOver, thumbnails]
   );
 
   const handlePointerMove = (event: React.PointerEvent<HTMLCanvasElement>) => {
@@ -453,7 +429,7 @@ export default function BarcodePreview({
     !!totalColorFrames &&
     totalColorFrames > 1;
 
-  const zoomLevels = [0.5, 1, 2, 4, 8];
+  const zoomLevels = [1, 2, 4, 8];
 
   const isAtFullRange =
     !showRange ||
@@ -462,46 +438,60 @@ export default function BarcodePreview({
   return (
     <div className="panel-bg border border-neutral-200 dark:border-neutral-700 rounded-lg overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900">
-        <div className="flex items-center gap-3">
-          <svg
-            className="w-5 h-5 text-neutral-600 dark:text-neutral-400"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-            />
-          </svg>
-          <div>
-            <h3 className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
-              {title}
-            </h3>
-            <p className="text-xs text-neutral-500 dark:text-neutral-400">
-              {dimensions.width} x {dimensions.height} pixels
-            </p>
-            {thumbnails?.enabled && thumbnails.count > 0 && (
-              <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-1">
-                Hover the barcode to preview captured thumbnails.
+      <div className="flex flex-col gap-4 px-4 py-3 border-b border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0 flex-1">
+          {movie ? (
+            <div className="kalmus-surface flex items-start gap-3 p-3">
+              {movie.posterUrl ? (
+                <img
+                  src={movie.posterUrl}
+                  alt={movie.title}
+                  className="w-10 flex-shrink-0"
+                  style={{
+                    maxHeight: "60px",
+                    objectFit: "cover",
+                    border: "1px solid var(--surface-border)",
+                  }}
+                />
+              ) : null}
+              <div className="min-w-0 flex-1">
+                <p className="font-mono text-xs kalmus-text-primary truncate">
+                  {movie.title}{" "}
+                  {movie.year ? (
+                    <span style={{ color: "var(--accent-amber)" }}>({movie.year})</span>
+                  ) : null}
+                </p>
+                {movie.metadata.length > 0 && (
+                  <p className="font-mono text-[10px] kalmus-text-secondary truncate mt-0.5">
+                    {movie.metadata.join(" · ")}
+                  </p>
+                )}
+                {detailLines.map((line) => (
+                  <p key={line} className="font-mono text-[10px] kalmus-text-secondary truncate mt-0.5">
+                    {line}
+                  </p>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="kalmus-surface px-3 py-2.5">
+              <p className="font-mono text-[9px] tracking-[0.24em] uppercase kalmus-text-secondary">
+                Barcode Preview
               </p>
-            )}
-            {showRange && (
-              <p className="text-[11px] mt-1" style={{ color: "var(--accent-amber)" }}>
-                Drag the handles to select a frame range.
+              <p className="font-mono text-xs kalmus-text-primary truncate mt-1">
+                {fallbackTitle}
               </p>
-            )}
-          </div>
+              {detailLines.map((line) => (
+                <p key={line} className="font-mono text-[10px] kalmus-text-secondary truncate mt-0.5">
+                  {line}
+                </p>
+              ))}
+            </div>
+          )}
         </div>
 
-        <div className="flex items-center gap-2">
-          {headerActions}
-
-          {/* Zoom Controls */}
-          <div className="flex items-center gap-1 mr-2">
+        <div className="flex flex-wrap items-center justify-between gap-3 lg:justify-end">
+          <div className="flex items-center gap-1">
             <span className="text-xs text-neutral-500 dark:text-neutral-400 mr-1">
               Zoom:
             </span>
@@ -520,21 +510,23 @@ export default function BarcodePreview({
             ))}
           </div>
 
-          {/* Download Button */}
-          <button
-            onClick={handleDownload}
-            className="p-2 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded transition-colors"
-            title="Download PNG"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-              />
-            </svg>
-          </button>
+          <div className="flex items-center gap-1 rounded border border-neutral-200 dark:border-neutral-700 bg-white/50 dark:bg-black/20 p-1">
+            {headerActions}
+            <button
+              onClick={handleDownload}
+              className="p-2 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded transition-colors"
+              title="Download PNG"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                />
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -760,11 +752,26 @@ export default function BarcodePreview({
 
       {/* Footer Info */}
       <div className="px-4 py-2 border-t border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900">
-        <p className="text-xs text-neutral-500 dark:text-neutral-400">
-          {barcodeType === "Color"
-            ? "Color barcode showing the temporal color distribution of the video. Each column represents frames, each row a time segment."
-            : "Brightness barcode showing the temporal brightness distribution of the video."}
-        </p>
+        <div className="flex flex-col gap-1 lg:flex-row lg:items-center lg:justify-between">
+          <p className="text-xs text-neutral-500 dark:text-neutral-400">
+            {barcodeType === "Color"
+              ? "Color barcode showing the temporal color distribution of the video. Each column represents frames, each row a time segment."
+              : "Brightness barcode showing the temporal brightness distribution of the video."}
+          </p>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-neutral-500 dark:text-neutral-400">
+            <span>
+              {dimensions.width} x {dimensions.height} pixels
+            </span>
+            {thumbnails?.enabled && thumbnails.count > 0 && (
+              <span>Hover the barcode to preview captured thumbnails.</span>
+            )}
+            {showRange && (
+              <span style={{ color: "var(--accent-amber)" }}>
+                Drag the handles to select a frame range.
+              </span>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

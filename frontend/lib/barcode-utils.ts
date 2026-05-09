@@ -6,6 +6,14 @@
 export type RGB = [number, number, number];
 export type HSV = [number, number, number]; // H: 0-360, S: 0-1, V: 0-1
 export type HSL = [number, number, number]; // H: 0-360, S: 0-1, L: 0-1
+export interface HueSample {
+  hue: number;
+  saturation: number;
+}
+
+const HUE_HISTOGRAM_ACHROMATIC_DELTA = 30;
+const HUE_HISTOGRAM_BLACK_MAX = 60;
+const HUE_HISTOGRAM_WHITE_MIN = 195;
 
 export interface BarcodeData {
   colors?: RGB[];
@@ -52,6 +60,13 @@ export interface ThumbnailManifest {
   };
   sheets: ThumbnailSheet[];
   thumbnails: ThumbnailEntry[];
+}
+
+export interface BarcodePreviewData {
+  thumbnail: ThumbnailEntry;
+  sheet: ThumbnailSheet;
+  rgb: RGB;
+  avgRgb: RGB;
 }
 
 /**
@@ -208,6 +223,90 @@ export function findClosestThumbnail(
   );
 }
 
+export function pickRepresentativeFrameIndex(frameIndices: number[]): number | null {
+  if (!frameIndices.length) return null;
+  const sorted = [...frameIndices].sort((a, b) => a - b);
+  return sorted[Math.floor(sorted.length / 2)] ?? null;
+}
+
+export function buildPreviewFromFrameIndex({
+  barcode,
+  barcodeType,
+  thumbnails,
+  frameIndex,
+  sampledFrameRate,
+  skipOver = 0,
+}: {
+  barcode: RGB[][] | number[][];
+  barcodeType: "Color" | "Brightness";
+  thumbnails?: ThumbnailManifest | null;
+  frameIndex: number;
+  sampledFrameRate?: number;
+  skipOver?: number;
+}): BarcodePreviewData | null {
+  const height = barcode.length;
+  const width = barcode[0]?.length || 0;
+
+  if (
+    !thumbnails?.enabled ||
+    thumbnails.count === 0 ||
+    height === 0 ||
+    width === 0
+  ) {
+    return null;
+  }
+
+  const clampedFrameIndex = Math.max(0, Math.min(frameIndex, width * height - 1));
+  const barcodeX = Math.floor(clampedFrameIndex / height);
+  const barcodeY = clampedFrameIndex % height;
+  const sourceFrameIndex =
+    sampledFrameRate !== undefined
+      ? skipOver + clampedFrameIndex * sampledFrameRate
+      : clampedFrameIndex;
+
+  const thumbnail = findClosestThumbnail(thumbnails, sourceFrameIndex);
+  const sheet = thumbnails.sheets.find((entry) => entry.index === thumbnail?.sheet_index);
+  if (!thumbnail || !sheet?.url) return null;
+
+  const pixel = barcode[barcodeY]?.[barcodeX];
+  if (pixel === undefined) return null;
+
+  const rgb: RGB =
+    barcodeType === "Color" && Array.isArray(pixel)
+      ? (pixel as RGB)
+      : [pixel as number, pixel as number, pixel as number];
+
+  let sumR = 0;
+  let sumG = 0;
+  let sumB = 0;
+
+  for (let row = 0; row < height; row++) {
+    const columnPixel = barcode[row]?.[barcodeX];
+    if (columnPixel === undefined) continue;
+
+    if (Array.isArray(columnPixel)) {
+      sumR += columnPixel[0];
+      sumG += columnPixel[1];
+      sumB += columnPixel[2];
+    } else {
+      sumR += columnPixel as number;
+      sumG += columnPixel as number;
+      sumB += columnPixel as number;
+    }
+  }
+
+  return {
+    thumbnail,
+    sheet,
+    rgb,
+    avgRgb: [
+      Math.round(sumR / height),
+      Math.round(sumG / height),
+      Math.round(sumB / height),
+    ],
+  };
+}
+
 /**
  * Format a duration in seconds as h:mm:ss or m:ss
  */
@@ -248,21 +347,33 @@ export function computeHistogram(
 }
 
 /**
- * Get hue values from RGB colors with chroma filtering.
- * Uses chroma (max-min) instead of HSV saturation (max-min)/max to avoid
- * dark pixels being misclassified as highly saturated.
+ * Remove near-achromatic black/white RGB values before hue conversion so
+ * grayscale extremes do not collapse into synthetic reds at 0 degrees.
  */
-export function getHueValues(colors: RGB[], chromaThreshold: number = 0): number[] {
-  const hues: number[] = [];
+export function filterHueHistogramColors(colors: RGB[]): RGB[] {
+  return colors.filter(([r, g, b]) => {
+    const maxChannel = Math.max(r, g, b);
+    const minChannel = Math.min(r, g, b);
+    const channelDelta = maxChannel - minChannel;
+    const isNearAchromatic = channelDelta <= HUE_HISTOGRAM_ACHROMATIC_DELTA;
+    const isNearBlack = maxChannel <= HUE_HISTOGRAM_BLACK_MAX;
+    const isNearWhite = minChannel >= HUE_HISTOGRAM_WHITE_MIN;
+
+    return !(isNearAchromatic && (isNearBlack || isNearWhite));
+  });
+}
+
+/**
+ * Extract hue samples from RGB colors without applying any filtering.
+ * Saturation is carried alongside hue so later pipeline stages can filter explicitly.
+ */
+export function getHueSamples(colors: RGB[]): HueSample[] {
+  const samples: HueSample[] = [];
   for (const [r, g, b] of colors) {
-    const rN = r / 255, gN = g / 255, bN = b / 255;
-    const chroma = Math.max(rN, gN, bN) - Math.min(rN, gN, bN);
-    if (chroma > 0 && chroma >= chromaThreshold) {
-      const [h] = rgbToHsv(r, g, b);
-      hues.push(h);
-    }
+    const [h, s] = rgbToHsv(r, g, b);
+    samples.push({ hue: h, saturation: s });
   }
-  return hues;
+  return samples;
 }
 
 /**
@@ -283,6 +394,41 @@ export function trimHueOutliers(values: number[], trimFraction: number = 0.01): 
 }
 
 /**
+ * Trim hue samples by sorting on hue and dropping the lowest tail by sample count.
+ */
+export function trimHueSampleOutliers(
+  samples: HueSample[],
+  trimFraction: number = 0.01
+): HueSample[] {
+  if (samples.length < 2) {
+    return samples;
+  }
+
+  const trimCount = Math.floor(samples.length * trimFraction);
+  if (trimCount <= 0 || trimCount >= samples.length) {
+    return samples;
+  }
+
+  return [...samples].sort((a, b) => a.hue - b.hue).slice(trimCount);
+}
+
+/**
+ * Filter hue samples by saturation after any earlier preprocessing steps.
+ */
+export function filterHueSamplesBySaturation(
+  samples: HueSample[],
+  saturationThreshold: number = 0
+): HueSample[] {
+  if (saturationThreshold <= 0) {
+    return samples;
+  }
+
+  return samples.filter(
+    (sample) => sample.saturation > 0 && sample.saturation >= saturationThreshold
+  );
+}
+
+/**
  * Compute 2D Hue/Light bins for 3D bar plot
  */
 export function computeHueLightBins(
@@ -296,31 +442,34 @@ export function computeHueLightBins(
   counts: number[];
   colors: string[];
   maxCount: number;
+  representativeFrameIndices: Array<number | null>;
 } {
   const numHueBins = Math.ceil(360 / hueResolution);
   const numLightBins = Math.ceil(1 / lightResolution);
-  const bins: Map<string, { count: number; sumR: number; sumG: number; sumB: number }> = new Map();
+  const bins: Map<string, { count: number; sumR: number; sumG: number; sumB: number; frameIndices: number[] }> = new Map();
 
-  for (const [r, g, b] of colors) {
+  colors.forEach(([r, g, b], index) => {
     const [h, s, v] = rgbToHsv(r, g, b);
-    if (s < saturationThreshold) continue;
+    if (s < saturationThreshold) return;
 
     const hueBin = Math.min(Math.floor(h / hueResolution), numHueBins - 1);
     const lightBin = Math.min(Math.floor(v / lightResolution), numLightBins - 1);
     const key = `${hueBin},${lightBin}`;
 
-    const existing = bins.get(key) || { count: 0, sumR: 0, sumG: 0, sumB: 0 };
+    const existing = bins.get(key) || { count: 0, sumR: 0, sumG: 0, sumB: 0, frameIndices: [] };
     existing.count++;
     existing.sumR += r;
     existing.sumG += g;
     existing.sumB += b;
+    existing.frameIndices.push(index);
     bins.set(key, existing);
-  }
+  });
 
   const hueValues: number[] = [];
   const lightValues: number[] = [];
   const counts: number[] = [];
   const colorStrs: string[] = [];
+  const representativeFrameIndices: Array<number | null> = [];
   let maxCount = 0;
 
   bins.forEach((data, key) => {
@@ -337,6 +486,7 @@ export function computeHueLightBins(
     const avgG = Math.round(data.sumG / data.count);
     const avgB = Math.round(data.sumB / data.count);
     colorStrs.push(`rgb(${avgR},${avgG},${avgB})`);
+    representativeFrameIndices.push(pickRepresentativeFrameIndex(data.frameIndices));
 
     maxCount = Math.max(maxCount, data.count);
   });
@@ -347,6 +497,7 @@ export function computeHueLightBins(
     counts,
     colors: colorStrs,
     maxCount,
+    representativeFrameIndices,
   };
 }
 
@@ -390,20 +541,23 @@ export function prepareRGBCubeData(colors: RGB[]): {
   g: number[];
   b: number[];
   colorStrs: string[];
+  pointOriginalIndices: number[];
 } {
   const r: number[] = [];
   const g: number[] = [];
   const b: number[] = [];
   const colorStrs: string[] = [];
+  const pointOriginalIndices: number[] = [];
 
-  for (const [rVal, gVal, bVal] of colors) {
+  colors.forEach(([rVal, gVal, bVal], index) => {
     r.push(rVal);
     g.push(gVal);
     b.push(bVal);
     colorStrs.push(`rgb(${rVal},${gVal},${bVal})`);
-  }
+    pointOriginalIndices.push(index);
+  });
 
-  return { r, g, b, colorStrs };
+  return { r, g, b, colorStrs, pointOriginalIndices };
 }
 
 /**

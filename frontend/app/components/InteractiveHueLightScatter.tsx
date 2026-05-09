@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import PlotlyWrapper from "./PlotlyWrapper";
 import {
   RGB,
-  deterministicSample,
+  deterministicSampleWithIndices,
   prepareHueLightScatterData,
 } from "@/lib/barcode-utils";
 
@@ -12,6 +12,9 @@ interface InteractiveHueLightScatterProps {
   colors: RGB[];
   title?: string;
   maxSamples?: number;
+  frameIndexOffset?: number;
+  onPreviewFrameChange?: (frameIndex: number | null) => void;
+  onPreviewFramePin?: (frameIndex: number) => void;
 }
 
 const SATURATION_THRESHOLDS = [0, 0.05, 0.10, 0.15, 0.20, 0.30];
@@ -22,6 +25,9 @@ export default function InteractiveHueLightScatter({
   colors,
   title = "Hue vs Lightness Scatter Plot",
   maxSamples = 10000,
+  frameIndexOffset = 0,
+  onPreviewFrameChange,
+  onPreviewFramePin,
 }: InteractiveHueLightScatterProps) {
   const [saturationThreshold, setSaturationThreshold] = useState(0);
   const maxSelectableSamples = Math.min(maxSamples, colors.length);
@@ -30,8 +36,8 @@ export default function InteractiveHueLightScatter({
   );
 
   const scatterData = useMemo(() => {
-    const sampled = deterministicSample(colors, sampleSize);
-    return prepareHueLightScatterData(sampled, saturationThreshold);
+    const sampled = deterministicSampleWithIndices(colors, sampleSize);
+    return prepareHueLightScatterData(sampled.items, saturationThreshold, sampled.indices);
   }, [colors, sampleSize, saturationThreshold]);
 
   return (
@@ -50,6 +56,7 @@ export default function InteractiveHueLightScatter({
                 color: scatterData.colorStrs,
                 opacity: 0.7,
               },
+              customdata: scatterData.pointOriginalIndices,
               hovertemplate:
                 "Hue: %{x:.0f}°<br>Lightness: %{y:.2f}<extra></extra>",
             },
@@ -90,6 +97,21 @@ export default function InteractiveHueLightScatter({
               width: 1000,
               scale: 2,
             },
+          }}
+          onHover={(event) => {
+            const point = event.points?.[0];
+            const frameIndex = point?.customdata;
+            onPreviewFrameChange?.(
+              typeof frameIndex === "number" ? frameIndex + frameIndexOffset : null
+            );
+          }}
+          onUnhover={() => onPreviewFrameChange?.(null)}
+          onClick={(event) => {
+            const point = event.points?.[0];
+            const frameIndex = point?.customdata;
+            if (typeof frameIndex === "number") {
+              onPreviewFramePin?.(frameIndex + frameIndexOffset);
+            }
           }}
           useResizeHandler={true}
           style={{ width: "100%", height: "450px" }}

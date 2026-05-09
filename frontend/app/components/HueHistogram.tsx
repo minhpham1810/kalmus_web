@@ -19,7 +19,9 @@ export default function HueHistogram({ jobId, title = "Hue Distribution" }: HueH
 
       try {
         // Fetch the histogram from the KALMUS API endpoint
-        const response = await fetch(`/api/visualization/hue-histogram/${jobId}`);
+        const response = await fetch(
+          `/api/visualization/hue-histogram/${jobId}?binStep=1&saturationThreshold=0`
+        );
         if (!response.ok) {
           throw new Error("Failed to generate hue histogram");
         }
@@ -92,8 +94,8 @@ export default function HueHistogram({ jobId, title = "Hue Distribution" }: HueH
             />
             <p className="mt-3 text-xs text-neutral-500 dark:text-neutral-400">
               Distribution of hue values (0-360°) generated using KALMUS native visualization.
-              Low-saturation colors are filtered out first, then the bottom 1% of hue
-              samples are trimmed to reduce the near-black and near-white spike near red.
+              Near-achromatic black and white RGB values are excluded before hue conversion,
+              then the bottom 1% of hue samples are trimmed to reduce the spike near red.
             </p>
           </>
         )}

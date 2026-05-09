@@ -8,8 +8,16 @@ import InteractiveHueLight3DBar from "./InteractiveHueLight3DBar";
 import BarcodeComparison from "./BarcodeComparison";
 import ColorStatsDashboard from "./ColorStatsDashboard";
 import CSVExportButton from "./CSVExportButton";
-import BarcodePreview, { BarcodePreviewData } from "./BarcodePreview";
-import { RGB, BarcodeData, ThumbnailManifest, formatTimestamp, rgbToHsl } from "@/lib/barcode-utils";
+import BarcodePreview, { type BarcodePreviewMovie } from "./BarcodePreview";
+import {
+  buildPreviewFromFrameIndex,
+  type BarcodePreviewData,
+  RGB,
+  BarcodeData,
+  ThumbnailManifest,
+  formatTimestamp,
+  rgbToHsl,
+} from "@/lib/barcode-utils";
 
 interface FilmSearchResult {
   job_id: string;
@@ -30,6 +38,153 @@ interface FilmSearchResult {
   source_frame_count: string;
 }
 
+interface VisualizationMovieMetadata {
+  title: string;
+  year?: string;
+  genre?: string;
+  director?: string;
+  poster_url?: string;
+  raw?: {
+    Runtime?: string;
+    Country?: string;
+    Director?: string;
+  };
+}
+
+function formatRuntime(runtime: string | null | undefined): string | null {
+  if (!runtime) return null;
+  const match = runtime.match(/(\d+)/);
+  if (!match) return runtime;
+
+  const totalMinutes = parseInt(match[1], 10);
+  if (Number.isNaN(totalMinutes)) return runtime;
+
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours === 0) return `${minutes}m`;
+  if (minutes === 0) return `${hours}h`;
+  return `${hours}h${minutes}m`;
+}
+
+function normalizeAnalysisLabel(value: string | null | undefined): string | null {
+  const normalized = value?.trim();
+  if (!normalized) return null;
+  return normalized.replace(/_/g, " ").toLowerCase();
+}
+
+function formatMovieDetailLine(
+  movie: VisualizationMovieMetadata | null | undefined
+): string | null {
+  if (!movie) return null;
+
+  const parts = [
+    movie.director || movie.raw?.Director,
+    movie.year,
+    formatRuntime(movie.raw?.Runtime),
+    movie.raw?.Country,
+  ].filter((value): value is string => Boolean(value));
+
+  return parts.length > 0 ? `(${parts.join(", ")})` : null;
+}
+
+function formatAnalysisDetailLine(
+  barcodeType: string | null | undefined,
+  frameType: string | null | undefined,
+  metric: string | null | undefined
+): string | null {
+  const parts = [
+    normalizeAnalysisLabel(barcodeType),
+    normalizeAnalysisLabel(frameType),
+    normalizeAnalysisLabel(metric),
+  ].filter((value): value is string => Boolean(value));
+
+  return parts.length > 0 ? parts.join(" | ") : null;
+}
+
+function formatSourceDetailLine(
+  width: number | string | null | undefined,
+  height: number | string | null | undefined,
+  fps: number | string | null | undefined,
+  frameCount: number | string | null | undefined
+): string | null {
+  const parsedWidth = typeof width === "string" ? parseInt(width, 10) : width;
+  const parsedHeight = typeof height === "string" ? parseInt(height, 10) : height;
+  const parsedFps = typeof fps === "string" ? parseFloat(fps) : fps;
+  const parsedFrameCount =
+    typeof frameCount === "string" ? parseInt(frameCount, 10) : frameCount;
+
+  const sourceParts: string[] = [];
+
+  if (
+    typeof parsedWidth === "number" &&
+    !Number.isNaN(parsedWidth) &&
+    typeof parsedHeight === "number" &&
+    !Number.isNaN(parsedHeight)
+  ) {
+    sourceParts.push(`${parsedWidth.toLocaleString()} x ${parsedHeight.toLocaleString()}`);
+  }
+
+  if (typeof parsedFps === "number" && !Number.isNaN(parsedFps)) {
+    sourceParts.push(`${parsedFps.toFixed(3)} fps`);
+  }
+
+  if (typeof parsedFrameCount === "number" && !Number.isNaN(parsedFrameCount)) {
+    sourceParts.push(`${parsedFrameCount.toLocaleString()} frames`);
+  }
+
+  return sourceParts.length > 0 ? `Source File: ${sourceParts.join(", ")}` : null;
+}
+
+function buildPreviewMovie(
+  movie: VisualizationMovieMetadata | null | undefined
+): BarcodePreviewMovie | null {
+  if (!movie?.title) return null;
+
+  return {
+    title: movie.title,
+    year: movie.year,
+    posterUrl: movie.poster_url || null,
+    metadata: [movie.genre, movie.director ? `Dir. ${movie.director}` : null].filter(
+      (value): value is string => Boolean(value)
+    ),
+  };
+}
+
+function buildFilmSearchPreviewMovie(result: FilmSearchResult): BarcodePreviewMovie {
+  return {
+    title: result.title,
+    year: result.released ? result.released.slice(0, 4) : undefined,
+    posterUrl: result.poster,
+    metadata: [
+      result.director ? `Dir. ${result.director}` : null,
+      result.runtime_minutes,
+      result.country,
+    ].filter((value): value is string => Boolean(value)),
+  };
+}
+
+function buildFilmSearchDetailLines(result: FilmSearchResult): string[] {
+  return [
+    [
+      result.director,
+      result.released ? result.released.slice(0, 4) : null,
+      formatRuntime(result.runtime_minutes),
+      result.country,
+    ]
+      .filter((value): value is string => Boolean(value))
+      .join(", "),
+    formatAnalysisDetailLine(result.barcode_type, result.frame_type, result.metric),
+    formatSourceDetailLine(
+      result.source_width,
+      result.source_height,
+      result.source_fps,
+      result.source_frame_count
+    ),
+  ]
+    .map((line, index) => (index === 0 && line ? `(${line})` : line))
+    .filter((value): value is string => Boolean(value));
+}
+
 function StaticPreviewPanel({
   preview,
   pinned,
@@ -39,93 +194,102 @@ function StaticPreviewPanel({
   pinned: boolean;
   onClearPin: () => void;
 }) {
+  const previewHeight = preview?.thumbnail.height ?? 200;
+
   return (
     <div className="panel-bg border border-[var(--surface-border)] rounded-lg overflow-hidden">
-      <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-[var(--surface-border)]">
-        <div>
-          <div className="font-mono text-[9px] tracking-[0.3em] uppercase kalmus-text-secondary">
-            ▸ Hover Preview
-          </div>
-          <p className="font-mono text-[10px] kalmus-text-muted mt-1">
-            {preview ? "Thumbnail and color metrics for the current barcode position." : "Hover the barcode to preview a thumbnail here."}
-          </p>
+      <div
+        className="grid gap-4 p-4 lg:grid-cols-[minmax(260px,1.2fr)_minmax(240px,0.8fr)]"
+        style={{ minHeight: `${previewHeight + 32}px` }}
+      >
+        <div
+          className="overflow-auto border border-[var(--surface-border)] bg-[var(--surface-bg-strong)] flex items-center justify-center"
+          style={{ minHeight: `${previewHeight}px` }}
+        >
+          {preview?.sheet.url ? (
+            <div
+              style={{
+                width: preview.thumbnail.width,
+                height: preview.thumbnail.height,
+                backgroundImage: `url(${preview.sheet.url})`,
+                backgroundPosition: `-${preview.thumbnail.x}px -${preview.thumbnail.y}px`,
+                backgroundRepeat: "no-repeat",
+                backgroundSize: `${preview.sheet.width}px ${preview.sheet.height}px`,
+              }}
+            />
+          ) : (
+            <p className="font-mono text-xs kalmus-text-secondary text-center px-4">
+              Hover the barcode or a plot to preview a thumbnail here.
+            </p>
+          )}
         </div>
-        {pinned && preview && (
-          <button
-            type="button"
-            onClick={onClearPin}
-            className="px-2.5 py-1 font-mono text-[10px] tracking-[0.18em] uppercase transition-colors border border-[var(--input-border)] hover:border-[var(--accent-amber)] hover:text-[var(--text-primary)]"
-          >
-            Release
-          </button>
-        )}
-      </div>
 
-      {!preview ? (
-        <div className="px-4 py-8 text-center">
-          <p className="font-mono text-xs kalmus-text-secondary">
-            No thumbnail selected.
-          </p>
-        </div>
-      ) : (
-        <div className="grid gap-4 p-4 lg:grid-cols-[minmax(260px,1.2fr)_minmax(240px,0.8fr)]">
-          <div className="overflow-auto border border-[var(--surface-border)] bg-[var(--surface-bg-strong)]">
-            {preview.sheet.url ? (
-              <div
-                style={{
-                  width: preview.thumbnail.width,
-                  height: preview.thumbnail.height,
-                  backgroundImage: `url(${preview.sheet.url})`,
-                  backgroundPosition: `-${preview.thumbnail.x}px -${preview.thumbnail.y}px`,
-                  backgroundRepeat: "no-repeat",
-                  backgroundSize: `${preview.sheet.width}px ${preview.sheet.height}px`,
-                }}
-              />
-            ) : (
-              <div className="flex items-center justify-center min-h-[160px]">
-                <p className="font-mono text-xs kalmus-text-secondary">
-                  Thumbnail unavailable.
-                </p>
+        <div className="space-y-4" style={{ minHeight: `${previewHeight}px` }}>
+          <div className="flex items-start justify-between gap-3 min-h-[40px]">
+            <div>
+              <div className="font-mono text-[9px] tracking-[0.16em] uppercase kalmus-text-secondary">
+                {preview
+                  ? `Frame ${preview.thumbnail.frame_index.toLocaleString()}`
+                  : "No thumbnail selected"}
+              </div>
+              <div className="font-mono text-[11px] kalmus-text-primary mt-1">
+                {preview ? formatTimestamp(preview.thumbnail.time_seconds) : " "}
+              </div>
+            </div>
+            {pinned && preview && (
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-[10px] tracking-[0.18em] uppercase px-2 py-0.5 border border-[var(--accent-amber)] text-[var(--accent-amber)]">
+                  Pinned
+                </span>
+                <button
+                  type="button"
+                  onClick={onClearPin}
+                  className="px-2.5 py-1 font-mono text-[10px] tracking-[0.18em] uppercase transition-colors border border-[var(--input-border)] hover:border-[var(--accent-amber)] hover:text-[var(--text-primary)]"
+                >
+                  Release
+                </button>
               </div>
             )}
           </div>
 
-          <div className="space-y-4">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <div className="font-mono text-[9px] tracking-[0.16em] uppercase kalmus-text-secondary">
-                  Frame {preview.thumbnail.frame_index.toLocaleString()}
-                </div>
-                <div className="font-mono text-[11px] kalmus-text-primary mt-1">
-                  {formatTimestamp(preview.thumbnail.time_seconds)}
-                </div>
-              </div>
-              {pinned && (
-                <span className="font-mono text-[10px] tracking-[0.18em] uppercase px-2 py-0.5 border border-[var(--accent-amber)] text-[var(--accent-amber)]">
-                  Pinned
-                </span>
-              )}
-            </div>
-
-            <div className="grid gap-3">
-              <MetricRow
-                label="Hovered pixel"
-                swatch={`rgb(${preview.rgb[0]}, ${preview.rgb[1]}, ${preview.rgb[2]})`}
-                value={`rgb(${preview.rgb[0]}, ${preview.rgb[1]}, ${preview.rgb[2]})`}
-                subValue={(() => {
-                  const hsl = rgbToHsl(preview.rgb[0], preview.rgb[1], preview.rgb[2]);
-                  return `hsl(${Math.round(hsl[0])}°, ${Math.round(hsl[1] * 100)}%, ${Math.round(hsl[2] * 100)}%)`;
-                })()}
-              />
-              <MetricRow
-                label="Column average"
-                swatch={`rgb(${preview.avgRgb[0]}, ${preview.avgRgb[1]}, ${preview.avgRgb[2]})`}
-                value={`rgb(${preview.avgRgb[0]}, ${preview.avgRgb[1]}, ${preview.avgRgb[2]})`}
-              />
-            </div>
+          <div className="grid gap-3">
+            <MetricRow
+              label="Hovered pixel"
+              swatch={
+                preview
+                  ? `rgb(${preview.rgb[0]}, ${preview.rgb[1]}, ${preview.rgb[2]})`
+                  : "transparent"
+              }
+              value={
+                preview
+                  ? `rgb(${preview.rgb[0]}, ${preview.rgb[1]}, ${preview.rgb[2]})`
+                  : "Awaiting hover"
+              }
+              subValue={
+                preview
+                  ? (() => {
+                      const hsl = rgbToHsl(preview.rgb[0], preview.rgb[1], preview.rgb[2]);
+                      return `hsl(${Math.round(hsl[0])}°, ${Math.round(hsl[1] * 100)}%, ${Math.round(hsl[2] * 100)}%)`;
+                    })()
+                  : undefined
+              }
+            />
+            <MetricRow
+              label="Column average"
+              swatch={
+                preview
+                  ? `rgb(${preview.avgRgb[0]}, ${preview.avgRgb[1]}, ${preview.avgRgb[2]})`
+                  : "transparent"
+              }
+              value={
+                preview
+                  ? `rgb(${preview.avgRgb[0]}, ${preview.avgRgb[1]}, ${preview.avgRgb[2]})`
+                  : "Awaiting hover"
+              }
+            />
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -168,6 +332,7 @@ interface VisualizationPanelProps {
   jobId: string;
   videoFilename?: string;
   compareJobId?: string;
+  movie?: VisualizationMovieMetadata | null;
 }
 
 type VisualizationTab =
@@ -188,6 +353,8 @@ interface LoadedBarcodeData {
   frame_type?: string;
   total_frames?: number;
   fps?: number;
+  source_width?: number;
+  source_height?: number;
   barcodeImageUrl?: string;
   barcodeImage?: RGB[][] | number[][];
   thumbnails?: ThumbnailManifest | null;
@@ -201,7 +368,12 @@ function FilmSearch({
 }: {
   currentJobId: string;
   compareJobId: string | null;
-  onSelect: (job_id: string, title: string) => void;
+  onSelect: (
+    job_id: string,
+    title: string,
+    movie: BarcodePreviewMovie,
+    detailLines: string[]
+  ) => void;
   onClear: () => void;
 }) {
   const [query, setQuery] = useState("");
@@ -248,7 +420,12 @@ function FilmSearch({
   const handleSelect = (r: FilmSearchResult) => {
     setQuery(r.title);
     setOpen(false);
-    onSelect(r.job_id, r.title);
+    onSelect(
+      r.job_id,
+      r.title,
+      buildFilmSearchPreviewMovie(r),
+      buildFilmSearchDetailLines(r)
+    );
   };
 
   const handleClear = () => {
@@ -337,6 +514,7 @@ export default function VisualizationPanel({
   jobId,
   videoFilename = "Video",
   compareJobId: initialCompareJobId,
+  movie = null,
 }: VisualizationPanelProps) {
   const [activeTab, setActiveTab] = useState<VisualizationTab>("histogram");
   const [barcodeData, setBarcodeData] = useState<LoadedBarcodeData | null>(null);
@@ -350,8 +528,29 @@ export default function VisualizationPanel({
 
   const [compareJobId, setCompareJobId] = useState<string | null>(initialCompareJobId || null);
   const [compareTitle, setCompareTitle] = useState<string>("");
+  const [compareMovie, setCompareMovie] = useState<BarcodePreviewMovie | null>(null);
+  const [compareDetailLines, setCompareDetailLines] = useState<string[]>([]);
   const [compareData, setCompareData] = useState<LoadedBarcodeData | null>(null);
   const [compareLoading, setCompareLoading] = useState(false);
+  const previewMovie = useMemo(() => buildPreviewMovie(movie), [movie]);
+  const previewDetailLines = useMemo(
+    () =>
+      [
+        formatMovieDetailLine(movie),
+        formatAnalysisDetailLine(
+          barcodeData?.barcode_type,
+          barcodeData?.frame_type,
+          barcodeData?.color_metric
+        ),
+        formatSourceDetailLine(
+          barcodeData?.source_width,
+          barcodeData?.source_height,
+          barcodeData?.fps,
+          barcodeData?.total_frames
+        ),
+      ].filter((value): value is string => Boolean(value)),
+    [barcodeData?.barcode_type, barcodeData?.color_metric, barcodeData?.fps, barcodeData?.frame_type, barcodeData?.source_height, barcodeData?.source_width, barcodeData?.total_frames, movie]
+  );
 
   const loadBarcodeData = useCallback(async () => {
     setLoading(true);
@@ -373,10 +572,18 @@ export default function VisualizationPanel({
           barcode_type: barcode.barcode_type || "Color",
           sampled_frame_rate: barcode.sampled_frame_rate || 1,
           skip_over: barcode.skip_over || 0,
-          color_metric: barcode.color_metric,
+          color_metric: barcode.color_metric || barcode.metric,
           frame_type: barcode.frame_type,
           total_frames: barcode.total_frames,
           fps: barcode.fps,
+          source_width:
+            typeof barcode.high_bound_hor === "number" && typeof barcode.low_bound_hor === "number"
+              ? barcode.high_bound_hor - barcode.low_bound_hor
+              : undefined,
+          source_height:
+            typeof barcode.high_bound_ver === "number" && typeof barcode.low_bound_ver === "number"
+              ? barcode.high_bound_ver - barcode.low_bound_ver
+              : undefined,
           barcodeImage: barcode.barcode as RGB[][] | number[][],
           thumbnails: data.thumbnails,
         });
@@ -409,10 +616,18 @@ export default function VisualizationPanel({
           barcode_type: b.barcode_type || "Color",
           sampled_frame_rate: b.sampled_frame_rate || 1,
           skip_over: b.skip_over || 0,
-          color_metric: b.color_metric,
+          color_metric: b.color_metric || b.metric,
           frame_type: b.frame_type,
           total_frames: b.total_frames,
           fps: b.fps,
+          source_width:
+            typeof b.high_bound_hor === "number" && typeof b.low_bound_hor === "number"
+              ? b.high_bound_hor - b.low_bound_hor
+              : undefined,
+          source_height:
+            typeof b.high_bound_ver === "number" && typeof b.low_bound_ver === "number"
+              ? b.high_bound_ver - b.low_bound_ver
+              : undefined,
           barcodeImage: b.barcode as RGB[][] | number[][],
           thumbnails: data.thumbnails,
         });
@@ -495,6 +710,41 @@ export default function VisualizationPanel({
     setPreviewPinned(true);
   }, []);
 
+  const handlePreviewFrameChange = useCallback((frameIndex: number | null) => {
+    if (!barcodeData?.barcodeImage || frameIndex === null) {
+      setPreviewData((current) => (previewPinned ? current : null));
+      return;
+    }
+
+    const preview = buildPreviewFromFrameIndex({
+      barcode: barcodeData.barcodeImage,
+      barcodeType: barcodeData.barcode_type,
+      thumbnails: barcodeData.thumbnails,
+      frameIndex,
+      sampledFrameRate: barcodeData.sampled_frame_rate,
+      skipOver: barcodeData.skip_over,
+    });
+
+    setPreviewData((current) => (previewPinned ? current : preview));
+  }, [barcodeData, previewPinned]);
+
+  const handlePreviewFramePin = useCallback((frameIndex: number) => {
+    if (!barcodeData?.barcodeImage) return;
+
+    const preview = buildPreviewFromFrameIndex({
+      barcode: barcodeData.barcodeImage,
+      barcodeType: barcodeData.barcode_type,
+      thumbnails: barcodeData.thumbnails,
+      frameIndex,
+      sampledFrameRate: barcodeData.sampled_frame_rate,
+      skipOver: barcodeData.skip_over,
+    });
+
+    if (!preview) return;
+    setPreviewData(preview);
+    setPreviewPinned(true);
+  }, [barcodeData]);
+
   const handleClearPreviewPin = useCallback(() => {
     setPreviewPinned(false);
     setPreviewData(null);
@@ -560,12 +810,16 @@ export default function VisualizationPanel({
         <BarcodePreview
           barcode={barcodeData.barcodeImage}
           barcodeType={barcodeData.barcode_type}
-          title={`${barcodeData.barcode_type} Barcode - ${videoFilename}`}
+          movie={previewMovie}
+          detailLines={previewDetailLines}
+          fallbackTitle={videoFilename}
+          downloadTitle={`${barcodeData.barcode_type} Barcode - ${videoFilename}`}
           headerActions={
             <CSVExportButton
               barcodeData={barcodeData as BarcodeData}
               jobId={jobId}
               title={`${barcodeData.barcode_type}_barcode_${videoFilename}`}
+              iconOnly
             />
           }
           fps={barcodeData.fps}
@@ -646,6 +900,9 @@ export default function VisualizationPanel({
               colors={slicedColors}
               brightness={slicedBrightness}
               barcodeType={barcodeData.barcode_type}
+              frameIndexOffset={frameRange?.[0] ?? 0}
+              onPreviewFrameChange={handlePreviewFrameChange}
+              onPreviewFramePin={handlePreviewFramePin}
               title={
                 barcodeData.barcode_type === "Color"
                   ? `Hue Distribution - ${videoFilename}`
@@ -659,6 +916,9 @@ export default function VisualizationPanel({
               colors={slicedColors}
               title={`RGB Color Cube - ${videoFilename}`}
               maxSamples={20000}
+              frameIndexOffset={frameRange?.[0] ?? 0}
+              onPreviewFrameChange={handlePreviewFrameChange}
+              onPreviewFramePin={handlePreviewFramePin}
             />
           )}
 
@@ -667,6 +927,9 @@ export default function VisualizationPanel({
               colors={slicedColors}
               title={`Hue vs Lightness - ${videoFilename}`}
               maxSamples={20000}
+              frameIndexOffset={frameRange?.[0] ?? 0}
+              onPreviewFrameChange={handlePreviewFrameChange}
+              onPreviewFramePin={handlePreviewFramePin}
             />
           )}
 
@@ -674,6 +937,9 @@ export default function VisualizationPanel({
             <InteractiveHueLight3DBar
               colors={slicedColors}
               title={`Hue/Light 3D Distribution - ${videoFilename}`}
+              frameIndexOffset={frameRange?.[0] ?? 0}
+              onPreviewFrameChange={handlePreviewFrameChange}
+              onPreviewFramePin={handlePreviewFramePin}
             />
           )}
 
@@ -690,15 +956,19 @@ export default function VisualizationPanel({
               <FilmSearch
                 currentJobId={jobId}
                 compareJobId={compareJobId}
-                onSelect={(job_id, title) => {
+                onSelect={(job_id, title, selectedMovie, selectedDetailLines) => {
                   setCompareJobId(job_id);
                   setCompareTitle(title);
+                  setCompareMovie(selectedMovie);
+                  setCompareDetailLines(selectedDetailLines);
                   loadCompareData(job_id);
                 }}
                 onClear={() => {
                   setCompareJobId(null);
                   setCompareData(null);
                   setCompareTitle("");
+                  setCompareMovie(null);
+                  setCompareDetailLines([]);
                 }}
               />
 
@@ -706,7 +976,10 @@ export default function VisualizationPanel({
                 <BarcodePreview
                   barcode={barcodeData.barcodeImage}
                   barcodeType={barcodeData.barcode_type}
-                  title={`${barcodeData.barcode_type} Barcode — ${videoFilename}`}
+                  movie={previewMovie}
+                  detailLines={previewDetailLines}
+                  fallbackTitle={videoFilename}
+                  downloadTitle={`${barcodeData.barcode_type} Barcode — ${videoFilename}`}
                   fps={barcodeData.fps}
                   sampledFrameRate={barcodeData.sampled_frame_rate}
                   skipOver={barcodeData.skip_over}
@@ -734,7 +1007,10 @@ export default function VisualizationPanel({
                 <BarcodePreview
                   barcode={compareData.barcodeImage}
                   barcodeType={compareData.barcode_type}
-                  title={`${compareData.barcode_type} Barcode — ${compareTitle}`}
+                  movie={compareMovie}
+                  detailLines={compareDetailLines}
+                  fallbackTitle={compareTitle}
+                  downloadTitle={`${compareData.barcode_type} Barcode — ${compareTitle}`}
                   fps={compareData.fps}
                   sampledFrameRate={compareData.sampled_frame_rate}
                   skipOver={compareData.skip_over}
@@ -767,7 +1043,7 @@ export default function VisualizationPanel({
         </div>
       </div>
 
-      {/* Info Panel */}
+      {/* Info Panel
       <div className="p-4 kalmus-surface">
         <h4 className="font-mono text-[9px] tracking-[0.3em] uppercase kalmus-text-secondary mb-2">
           ▸ About These Visualizations
@@ -808,7 +1084,7 @@ export default function VisualizationPanel({
             indices
           </li>
         </ul>
-      </div>
+      </div> */}
     </div>
   );
 }

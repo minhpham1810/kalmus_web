@@ -21,6 +21,14 @@ interface JobMetadata {
       title: string;
       year?: string;
       imdb_id?: string;
+      genre?: string;
+      director?: string;
+      poster_url?: string;
+      raw?: {
+        Runtime?: string;
+        Country?: string;
+        Director?: string;
+      };
     };
   };
   summary?: {
@@ -234,7 +242,7 @@ export default function ResultsPage() {
           )}
 
           <div className="mb-8 flex items-start justify-between">
-            <div>
+            {/* <div>
               <div className="font-mono text-[9px] tracking-[0.35em] uppercase kalmus-text-secondary mb-1">
                 ▸ BARCODE ANALYSIS
               </div>
@@ -243,7 +251,7 @@ export default function ResultsPage() {
                   ? `${jobData.metadata.movie.title}${jobData.metadata.movie.year ? ` (${jobData.metadata.movie.year})` : ""}`
                   : jobData.metadata?.videoFilename || "Video Analysis Results"}
               </h1>
-            </div>
+            </div> */}
             <div className="flex items-center gap-3">
               <button
                 onClick={() => router.push("/")}
@@ -294,9 +302,10 @@ export default function ResultsPage() {
                 ? `${jobData.metadata.movie.title}${jobData.metadata.movie.year ? ` (${jobData.metadata.movie.year})` : ""}`
                 : jobData.metadata?.videoFilename || "Video"
             }
+            movie={jobData.metadata?.movie || null}
           />
 
-          {/* Job Metadata Card */}
+          {/* Job Metadata Card
           <div className="panel-bg p-6 mb-6 mt-6" style={{ border: '1px solid var(--surface-border)', borderLeftWidth: 3, borderLeftColor: 'var(--accent-crimson)' }}>
             <div className="font-mono text-[9px] tracking-[0.3em] uppercase kalmus-text-secondary mb-4">
               ▸ Job Information
@@ -344,7 +353,7 @@ export default function ResultsPage() {
                 {jobId}
               </code>
             </div>
-          </div>
+          </div> */}
         </div>
       </main>
 

@@ -13,18 +13,20 @@ export async function GET(
   try {
     const { jobId } = await params;
     const { searchParams } = new URL(request.url);
-    const binStep = searchParams.get('binStep') || '1';
-
-    // Path to the barcode JSON file
-    const resultsDir = path.join(SLURM_CONFIG.resultsDir, jobId);
-    const barcodeJsonPath = path.join(resultsDir, 'barcode.json');
+    const rawBinStep = Number(searchParams.get('binStep') || '1');
+    const rawSaturationThreshold = Number(searchParams.get('saturationThreshold') || '0');
+    const binStep = Number.isFinite(rawBinStep) && rawBinStep > 0 ? rawBinStep : 1;
+    const saturationThreshold =
+      Number.isFinite(rawSaturationThreshold) && rawSaturationThreshold >= 0
+        ? rawSaturationThreshold
+        : 0;
 
     // Path to the visualization script
     const visualizerScript = path.join(process.cwd(), 'lib', 'kalmus_visualizer.py');
 
     // Execute the Python script to generate the histogram
     const { stdout, stderr } = await execAsync(
-      `python3 ${visualizerScript} --job-id ${jobId} --type histogram --results-dir ${SLURM_CONFIG.resultsDir}`
+      `python3 ${visualizerScript} --job-id ${jobId} --type histogram --results-dir ${SLURM_CONFIG.resultsDir} --bin-step ${binStep} --saturation-threshold ${saturationThreshold}`
     );
 
     if (stderr) {

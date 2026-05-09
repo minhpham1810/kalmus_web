@@ -4,10 +4,14 @@ import { useState, useMemo } from "react";
 import PlotlyWrapper from "./PlotlyWrapper";
 import {
   RGB,
-  getHueValues,
+  filterHueHistogramColors,
+  getHueSamples,
   computeHistogram,
   getHueColor,
-  trimHueOutliers,
+  filterHueSamplesBySaturation,
+  pickRepresentativeFrameIndex,
+  rgbToHsv,
+  trimHueSampleOutliers,
 } from "@/lib/barcode-utils";
 
 interface InteractiveHistogramProps {
@@ -15,6 +19,9 @@ interface InteractiveHistogramProps {
   brightness?: number[];
   barcodeType: "Color" | "Brightness";
   title?: string;
+  frameIndexOffset?: number;
+  onPreviewFrameChange?: (frameIndex: number | null) => void;
+  onPreviewFramePin?: (frameIndex: number) => void;
 }
 
 const BIN_STEP_OPTIONS = [1, 2, 5, 10, 15, 20, 30];
@@ -25,16 +32,59 @@ export default function InteractiveHistogram({
   brightness,
   barcodeType,
   title = "Distribution",
+  frameIndexOffset = 0,
+  onPreviewFrameChange,
+  onPreviewFramePin,
 }: InteractiveHistogramProps) {
   const [binStep, setBinStep] = useState(1);
-  const [satThreshold, setSatThreshold] = useState(0.05);
+  const [satThreshold, setSatThreshold] = useState(0);
 
   const histogramData = useMemo(() => {
     if (barcodeType === "Color" && colors) {
-      // Hue histogram (0-360), filter near-achromatic colors whose hue is unreliable
-      // and trim the low-end hue tail that is dominated by black/white samples.
-      const hues = trimHueOutliers(getHueValues(colors, satThreshold), 0.01);
+      // Exclude near-achromatic black/white RGBs before hue exists, then trim/filter hue.
+      const filteredColors = filterHueHistogramColors(colors);
+      const rawSamples = getHueSamples(filteredColors);
+      const trimmedSamples = trimHueSampleOutliers(rawSamples, 0.01);
+      const filteredSamples = filterHueSamplesBySaturation(trimmedSamples, satThreshold);
+      const hues = filteredSamples.map((sample) => sample.hue);
       const { binCenters, counts } = computeHistogram(hues, binStep, 360);
+      const representativeFrameIndices = new Array(binCenters.length).fill(null) as Array<number | null>;
+
+      const indexedFilteredColors = colors
+        .map((color, index) => ({ color, index }))
+        .filter(({ color }) => filterHueHistogramColors([color]).length > 0)
+        .map(({ color, index }) => {
+          const [hue, saturation] = rgbToHsv(color[0], color[1], color[2]);
+          return { hue, saturation, index };
+        })
+        .sort((a, b) => a.hue - b.hue);
+
+      const trimCount = Math.floor(indexedFilteredColors.length * 0.01);
+      const trimmedIndexedSamples =
+        trimCount > 0 && trimCount < indexedFilteredColors.length
+          ? indexedFilteredColors.slice(trimCount)
+          : indexedFilteredColors;
+
+      const finalIndexedSamples =
+        satThreshold > 0
+          ? trimmedIndexedSamples.filter(
+              (sample) => sample.saturation > 0 && sample.saturation >= satThreshold
+            )
+          : trimmedIndexedSamples;
+
+      const binFrameIndices = new Map<number, number[]>();
+      finalIndexedSamples.forEach((sample) => {
+        const binIndex = Math.min(Math.floor(sample.hue / binStep), binCenters.length - 1);
+        const existing = binFrameIndices.get(binIndex) ?? [];
+        existing.push(sample.index);
+        binFrameIndices.set(binIndex, existing);
+      });
+
+      for (let i = 0; i < representativeFrameIndices.length; i++) {
+        representativeFrameIndices[i] = pickRepresentativeFrameIndex(
+          binFrameIndices.get(i) ?? []
+        );
+      }
 
       // Generate colors for each bin based on hue
       const barColors = binCenters.map((h) => getHueColor(h));
@@ -47,10 +97,26 @@ export default function InteractiveHistogram({
         yLabel: "Number of frames",
         xTicks: Array.from({ length: 13 }, (_, i) => i * 30), // 0, 30, 60, ..., 360
         maxX: 360,
+        representativeFrameIndices,
       };
     } else if (barcodeType === "Brightness" && brightness) {
       // Brightness histogram (0-255)
       const { binCenters, counts } = computeHistogram(brightness, binStep, 255);
+      const representativeFrameIndices = new Array(binCenters.length).fill(null) as Array<number | null>;
+      const binFrameIndices = new Map<number, number[]>();
+
+      brightness.forEach((value, index) => {
+        const binIndex = Math.min(Math.floor(value / binStep), binCenters.length - 1);
+        const existing = binFrameIndices.get(binIndex) ?? [];
+        existing.push(index);
+        binFrameIndices.set(binIndex, existing);
+      });
+
+      for (let i = 0; i < representativeFrameIndices.length; i++) {
+        representativeFrameIndices[i] = pickRepresentativeFrameIndex(
+          binFrameIndices.get(i) ?? []
+        );
+      }
 
       // Grayscale colors for brightness
       const barColors = binCenters.map((b) => {
@@ -66,6 +132,7 @@ export default function InteractiveHistogram({
         yLabel: "Number of frames",
         xTicks: Array.from({ length: 18 }, (_, i) => i * 15), // 0, 15, 30, ..., 255
         maxX: 255,
+        representativeFrameIndices,
       };
     }
 
@@ -99,6 +166,7 @@ export default function InteractiveHistogram({
                   width: 0.5,
                 },
               },
+              customdata: histogramData.representativeFrameIndices,
               hovertemplate:
                 barcodeType === "Color"
                   ? "Hue: %{x}°<br>Count: %{y}<extra></extra>"
@@ -141,6 +209,21 @@ export default function InteractiveHistogram({
               scale: 2,
             },
           }}
+          onHover={(event) => {
+            const point = event.points?.[0];
+            const frameIndex = point?.customdata;
+            onPreviewFrameChange?.(
+              typeof frameIndex === "number" ? frameIndex + frameIndexOffset : null
+            );
+          }}
+          onUnhover={() => onPreviewFrameChange?.(null)}
+          onClick={(event) => {
+            const point = event.points?.[0];
+            const frameIndex = point?.customdata;
+            if (typeof frameIndex === "number") {
+              onPreviewFramePin?.(frameIndex + frameIndexOffset);
+            }
+          }}
           useResizeHandler={true}
           style={{ width: "100%", height: "400px" }}
         />
@@ -167,7 +250,7 @@ export default function InteractiveHistogram({
         {barcodeType === "Color" && (
           <div className="flex items-center gap-2">
             <label className="text-xs text-neutral-600 dark:text-neutral-400">
-              Chroma Filter:
+              Saturation Filter:
             </label>
             <select
               value={satThreshold}
@@ -176,7 +259,7 @@ export default function InteractiveHistogram({
             >
               {SATURATION_THRESHOLDS.map((t) => (
                 <option key={t} value={t}>
-                  {t === 0 ? "No filter" : `≥ ${t}`}
+                  {t === 0 ? "No filter" : `> ${t}`}
                 </option>
               ))}
             </select>
@@ -189,7 +272,7 @@ export default function InteractiveHistogram({
 
       <p className="text-xs text-neutral-500 dark:text-neutral-400">
         {barcodeType === "Color"
-          ? `Distribution of hue values (0-360°) across all sampled frames. Bars are colored by their corresponding hue.${satThreshold > 0 ? ` Only colors with chroma ≥ ${satThreshold} are included.` : ""} The bottom 1% of hue values are trimmed before plotting.`
+          ? `Distribution of hue values (0-360°) across all sampled frames. Near-achromatic black and white RGB values are excluded before hue conversion, then the bottom 1% of hue values are trimmed.${satThreshold > 0 ? ` An additional saturation filter of > ${satThreshold} is applied afterward.` : ""}`
           : "Distribution of brightness values (0-255) across all sampled frames."}
       </p>
     </div>

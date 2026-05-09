@@ -231,7 +231,7 @@ export default function ColorStatsDashboard({
       {!loading && !error && stats && (
         <div className="space-y-6">
           {/* Basic Info */}
-          <div className="grid grid-cols-2 gap-4">
+          {/* <div className="grid grid-cols-2 gap-4">
             <StatCard label="Total Frames" value={formatNumber(stats.totalFrames)} />
             <StatCard
               label="Film Length"
@@ -242,7 +242,7 @@ export default function ColorStatsDashboard({
               value={`${stats.barcodeShape[0]} × ${stats.barcodeShape[1]}`}
             />
             <StatCard label="Color Metric" value={stats.colorMetric} />
-          </div>
+          </div> */}
 
           {/* Average Color */}
           <div className="border-t border-neutral-200 dark:border-neutral-700 pt-4">

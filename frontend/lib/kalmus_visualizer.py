@@ -16,6 +16,10 @@ matplotlib.use('Agg')  # Use non-interactive backend
 import matplotlib.pyplot as plt
 from pathlib import Path
 
+HUE_HISTOGRAM_ACHROMATIC_DELTA = 30
+HUE_HISTOGRAM_BLACK_MAX = 60
+HUE_HISTOGRAM_WHITE_MIN = 195
+
 # Import KALMUS visualization utilities
 try:
     # Add the KALMUS backend to the path
@@ -191,26 +195,84 @@ def trim_hue_outliers(hues, trim_fraction=0.01):
     return sorted_hues[trim_count:]
 
 
-def generate_hue_histogram(barcode_data, bin_step=5):
+def trim_hue_samples(hue_samples, trim_fraction=0.01):
+    """
+    Trim low-end tail values from hue samples while preserving paired metadata
+    such as saturation for later filtering.
+    """
+    hue_samples = np.asarray(hue_samples)
+    if hue_samples.size == 0 or hue_samples.shape[0] < 2:
+        return hue_samples
+
+    trim_count = int(np.floor(hue_samples.shape[0] * trim_fraction))
+    if trim_count <= 0 or trim_count >= hue_samples.shape[0]:
+        return hue_samples
+
+    sorted_indices = np.argsort(hue_samples[:, 0])
+    return hue_samples[sorted_indices][trim_count:]
+
+
+def filter_hue_histogram_colors(colors):
+    """
+    Remove near-achromatic black/white RGB values before hue conversion.
+    """
+    colors = np.asarray(colors)
+    if colors.size == 0:
+        return colors
+
+    max_channel = colors.max(axis=1)
+    min_channel = colors.min(axis=1)
+    channel_delta = max_channel - min_channel
+
+    is_near_achromatic = channel_delta <= HUE_HISTOGRAM_ACHROMATIC_DELTA
+    is_near_black = max_channel <= HUE_HISTOGRAM_BLACK_MAX
+    is_near_white = min_channel >= HUE_HISTOGRAM_WHITE_MIN
+
+    keep_mask = ~(is_near_achromatic & (is_near_black | is_near_white))
+    return colors[keep_mask]
+
+
+def filter_hue_histogram_samples_by_saturation(hue_samples, saturation_threshold=0):
+    """
+    Apply an optional saturation filter after earlier hue histogram preprocessing.
+    """
+    if saturation_threshold <= 0:
+        return hue_samples
+
+    hue_samples = np.asarray(hue_samples)
+    if hue_samples.size == 0:
+        return hue_samples
+
+    return hue_samples[hue_samples[:, 1] > saturation_threshold]
+
+
+def generate_hue_histogram(barcode_data, bin_step=1, saturation_threshold=0):
     """
     Generate hue histogram using KALMUS native method
 
     :param barcode_data: BarcodeData object
     :param bin_step: Step size for histogram bins
+    :param saturation_threshold: Minimum saturation to include after trimming
     :return: Base64-encoded PNG image
     """
     fig, ax = plt.subplots(figsize=(9, 5))
 
     if barcode_data.barcode_type == "color":
-        # Convert RGB to HSV and extract hue
-        normalized_barcode = barcode_data.colors.astype("float") / 255
+        # Exclude grayscale extremes before hue conversion.
+        filtered_colors = filter_hue_histogram_colors(barcode_data.colors)
+        normalized_barcode = filtered_colors.astype("float") / 255
         hsv_colors = rgb2hsv(normalized_barcode.reshape(-1, 1, 3))
         hue = hsv_colors[..., 0] * 360
         saturation = hsv_colors[..., 1]
-        reliable_hue = hue[:, 0][saturation[:, 0] >= 0.05]
-        trimmed_hue = trim_hue_outliers(reliable_hue, trim_fraction=0.01)
+        hue_samples = np.column_stack((hue[:, 0], saturation[:, 0]))
+        trimmed_samples = trim_hue_samples(hue_samples, trim_fraction=0.01)
+        filtered_samples = filter_hue_histogram_samples_by_saturation(
+            trimmed_samples,
+            saturation_threshold=saturation_threshold
+        )
+        filtered_hue = filtered_samples[:, 0] if filtered_samples.size else np.array([])
 
-        N, bins, patches = ax.hist(trimmed_hue, bins=np.arange(0, 361, bin_step))
+        N, bins, patches = ax.hist(filtered_hue, bins=np.arange(0, 361, bin_step))
 
         # Paint each bin with its corresponding color
         paint_hue_hist(bin_step, patches)
@@ -218,7 +280,10 @@ def generate_hue_histogram(barcode_data, bin_step=5):
         ax.set_xticks(np.arange(0, 361, 30))
         ax.set_xlabel("Color Hue (0 - 360)")
         ax.set_ylabel("Number of frames")
-        ax.set_title("Hue Distribution (sat >= 0.05, bottom 1% trimmed)")
+        title = "Hue Distribution (pre-filtered RGBs, bottom 1% trimmed)"
+        if saturation_threshold > 0:
+            title += f", saturation > {saturation_threshold:.2f}"
+        ax.set_title(title)
     else:
         # Brightness histogram
         brightness = barcode_data.brightness.flatten()
@@ -361,6 +426,10 @@ if __name__ == '__main__':
                        help='Results directory')
     parser.add_argument('--sampling', type=int, default=3000,
                        help='Number of color points to sample for RGB cube plots')
+    parser.add_argument('--bin-step', type=int, default=1,
+                       help='Step size for histogram bins')
+    parser.add_argument('--saturation-threshold', type=float, default=0,
+                       help='Minimum saturation to include in hue histogram')
 
     args = parser.parse_args()
 
@@ -370,7 +439,11 @@ if __name__ == '__main__':
 
     # Generate visualization
     if args.type == 'histogram':
-        img = generate_hue_histogram(barcode)
+        img = generate_hue_histogram(
+            barcode,
+            bin_step=args.bin_step,
+            saturation_threshold=args.saturation_threshold
+        )
     elif args.type == 'cube':
         img = generate_rgb_cube(barcode, sampling=args.sampling)
     elif args.type == 'scatter':

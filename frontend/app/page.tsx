@@ -201,9 +201,9 @@ export default function Home() {
                 aria-hidden
                 style={{ flex: 1, height: 1, background: 'var(--accent-crimson)', opacity: 0.6 }}
               />
-              <span className="font-mono text-[9px] tracking-[0.35em] uppercase kalmus-text-secondary whitespace-nowrap">
+              {/* <span className="font-mono text-[9px] tracking-[0.35em] uppercase kalmus-text-secondary whitespace-nowrap">
                 ◈ CINEMA COLOR ARCHIVE
-              </span>
+              </span> */}
               <span
                 aria-hidden
                 style={{ flex: 1, height: 1, background: 'var(--accent-crimson)', opacity: 0.6 }}
@@ -222,7 +222,7 @@ export default function Home() {
             </div>
 
             <p className="font-mono text-[10px] tracking-[0.28em] uppercase kalmus-text-secondary">
-              Quantitative color analysis · Cinema
+              An archive and toolkit for analyzing film color
             </p>
           </header>
 

@@ -2,12 +2,15 @@
 
 import { useState, useMemo } from "react";
 import PlotlyWrapper from "./PlotlyWrapper";
-import { RGB, deterministicSample, prepareRGBCubeData } from "@/lib/barcode-utils";
+import { RGB, deterministicSampleWithIndices, prepareRGBCubeData } from "@/lib/barcode-utils";
 
 interface InteractiveRGBCubeProps {
   colors: RGB[];
   title?: string;
   maxSamples?: number;
+  frameIndexOffset?: number;
+  onPreviewFrameChange?: (frameIndex: number | null) => void;
+  onPreviewFramePin?: (frameIndex: number) => void;
 }
 
 const SAMPLE_SIZE_OPTIONS = [1000, 3000, 6000, 10000, 20000];
@@ -17,6 +20,9 @@ export default function InteractiveRGBCube({
   colors,
   title = "RGB Color Cube",
   maxSamples = 10000,
+  frameIndexOffset = 0,
+  onPreviewFrameChange,
+  onPreviewFramePin,
 }: InteractiveRGBCubeProps) {
   const maxSelectableSamples = Math.min(maxSamples, colors.length);
   const [sampleSize, setSampleSize] = useState(
@@ -24,8 +30,12 @@ export default function InteractiveRGBCube({
   );
 
   const cubeData = useMemo(() => {
-    const sampled = deterministicSample(colors, sampleSize);
-    return prepareRGBCubeData(sampled);
+    const sampled = deterministicSampleWithIndices(colors, sampleSize);
+    const prepared = prepareRGBCubeData(sampled.items);
+    return {
+      ...prepared,
+      pointOriginalIndices: sampled.indices,
+    };
   }, [colors, sampleSize]);
 
   return (
@@ -45,6 +55,7 @@ export default function InteractiveRGBCube({
                 color: cubeData.colorStrs,
                 opacity: 0.8,
               },
+              customdata: cubeData.pointOriginalIndices,
               hovertemplate:
                 "R: %{x}<br>G: %{y}<br>B: %{z}<extra></extra>",
             },
@@ -97,6 +108,21 @@ export default function InteractiveRGBCube({
               width: 800,
               scale: 2,
             },
+          }}
+          onHover={(event) => {
+            const point = event.points?.[0];
+            const frameIndex = point?.customdata;
+            onPreviewFrameChange?.(
+              typeof frameIndex === "number" ? frameIndex + frameIndexOffset : null
+            );
+          }}
+          onUnhover={() => onPreviewFrameChange?.(null)}
+          onClick={(event) => {
+            const point = event.points?.[0];
+            const frameIndex = point?.customdata;
+            if (typeof frameIndex === "number") {
+              onPreviewFramePin?.(frameIndex + frameIndexOffset);
+            }
           }}
           useResizeHandler={true}
           style={{ width: "100%", height: "500px" }}
