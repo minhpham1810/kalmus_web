@@ -1,8 +1,14 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import PlotlyWrapper from "./PlotlyWrapper";
 import { RGB, deterministicSampleWithIndices, prepareRGBCubeData } from "@/lib/barcode-utils";
+import {
+  SceneCamera,
+  areSceneCamerasEqual,
+  cloneSceneCamera,
+  extractSceneCamera,
+} from "@/lib/plotly-camera";
 
 interface InteractiveRGBCubeProps {
   colors: RGB[];
@@ -15,6 +21,9 @@ interface InteractiveRGBCubeProps {
 
 const SAMPLE_SIZE_OPTIONS = [1000, 3000, 6000, 10000, 20000];
 const DEFAULT_SAMPLE_SIZE = 10000;
+const DEFAULT_CAMERA: SceneCamera = {
+  eye: { x: -2.0, y: 2.0, z: 1.3 },
+};
 
 export default function InteractiveRGBCube({
   colors,
@@ -28,6 +37,7 @@ export default function InteractiveRGBCube({
   const [sampleSize, setSampleSize] = useState(
     Math.min(DEFAULT_SAMPLE_SIZE, maxSelectableSamples)
   );
+  const [camera, setCamera] = useState<SceneCamera>(() => cloneSceneCamera(DEFAULT_CAMERA));
 
   const cubeData = useMemo(() => {
     const sampled = deterministicSampleWithIndices(colors, sampleSize);
@@ -37,6 +47,15 @@ export default function InteractiveRGBCube({
       pointOriginalIndices: sampled.indices,
     };
   }, [colors, sampleSize]);
+
+  const handleRelayout = useCallback((event: unknown) => {
+    const nextCamera = extractSceneCamera(event);
+    if (!nextCamera) return;
+
+    setCamera((current) =>
+      areSceneCamerasEqual(current, nextCamera) ? current : nextCamera
+    );
+  }, []);
 
   return (
     <div className="space-y-4">
@@ -85,9 +104,7 @@ export default function InteractiveRGBCube({
                 gridcolor: "rgba(128,128,128,0.3)",
               },
               aspectmode: "cube",
-              camera: {
-                eye: { x: -2.0, y: 2.0, z: 1.3 },
-              },
+              camera,
               dragmode: "turntable",
             },
             margin: { l: 0, r: 0, t: 50, b: 0 },
@@ -96,6 +113,7 @@ export default function InteractiveRGBCube({
               color: "#666",
             },
             autosize: true,
+            uirevision: "rgb-cube-camera",
           }}
           config={{
             displayModeBar: true,
@@ -124,6 +142,7 @@ export default function InteractiveRGBCube({
               onPreviewFramePin?.(frameIndex + frameIndexOffset);
             }
           }}
+          onRelayout={handleRelayout}
           useResizeHandler={true}
           style={{ width: "100%", height: "500px" }}
         />
