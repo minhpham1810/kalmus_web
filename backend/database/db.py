@@ -6,9 +6,25 @@ from datetime import datetime
 
 films_db = Path("/home/kalmus/kalmus/app/databases/films.db")
 
+
+class DbConnection:
+    def __init__(self, readonly: bool = False, db_path: Path = films_db):
+        self.readonly = readonly
+        self.db_path = db_path
+        self.con = None
+
+    def __enter__(self) -> sqlite3.Connection:
+        self.con = _connect(self.db_path)
+        return self.con
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.con:
+            _close(self.con)
+
+
 # Basic functions, used for updating database from uploads to frontend
-def _connect() -> sqlite3.Connection:
-    con = sqlite3.connect(films_db)
+def _connect(db_path: Path = films_db) -> sqlite3.Connection:
+    con = sqlite3.connect(db_path)
     con.execute("PRAGMA journal_mode=WAL")
     con.execute("PRAGMA busy_timeout=5000")
     return con
@@ -17,8 +33,17 @@ def _close(con: sqlite3.Connection):
     con.execute("PRAGMA wal_checkpoint(TRUNCATE)")
     con.close()
 
-def create_db(films_db: Path = films_db):
-    con = _connect()
+def _get_con(con: sqlite3.Connection | None, db_path: Path) -> tuple[sqlite3.Connection, bool]:
+    if con is not None:
+        return con, False
+    return _connect(db_path), True
+
+def _maybe_close(con: sqlite3.Connection, owned: bool):
+    if owned:
+        _close(con)
+
+def create_db(db_path: Path = films_db, con: sqlite3.Connection | None = None):
+    con, owned = _get_con(con, db_path)
     cur = con.cursor()
 
     # Main table, contains references to other tables
@@ -162,13 +187,13 @@ def create_db(films_db: Path = films_db):
     )
 
     con.commit()
-    _close(con)
+    _maybe_close(con, owned)
 
-def find_existing_analysis(imdb_id: str, barcode_type: str, frame_type: str, metric: str, films_db: Path = films_db) -> str | None:
+def find_existing_analysis(imdb_id: str, barcode_type: str, frame_type: str, metric: str, db_path: Path = films_db, con: sqlite3.Connection | None = None) -> str | None:
     if imdb_id is None:
         return None
 
-    con = _connect()
+    con, owned = _get_con(con, db_path)
     cur = con.cursor()
 
     cur.execute(
@@ -184,11 +209,11 @@ def find_existing_analysis(imdb_id: str, barcode_type: str, frame_type: str, met
         ";", (imdb_id, barcode_type, frame_type, metric))
     row = cur.fetchone()
 
-    _close(con)
+    _maybe_close(con, owned)
 
     return row[0] if row else None
 
-def add_to_db(job_id: str, data: dict, upload_metadata: dict, json_loc: str, poster_loc: str, films_db: Path = films_db):
+def upsert_job(job_id: str, data: dict, upload_metadata: dict, json_loc: str, poster_loc: str, db_path: Path = films_db, con: sqlite3.Connection | None = None):
     config = data.get("config")
     movie = data.get("movie") or {}
     raw = movie.get("raw") or {}
@@ -214,7 +239,7 @@ def add_to_db(job_id: str, data: dict, upload_metadata: dict, json_loc: str, pos
     languages = [l.strip() for l in raw.get("Language", "").split(",") if l and l != "N/A"]
     countries = [c.strip() for c in raw.get("Country", "").split(",") if c and c != "N/A"]
 
-    con = _connect()
+    con, owned = _get_con(con, db_path)
     cur = con.cursor()
 
     # Insert film record
@@ -230,6 +255,7 @@ def add_to_db(job_id: str, data: dict, upload_metadata: dict, json_loc: str, pos
             return row[0]
         cur.execute(f"INSERT INTO {table} ({column}) VALUES (?)", (value,))
         return cur.lastrowid
+
     for genre in genres:
         genre_id = insert_or_get_id("genres", "name", genre)
         cur.execute("INSERT OR IGNORE INTO film_genres (job_id, genre_id) VALUES (?, ?)", (job_id, genre_id))
@@ -269,10 +295,10 @@ def add_to_db(job_id: str, data: dict, upload_metadata: dict, json_loc: str, pos
     )
     
     con.commit()
-    _close(con)
+    _maybe_close(con, owned)
 
-def update_search_table(job_id: str, films_db: Path = films_db):
-    con = _connect()
+def update_search_table(job_id: str, db_path: Path = films_db, con: sqlite3.Connection | None = None):
+    con, owned = _get_con(con, db_path)
     cur = con.cursor()
 
     cur.execute(
@@ -343,7 +369,7 @@ def update_search_table(job_id: str, films_db: Path = films_db):
     )
 
     con.commit()
-    _close(con)
+    _maybe_close(con, owned)
 
 def get_job_metadata(job_id: str) -> dict:
     metadata_path = Path(f'/home/kalmus/kalmus/results/{job_id}/metadata.json')
