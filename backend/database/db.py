@@ -384,3 +384,108 @@ def get_job_metadata(job_id: str) -> dict:
     except json.JSONDecodeError:
         print("Invalid JSON:", metadata_path)
         return {}
+
+
+# Additional helper functions for editing database from dev script
+def get_job(job_id: str, db_path: Path = films_db, con: sqlite3.Connection | None = None) -> dict:
+    con, owned = _get_con(con, db_path)
+    cur = con.cursor()
+
+    cur.execute("SELECT * FROM films WHERE job_id = ?", (job_id,))
+    row = cur.fetchone()
+    if row is None:
+        _maybe_close(con, owned)
+        return {}
+
+    film = {
+        "job_id": row[0],
+        "title": row[1],
+        "imdb_id": row[2],
+        "released": row[3],
+        "type": row[4],
+        "runtime_minutes": row[5],
+    }
+
+    cur.execute("SELECT * FROM analyzed_files WHERE job_id = ?", (job_id,))
+    row = cur.fetchone()
+    if row is None:
+        _maybe_close(con, owned)
+        return {}
+        
+    film["job"] = {
+        "uploader": row[1],
+        "process_date": row[2],
+        "json": row[3],
+        "poster": row[4],
+        "barcode_type": row[5],
+        "frame_type": row[6],
+        "metric": row[7],
+        "source_width": row[8],
+        "source_height": row[9],
+        "source_fps": row[10],
+        "source_frame_count": row[11],
+    }
+
+    cur.execute(
+        "SELECT a.name FROM actors a "
+        "JOIN film_actors fa ON a.id = fa.actor_id "
+        "WHERE fa.job_id = ?"
+    ";", (job_id,))
+    film["actors"] = [r[0] for r in cur.fetchall()]
+
+    cur.execute(
+        "SELECT g.name FROM genres g "
+        "JOIN film_genres fg ON g.id = fg.genre_id "
+        "WHERE fg.job_id = ?"
+    ";", (job_id,))
+    film["genres"] = [r[0] for r in cur.fetchall()]
+
+    cur.execute(
+        "SELECT d.name FROM directors d "
+        "JOIN film_directors fd ON d.id = fd.director_id "
+        "WHERE fd.job_id = ?"
+    ";", (job_id,))
+    film["directors"] = [r[0] for r in cur.fetchall()]
+
+    cur.execute(
+        "SELECT w.name FROM writers w "
+        "JOIN film_writers fw ON w.id = fw.writer_id "
+        "WHERE fw.job_id = ?"
+    ";", (job_id,))
+    film["writers"] = [r[0] for r in cur.fetchall()]
+
+    cur.execute(
+        "SELECT l.name FROM languages l "
+        "JOIN film_languages fl ON l.id = fl.language_id "
+        "WHERE fl.job_id = ?"
+    ";", (job_id,))
+    film["languages"] = [r[0] for r in cur.fetchall()]
+
+    cur.execute(
+        "SELECT c.name FROM countries c "
+        "JOIN film_countries fc ON c.id = fc.country_id "
+        "WHERE fc.job_id = ?"
+    ";", (job_id,))
+    film["countries"] = [r[0] for r in cur.fetchall()]
+
+    _maybe_close(con, owned)
+    return film
+
+def get_recent_jobs(limit: int = 10, db_path: Path = films_db, con: sqlite3.Connection | None = None) -> list[dict]:
+    con, owned = _get_con(con, db_path)
+    cur = con.cursor()
+
+    cur.execute(
+        "SELECT job_id "
+        "FROM analyzed_files "
+        "ORDER BY process_date DESC "
+        "LIMIT ?"
+    ";", (limit,)
+    )
+    job_ids = [row[0] for row in cur.fetchall()]
+
+    results = [get_job(job_id, db_path, con) for job_id in job_ids]
+    
+    _maybe_close(con, owned)
+
+    return results
