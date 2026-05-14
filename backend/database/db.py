@@ -230,7 +230,7 @@ def upsert_job(job_id: str, data: dict, upload_metadata: dict, json_loc: str, po
         try:
             released = datetime.strptime(released_raw, "%d %b %Y").date()
         except ValueError:
-            released = ""
+            released = released_raw  # Keep original if parsing fails
 
     genres = [g.strip() for g in movie.get("genre", "").split(",") if g and g != "N/A"]
     directors = [d.strip() for d in movie.get("director", "").split(",") if d and d != "N/A"]
@@ -244,9 +244,13 @@ def upsert_job(job_id: str, data: dict, upload_metadata: dict, json_loc: str, po
 
     # Insert film record
     cur.execute(
-        "INSERT INTO films (job_id, title, imdb_id, released, type, runtime_minutes) VALUES (?, ?, ?, ?, ?, ?)",
-        (job_id, title, imdb_id, released, type_, runtime)
+        "INSERT OR REPLACE INTO films (title, imdb_id, released, type, runtime_minutes, job_id) VALUES (?, ?, ?, ?, ?, ?)",
+        (title, imdb_id, released, type_, runtime, job_id)
     )
+
+    # Clear and re-insert all junction table entries
+    for junction_table in ("film_genres", "film_directors", "film_writers", "film_actors", "film_languages", "film_countries"):
+        cur.execute(f"DELETE FROM {junction_table} WHERE job_id = ?", (job_id,))
 
     def insert_or_get_id(table, column, value):
         cur.execute(f"SELECT id FROM {table} WHERE {column} = ?", (value,))

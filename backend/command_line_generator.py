@@ -370,7 +370,7 @@ def save_barcode(barcode_obj, args, film_metadata, upload_metadata):
     poster_path = download_poster(movie_metadata.get("poster_url"), args.output_dir)
 
     # Save to database
-    add_to_db(args.job_id, film_metadata, upload_metadata, os.path.join(args.output_dir, "barcode.json"), poster_path)
+    upsert_job(args.job_id, film_metadata, upload_metadata, os.path.join(args.output_dir, "barcode.json"), poster_path)
 
     # Update search table
     update_search_table(args.job_id)

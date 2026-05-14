@@ -47,10 +47,10 @@ def main():
     upload_metadata = get_upload_metadata(job_id)
 
     # Save to database
-    add_to_db(job_id, film_metadata, upload_metadata, os.path.join("/home/kalmus/kalmus/results", job_id, "barcode.json"), os.path.join("/home/kalmus/kalmus/results", job_id, "poster.jpg"))
+    upsert_job(job_id, film_metadata, upload_metadata, os.path.join("/home/kalmus/kalmus/results", job_id, "barcode.json"), os.path.join("/home/kalmus/kalmus/results", job_id, "poster.jpg"))
 
     # Update search table
     update_search_table(job_id)
 
-__name__ == "__main__":
+if __name__ == "__main__":
     main()

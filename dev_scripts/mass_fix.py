@@ -89,7 +89,7 @@ def main():
         upload_metadata = get_upload_metadata(job_id)
 
         # Save to database
-        add_to_db(job_id, film_metadata, upload_metadata, str(barcode_file), poster_file, FILMS_DB)
+        upsert_job(job_id, film_metadata, upload_metadata, str(barcode_file), poster_file, FILMS_DB)
 
         # Update search table
         update_search_table(job_id, FILMS_DB)
