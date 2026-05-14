@@ -33,7 +33,10 @@ function normalizeAnalysisValue(value: string | null | undefined): string {
 export function getDb(): Database.Database {
   if (!db) {
     db = new Database(DB_PATH, {
-      readonly: true,
+    // This can be enabled, but due to concurrent writes to the database from the backend, it can cause disk I/O errors.
+    // Enabling will not cause any crashes, but it will flood the logs.
+    // For all purposes, the database is read-only from the frontend, so this should not cause any issues.
+    //   readonly: true, 
       timeout: 5000,
     });
 
