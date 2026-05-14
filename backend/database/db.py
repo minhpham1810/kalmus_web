@@ -6,8 +6,19 @@ from datetime import datetime
 
 films_db = Path("/home/kalmus/kalmus/app/databases/films.db")
 
-def create_db(films_db=films_db):
+# Basic functions, used for updating database from uploads to frontend
+def _connect() -> sqlite3.Connection:
     con = sqlite3.connect(films_db)
+    con.execute("PRAGMA journal_mode=WAL")
+    con.execute("PRAGMA busy_timeout=5000")
+    return con
+
+def _close(con: sqlite3.Connection):
+    con.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+    con.close()
+
+def create_db(films_db: Path = films_db):
+    con = _connect()
     cur = con.cursor()
 
     # Main table, contains references to other tables
@@ -151,13 +162,13 @@ def create_db(films_db=films_db):
     )
 
     con.commit()
-    con.close()
+    _close(con)
 
-def find_existing_analysis(imdb_id, barcode_type, frame_type, metric, films_db=films_db):
+def find_existing_analysis(imdb_id: str, barcode_type: str, frame_type: str, metric: str, films_db: Path = films_db) -> str | None:
     if imdb_id is None:
         return None
 
-    con = sqlite3.connect(films_db)
+    con = _connect()
     cur = con.cursor()
 
     cur.execute(
@@ -173,11 +184,11 @@ def find_existing_analysis(imdb_id, barcode_type, frame_type, metric, films_db=f
         ";", (imdb_id, barcode_type, frame_type, metric))
     row = cur.fetchone()
 
-    con.close()
+    _close(con)
 
     return row[0] if row else None
 
-def add_to_db(job_id, data, upload_metadata, json_loc, poster_loc, films_db=films_db):
+def add_to_db(job_id: str, data: dict, upload_metadata: dict, json_loc: str, poster_loc: str, films_db: Path = films_db):
     config = data.get("config")
     movie = data.get("movie") or {}
     raw = movie.get("raw") or {}
@@ -203,7 +214,7 @@ def add_to_db(job_id, data, upload_metadata, json_loc, poster_loc, films_db=film
     languages = [l.strip() for l in raw.get("Language", "").split(",") if l and l != "N/A"]
     countries = [c.strip() for c in raw.get("Country", "").split(",") if c and c != "N/A"]
 
-    con = sqlite3.connect(films_db)
+    con = _connect()
     cur = con.cursor()
 
     # Insert film record
@@ -258,10 +269,10 @@ def add_to_db(job_id, data, upload_metadata, json_loc, poster_loc, films_db=film
     )
     
     con.commit()
-    con.close()
+    _close(con)
 
-def update_search_table(job_id, films_db=films_db):
-    con = sqlite3.connect(films_db)
+def update_search_table(job_id: str, films_db: Path = films_db):
+    con = _connect()
     cur = con.cursor()
 
     cur.execute(
@@ -332,10 +343,14 @@ def update_search_table(job_id, films_db=films_db):
     )
 
     con.commit()
-    con.close()
+    _close(con)
 
-def get_job_metadata(job_id):
+def get_job_metadata(job_id: str) -> dict:
     metadata_path = Path(f'/home/kalmus/kalmus/results/{job_id}/metadata.json')
-    with metadata_path.open("r") as f:
-        data = json.load(f)
-    return data
+    try:
+        with metadata_path.open("r") as f:
+            data = json.load(f)
+        return data
+    except json.JSONDecodeError:
+        print("Invalid JSON:", metadata_path)
+        return {}
