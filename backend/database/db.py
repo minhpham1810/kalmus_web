@@ -489,3 +489,18 @@ def get_recent_jobs(limit: int = 10, db_path: Path = films_db, con: sqlite3.Conn
     _maybe_close(con, owned)
 
     return results
+
+def delete_job(job_id: str, db_path: Path = films_db, con: sqlite3.Connection | None = None):
+    con, owned = _get_con(con, db_path)
+    cur = con.cursor()
+
+    for junction_table in ("film_genres", "film_directors", "film_writers", "film_actors", "film_languages", "film_countries"):
+        cur.execute(f"DELETE FROM {junction_table} WHERE job_id = ?", (job_id,))
+
+    cur.execute("DELETE FROM films WHERE job_id = ?", (job_id,))
+    cur.execute("DELETE FROM analyzed_files WHERE job_id = ?", (job_id,))
+
+    cur.execute("DELETE FROM films_search WHERE job_id = ?", (job_id,))
+
+    con.commit()
+    _maybe_close(con, owned)

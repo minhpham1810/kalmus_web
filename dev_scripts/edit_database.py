@@ -109,6 +109,11 @@ def main():
         job_id = input("Enter job ID to edit: ").strip()
         edit_job(job_id)
     
+    def cmd_delete():
+        job_id = input("Enter job ID to delete: ").strip()
+        delete_job(job_id)
+        print("Job deleted!")
+    
     options = [
         ("List recently processed films", cmd_list),
         ("Edit film by job ID", cmd_edit),
