@@ -98,29 +98,43 @@ def edit_job(job_id: str):
 
     print("Film updated!")
 
+def clear_screen():
+    print("\033[2J\033[H\n", end="")
+
 def main():
-    conn = connect_db()
-    cursor = conn.cursor()
+    def cmd_list():
+        list_recent_jobs(10)
+    
+    def cmd_edit():
+        job_id = input("Enter job ID to edit: ").strip()
+        edit_job(job_id)
+    
+    options = [
+        ("List recently processed films", cmd_list),
+        ("Edit film by job ID", cmd_edit),
+        ("Delete film by job ID", cmd_delete),
+    ]
+
 
     while True:
-        print("\n--- Film DB Editor ---")
-        print("1. List recently processed films")
-        print("2. Edit film by job ID")
-        print("3. Exit")
+        clear_screen()
+        print("--- Film DB Editor ---")
+        for i, (desc, _) in enumerate(options, 1):
+            print(f"{i}. {desc}")
+        print(f"{len(options) + 1}. Exit")
+
         choice = input("Choose an option: ").strip()
 
-        if choice == "1":
-            list_recent_films(cursor)
-        elif choice == "2":
-            job_id = input("Enter job ID to edit: ").strip()
-            edit_film(cursor, job_id)
-            conn.commit()
-        elif choice == "3":
+        clear_screen()
+        if choice == str(len(options) + 1):
             break
-        else:
+        try:
+            _, cmd = options[int(choice) - 1]
+            cmd()
+        except (ValueError, IndexError):
             print("Invalid choice")
 
-    conn.close()
+        input("Press Enter to continue...")
 
 if __name__ == "__main__":
     main()
