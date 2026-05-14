@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-
+const OMDB_KEY = process.env.OMDB_KEY || 'NO_KEY';
 const OMDB_URL = 'https://www.omdbapi.com/';
 
 export const dynamic = 'force-dynamic';
