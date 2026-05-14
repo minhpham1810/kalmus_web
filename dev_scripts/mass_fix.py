@@ -26,7 +26,6 @@ WARNING
 from pathlib import Path
 import json
 import os
-import sqlite3
 from datetime import datetime
 from dotenv import load_dotenv
 import sys
@@ -38,37 +37,14 @@ if pythonpath:
 
 from database import *
 
+
 FILMS_DB = Path("/home/kalmus/kalmus/app/databases/films-fix.db")
 RESULTS_DIR = Path("/home/kalmus/kalmus/results")
 
-create_db(FILMS_DB)
-
-finished_jobs = set()
-for job_dir in RESULTS_DIR.iterdir():
-    job_id = job_dir.name
-    if job_id in finished_jobs:
-        print(f"Duplicate Job ID: {job_id}")
-        continue
-
-    if not job_dir.is_dir():
-        continue
-    
-    status_file = job_dir / "status.txt"
-    if not status_file.exists():
-        continue
-    
-    status = status_file.read_text().strip()
-    if status != "SUCCESS":
-        continue
-    
-    barcode_file = job_dir / "barcode.json"
-    if (job_dir / "poster.jpg").exists():
-        poster_file = str(job_dir / "poster.jpg")
-    else:
-        poster_file = None
-
+def get_upload_metadata(job_id: str) -> dict:
+    barcode_path = Path(f'/home/kalmus/kalmus/results/{job_id}/barcode.json')
     try:
-        with open(barcode_file, "r") as f:
+        with open(barcode_path, "r") as f:
             data = json.load(f)
 
         upload_metadata = {
@@ -77,15 +53,48 @@ for job_dir in RESULTS_DIR.iterdir():
             "fps": data.get("fps"),
             "frame_count": data.get("film_length_in_frames"),
         }
+        return upload_metadata
     except json.JSONDecodeError:
         print("Invalid JSON:", job_dir)
+        return {}
 
-    film_metadata = get_job_metadata(job_id)
+def main():
+    create_db(FILMS_DB)
 
-    # Save to database
-    add_to_db(job_id, film_metadata, upload_metadata, str(barcode_file), poster_file, FILMS_DB)
+    finished_jobs = set()
+    for job_dir in RESULTS_DIR.iterdir():
+        job_id = job_dir.name
+        if job_id in finished_jobs:
+            print(f"Duplicate Job ID: {job_id}")
+            continue
 
-    # Update search table
-    update_search_table(job_id, FILMS_DB)
+        if not job_dir.is_dir():
+            continue
+        
+        status_file = job_dir / "status.txt"
+        if not status_file.exists():
+            continue
+        
+        status = status_file.read_text().strip()
+        if status != "SUCCESS":
+            continue
+        
+        barcode_file = job_dir / "barcode.json"
+        if (job_dir / "poster.jpg").exists():
+            poster_file = str(job_dir / "poster.jpg")
+        else:
+            poster_file = None
 
-    finished_jobs.add(job_id)
+        film_metadata = get_job_metadata(job_id)
+        upload_metadata = get_upload_metadata(job_id)
+
+        # Save to database
+        add_to_db(job_id, film_metadata, upload_metadata, str(barcode_file), poster_file, FILMS_DB)
+
+        # Update search table
+        update_search_table(job_id, FILMS_DB)
+
+        finished_jobs.add(job_id)
+
+if __name__ == "__main__":
+    main()
