@@ -52,7 +52,7 @@ def edit_job(job_id: str):
     
     old_title, old_imdb_id, old_released, old_type, old_runtime = film["title"], film["imdb_id"], film["released"], film["type"], film["runtime_minutes"]
     new_title, new_imdb, new_released, new_type, new_runtime = old_title, old_imdb_id, old_released, old_type, old_runtime
-    print(f"Editing: {old_title}", ({old_imdb_id}) if old_imdb_id else ""))
+    print(f"Editing: {old_title}", ({old_imdb_id}) if old_imdb_id else "")
 
     use_imdb = input("Do you want to load data using an IMDb ID? (y/n): ").strip().lower() == "y"
 
