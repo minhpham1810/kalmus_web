@@ -1,6 +1,6 @@
 import { promises as fs } from 'fs';
 import { NextRequest, NextResponse } from "next/server";
-import { getDb, getAnalysesByImdbId, FilmSearchResult } from "@/lib/db";
+import { getAnalysesByImdbId, FilmSearchResult, withDb } from "@/lib/db";
 
 const IMDB_ID_PATTERN = /^tt\d{5,8}$/i;
 
@@ -13,7 +13,6 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const db = getDb();
     let rawResults: FilmSearchResult[];
 
     if (IMDB_ID_PATTERN.test(q)) {
@@ -61,9 +60,10 @@ export async function GET(request: NextRequest) {
         LIMIT 5`
       );
 
-      rawResults = db
+      rawResults = withDb((db) => db
         .prepare(sql)
-        .all() as FilmSearchResult[];
+        .all() as FilmSearchResult[]
+      );
     }
     else {
       const ret = buildQuery(q);
@@ -116,9 +116,10 @@ export async function GET(request: NextRequest) {
         LIMIT 50`
       );
 
-      rawResults = db
+      rawResults = withDb((db) => db
         .prepare(sql)
-        .all(params) as FilmSearchResult[];
+        .all(params) as FilmSearchResult[]
+      );
     }
 
     // Map poster to browser URL

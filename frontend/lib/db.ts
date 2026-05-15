@@ -23,59 +23,31 @@ const DB_PATH =
   process.env.FILMS_DB_PATH ||
   "/home/kalmus/kalmus/app/databases/films.db";
 
-let db: Database.Database | null = null;
-let isShuttingDown = false; // Allows us to close and save database files on restart
-
 function normalizeAnalysisValue(value: string | null | undefined): string {
   return (value || "").trim().toLowerCase();
 }
 
-export function getDb(): Database.Database {
-  if (!db) {
-    db = new Database(DB_PATH, {
-    // This can be enabled, but due to concurrent writes to the database from the backend, it can cause disk I/O errors.
-    // Enabling will not cause any crashes, but it will flood the logs.
-    // For all purposes, the database is read-only from the frontend, so this should not cause any issues.
-    //   readonly: true, 
-      timeout: 5000,
-    });
-
-    db.pragma("busy_timeout = 5000");
-  }
-  return db;
-}
-
-export function closeDb() {
-  if (isShuttingDown) return;
-  isShuttingDown = true;
-
-  if (!db) {
-    return;
-  }
-
+export function withDb<T>(fn: (db: Database.Database) => T): T {
+  const db = getDb();
   try {
+    return fn(db);
+  } finally {
     db.close();
-  } catch (err) {
-    console.error("DB close failed:", err);
   }
-
-  db = null;
 }
 
-// Prevent multiple registrations
-declare global {
-  var __dbShutdownHookAdded: boolean | undefined;
-}
-
-if (typeof process !== "undefined" && !global.__dbShutdownHookAdded) {
-  global.__dbShutdownHookAdded = true;
-
-  process.once("SIGINT", closeDb);
-  process.once("SIGTERM", closeDb);
+export function getDb(): Database.Database {
+    return new  Database(DB_PATH, {
+        // This can be enabled, but due to concurrent writes to the database from the backend, it can cause disk I/O errors.
+        // Enabling will not cause any crashes, but it will flood the logs.
+        // For all purposes, the database is read-only from the frontend, so this should not cause any issues.
+        //   readonly: true, 
+        timeout: 5000,
+    });
 }
 
 export function getAnalysesByImdbId(imdbId: string): FilmSearchResult[] {
-  return getDb()
+  return withDb((db) => db
     .prepare(
       `SELECT 
         f.job_id,
@@ -111,7 +83,8 @@ export function getAnalysesByImdbId(imdbId: string): FilmSearchResult[] {
       WHERE LOWER(f.imdb_id) = LOWER(?)
       ORDER BY af.process_date DESC`
     )
-    .all(imdbId) as FilmSearchResult[];
+    .all(imdbId) as FilmSearchResult[]
+    );
 }
 
 export function findDuplicateAnalyses(
