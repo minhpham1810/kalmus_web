@@ -37,6 +37,18 @@ interface SummaryData {
   barcode_type?: string;
 }
 
+function waitForNextPaint() {
+  if (typeof window === "undefined" || typeof window.requestAnimationFrame !== "function") {
+    return Promise.resolve();
+  }
+
+  return new Promise<void>((resolve) => {
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => resolve());
+    });
+  });
+}
+
 export default function ColorStatsDashboard({
   jobId,
   title = "Color Statistics",
@@ -47,24 +59,33 @@ export default function ColorStatsDashboard({
   const [error, setError] = useState<string | null>(null);
   // Store summary metadata so range changes can recompute without re-fetching
   const summaryRef = useRef<SummaryData | null>(null);
+  const colorsPropRef = useRef<RGB[] | undefined>(colorsProp);
+  const computationIdRef = useRef(0);
 
-  const computeStats = useCallback((colors: RGB[], summary: SummaryData) => {
+  useEffect(() => {
+    colorsPropRef.current = colorsProp;
+  }, [colorsProp]);
+
+  useEffect(() => {
+    return () => {
+      computationIdRef.current += 1;
+    };
+  }, []);
+
+  const computeStats = useCallback((colors: RGB[], summary: SummaryData): ColorStats => {
     if (colors.length === 0) {
       // Empty range — keep metadata but zero out color stats
-      if (summaryRef.current) {
-        setStats({
-          totalFrames: summary.total_frames || 0,
-          filmLengthInFrames: summary.film_length_in_frames || 0,
-          barcodeShape: summary.barcode_shape || [0, 0, 0],
-          dominantColors: [],
-          averageColor: [0, 0, 0],
-          brightnessStats: { mean: 0, median: 0, std: 0, min: 0, max: 0 },
-          colorMetric: summary.color_metric || "Unknown",
-          frameType: summary.frame_type || "Unknown",
-          barcodeType: summary.barcode_type || "Unknown",
-        });
-      }
-      return;
+      return {
+        totalFrames: summary.total_frames || 0,
+        filmLengthInFrames: summary.film_length_in_frames || 0,
+        barcodeShape: summary.barcode_shape || [0, 0, 0],
+        dominantColors: [],
+        averageColor: [0, 0, 0],
+        brightnessStats: { mean: 0, median: 0, std: 0, min: 0, max: 0 },
+        colorMetric: summary.color_metric || "Unknown",
+        frameType: summary.frame_type || "Unknown",
+        barcodeType: summary.barcode_type || "Unknown",
+      };
     }
 
     // Dominant colors
@@ -98,7 +119,7 @@ export default function ColorStatsDashboard({
       brightness.reduce((sum, b) => sum + Math.pow(b - mean, 2), 0) / brightness.length;
     const std = Math.sqrt(variance);
 
-    setStats({
+    return {
       totalFrames: summary.total_frames || 0,
       filmLengthInFrames: summary.film_length_in_frames || 0,
       barcodeShape: summary.barcode_shape || [0, 0, 0],
@@ -114,10 +135,33 @@ export default function ColorStatsDashboard({
       colorMetric: summary.color_metric || "Unknown",
       frameType: summary.frame_type || "Unknown",
       barcodeType: summary.barcode_type || "Unknown",
-    });
+    };
   }, []);
 
+  const updateStats = useCallback(
+    async (colors: RGB[], summary: SummaryData, existingComputationId?: number) => {
+      const computationId = existingComputationId ?? ++computationIdRef.current;
+      setLoading(true);
+      setError(null);
+
+      await waitForNextPaint();
+      if (computationId !== computationIdRef.current) return;
+
+      const nextStats = computeStats(colors, summary);
+      if (computationId !== computationIdRef.current) return;
+
+      setStats(nextStats);
+
+      await waitForNextPaint();
+      if (computationId !== computationIdRef.current) return;
+
+      setLoading(false);
+    },
+    [computeStats]
+  );
+
   const loadStats = useCallback(async () => {
+    const loadId = ++computationIdRef.current;
     setLoading(true);
     setError(null);
 
@@ -130,22 +174,25 @@ export default function ColorStatsDashboard({
       const data = await response.json();
 
       if (data.success && data.barcode && data.summary) {
+        if (loadId !== computationIdRef.current) return;
+
         summaryRef.current = data.summary as SummaryData;
         // Use passed colors if available (range-filtered), otherwise use all fetched colors
+        const latestColorsProp = colorsPropRef.current;
         const colorsToUse =
-          colorsProp !== undefined
-            ? colorsProp
+          latestColorsProp !== undefined
+            ? latestColorsProp
             : (data.barcode.colors as RGB[] | undefined) ?? [];
-        computeStats(colorsToUse, data.summary as SummaryData);
+        await updateStats(colorsToUse, data.summary as SummaryData, loadId);
       } else {
         throw new Error("Invalid barcode data");
       }
     } catch (err) {
+      if (loadId !== computationIdRef.current) return;
       setError(err instanceof Error ? err.message : "An error occurred");
-    } finally {
       setLoading(false);
     }
-  }, [jobId, colorsProp, computeStats]);
+  }, [jobId, updateStats]);
 
   useEffect(() => {
     void loadStats();
@@ -154,11 +201,9 @@ export default function ColorStatsDashboard({
   // When the colors prop changes (range adjusted), recompute color stats
   useEffect(() => {
     if (colorsProp !== undefined && summaryRef.current !== null) {
-      computeStats(colorsProp, summaryRef.current);
+      void updateStats(colorsProp, summaryRef.current);
     }
-  }, [colorsProp, computeStats]);
-
-  const formatNumber = (num: number) => num.toLocaleString();
+  }, [colorsProp, updateStats]);
 
   const rgbToHex = (rgb: number[]) =>
     "#" +
@@ -332,15 +377,6 @@ export default function ColorStatsDashboard({
           </div>
         </div>
       )}
-    </div>
-  );
-}
-
-function StatCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="bg-neutral-100 dark:bg-neutral-900 rounded p-3">
-      <div className="text-xs text-neutral-500 dark:text-neutral-400 mb-1">{label}</div>
-      <div className="text-base font-medium text-neutral-900 dark:text-neutral-100">{value}</div>
     </div>
   );
 }

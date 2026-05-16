@@ -9,12 +9,6 @@ import {
   CameraPreset,
   rotateCamera,
 } from "@/lib/barcode-utils";
-import {
-  SceneCamera,
-  areSceneCamerasEqual,
-  cloneSceneCamera,
-  extractSceneCamera,
-} from "@/lib/plotly-camera";
 
 interface InteractiveHueLight3DBarProps {
   colors: RGB[];
@@ -24,10 +18,18 @@ interface InteractiveHueLight3DBarProps {
   onPreviewFramePin?: (frameIndex: number) => void;
 }
 
+interface CameraState {
+  eye: {
+    x: number;
+    y: number;
+    z: number;
+  };
+}
+
 const HUE_RESOLUTIONS = [5, 10, 15, 30];
 const LIGHT_RESOLUTIONS = [0.01, 0.02, 0.05, 0.1];
 const SATURATION_THRESHOLDS = [0, 0.05, 0.10, 0.15, 0.20, 0.30];
-const DEFAULT_CAMERA: SceneCamera = {
+const DEFAULT_CAMERA: CameraState = {
   eye: { ...CAMERA_PRESETS["Diag View 2"].eye },
 };
 
@@ -45,10 +47,9 @@ export default function InteractiveHueLight3DBar({
   const [showAxis, setShowAxis] = useState(true);
   const [cameraPreset, setCameraPreset] = useState<CameraPreset>("Diag View 2");
   const [rotationSpeed, setRotationSpeed] = useState(5);
-  const [camera, setCamera] = useState<SceneCamera>(() => cloneSceneCamera(DEFAULT_CAMERA));
+  const [camera, setCamera] = useState(DEFAULT_CAMERA);
 
   const containerRef = useRef<HTMLDivElement>(null);
-  const preservingPresetRelayoutRef = useRef(false);
 
   // Compute binned data
   const barData = useMemo(() => {
@@ -64,23 +65,7 @@ export default function InteractiveHueLight3DBar({
   const handlePresetChange = useCallback((preset: CameraPreset) => {
     setCameraPreset(preset);
     const presetCamera = CAMERA_PRESETS[preset];
-    preservingPresetRelayoutRef.current = true;
     setCamera({ eye: { ...presetCamera.eye } });
-  }, []);
-
-  const handleRelayout = useCallback((event: unknown) => {
-    const nextCamera = extractSceneCamera(event);
-    if (!nextCamera) return;
-
-    setCamera((current) =>
-      areSceneCamerasEqual(current, nextCamera) ? current : nextCamera
-    );
-    if (preservingPresetRelayoutRef.current) {
-      preservingPresetRelayoutRef.current = false;
-      return;
-    }
-
-    setCameraPreset("Diag View 1");
   }, []);
 
   // Handle keyboard rotation
@@ -223,7 +208,6 @@ export default function InteractiveHueLight3DBar({
               onPreviewFramePin?.(frameIndex + frameIndexOffset);
             }
           }}
-          onRelayout={handleRelayout}
           useResizeHandler={true}
           style={{ width: "100%", height: "550px" }}
         />
