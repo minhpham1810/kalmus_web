@@ -53,6 +53,7 @@ def create_db(db_path: Path = films_db, con: sqlite3.Connection | None = None):
         "title TEXT NOT NULL, "
         "imdb_id TEXT, "
         "released DATE, "
+        "released_year INTEGER GENERATED ALWAYS AS (CAST(strftime('%Y', released) AS INTEGER)) STORED, "
         "type TEXT, "
         "runtime_minutes INTEGER"
         ");"

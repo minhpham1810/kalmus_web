@@ -68,7 +68,7 @@ export async function GET(request: NextRequest) {
     else {
       const ret = buildQuery(q);
       let clause: string = "";
-      let params: string[] = [];
+      let params: (string | number)[] = [];
       if (ret) {
         clause = ret["clause"]
         params = ret["params"]
@@ -171,6 +171,31 @@ function buildQuery(q: string) {
 }
 
 function buildFtsQuery(input: string) {
+  // Extract year/decade filters before FTS processing
+  const yearParams: number[] = [];
+  const yearClauses: string[] = [];
+
+  input = input.replace(/\byear\s*:\s*((\d{4})(?:-(\d{4}))?)/g, (_, __, from, to) => {
+    if (to) {
+      yearClauses.push('f.released_year BETWEEN ? AND ?');
+      yearParams.push(parseInt(from), parseInt(to));
+    } else {
+      yearClauses.push('f.released_year = ?');
+      yearParams.push(parseInt(from));
+    }
+    return '';
+  });
+
+  input = input.replace(/\bdecade\s*:\s*(\d{4})/g, (_, d) => {
+    const start = Math.floor(parseInt(d) / 10) * 10;
+    yearClauses.push('f.released_year BETWEEN ? AND ?');
+    yearParams.push(start, start + 9);
+    return '';
+  });
+
+
+
+
   const stopwords = new Set([
     "the",
     "a",
@@ -206,18 +231,13 @@ function buildFtsQuery(input: string) {
     return key;
   }
 
-  // Get phrase searches
-  remaining = remaining.replace(/"((?:[^"\\]|\\.)*)"/g, (m) => {
-    return pushPlaceholder(m);
-  });
-
   // Replace hyphens with en dash
   // En dash is not a used character in fts5
   // Could maybe be used in future for hyphenated words
   remaining = remaining.replace(/-/g, "–");
 
-  // Get col searches
-  remaining = remaining.replace(/\b([\w]+)\s*:\s*(?:"([^"]*)"|([^]*?))(?=\s+\b[\w]+\s*:|$)/g,
+  // Get col searches, allowing quoted values for multi-word searches
+  remaining = remaining.replace(/\b([\w]+)\s*:\s*(?:"([^"]*)"|(\S+))/g,
     (m, col, quoted, unquoted) => {
       let value = quoted ?? unquoted ?? "";
 
@@ -241,13 +261,18 @@ function buildFtsQuery(input: string) {
       }
 
       value = value.trim();
-      if (!value.endsWith("*")) {
+      if (!quoted &&!value.endsWith("*")) {
         value = `${value}*`;
       }
 
       return pushPlaceholder(`${col}: ${value}`);
     }
   );
+
+  // Get phrase searches
+  remaining = remaining.replace(/"((?:[^"\\]|\\.)*)"/g, (m) => {
+    return pushPlaceholder(m);
+  });
 
   // Get remaining tokens
   const tokens = remaining.match(/(\(|\)|AND|OR|NOT|NEAR|[\w-]+|"[^\"]*")/gi) || [];
@@ -276,16 +301,28 @@ function buildFtsQuery(input: string) {
     return token;
   })
   
-  let result = processed.join(" ");
-  result = result.replace(/__P(\d+)__/g, (_, i) => placeholders[+i]);
+  let ftsParams = processed.join(" ");
+  ftsParams = ftsParams.replace(/__P(\d+)__/g, (_, i) => placeholders[+i]);
 
-  // No valid search terms after cleaning
-  if (result.length === 0) {
-    return null;
+  const allClauses = [];
+  const allParams = [];
+
+  if (ftsParams) {
+    allClauses.push(`films_search MATCH ?`);
+    allParams.push(ftsParams);
   }
 
+  if (yearClauses.length > 0) {
+    allClauses.push(...yearClauses);
+    allParams.push(...yearParams);
+  }
+
+  // No valid search terms after cleaning
+  if (allClauses.length === 0) {
+    return null;
+  }
   return {
-    clause: `films_search MATCH ?`,
-    params: [result],
+    clause: allClauses.join(" AND "),
+    params: allParams as (string | number)[],
   };
 }
