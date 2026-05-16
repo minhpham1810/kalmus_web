@@ -58,7 +58,7 @@ def create_db(db_path: Path = films_db, con: sqlite3.Connection | None = None):
         "runtime_minutes INTEGER"
         ");"
     )
-    
+
     # Entity tables
     cur.execute(
         "CREATE TABLE IF NOT EXISTS genres ("
@@ -218,7 +218,7 @@ def upsert_job(job_id: str, data: dict, upload_metadata: dict, json_loc: str, po
     config = data.get("config")
     movie = data.get("movie") or {}
     raw = movie.get("raw") or {}
-    
+
     title = movie.get("title")
     imdb_id = movie.get("imdb_id")
     type_ = raw.get("Type", "")
@@ -287,7 +287,7 @@ def upsert_job(job_id: str, data: dict, upload_metadata: dict, json_loc: str, po
         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);",
         (job_id,
          config.get("email", "").lower(),
-         datetime.now().date(),
+         datetime.fromisoformat(data.get("submittedAt")).date() or datetime.now().date(),
          json_loc,
          poster_loc,
          config.get("barcode_type").lower(),
@@ -298,7 +298,7 @@ def upsert_job(job_id: str, data: dict, upload_metadata: dict, json_loc: str, po
          upload_metadata.get("fps"),
          upload_metadata.get("frame_count"))
     )
-    
+
     con.commit()
     _maybe_close(con, owned)
 
@@ -412,7 +412,7 @@ def get_job(job_id: str, db_path: Path = films_db, con: sqlite3.Connection | Non
     if row is None:
         _maybe_close(con, owned)
         return {}
-        
+
     film["job"] = {
         "uploader": row[1],
         "process_date": row[2],
@@ -486,7 +486,7 @@ def get_recent_jobs(limit: int = 10, db_path: Path = films_db, con: sqlite3.Conn
     job_ids = [row[0] for row in cur.fetchall()]
 
     results = [get_job(job_id, db_path, con) for job_id in job_ids]
-    
+
     _maybe_close(con, owned)
 
     return results
