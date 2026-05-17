@@ -150,6 +150,224 @@ function buildPreviewMovie(
   };
 }
 
+function formatRgbValue(rgb: RGB): string {
+  return `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
+}
+
+function formatHslValue(rgb: RGB): string {
+  const hsl = rgbToHsl(rgb[0], rgb[1], rgb[2]);
+  return `hsl(${Math.round(hsl[0])}°, ${Math.round(hsl[1] * 100)}%, ${Math.round(hsl[2] * 100)}%)`;
+}
+
+function formatHexValue(rgb: RGB): string {
+  return `#${rgb.map((value) => value.toString(16).padStart(2, "0")).join("")}`;
+}
+
+function sanitizeFilenamePart(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function loadImage(url: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("Unable to load thumbnail sheet"));
+    image.src = url;
+  });
+}
+
+function drawExportText(
+  context: CanvasRenderingContext2D,
+  text: string,
+  x: number,
+  y: number,
+  options: {
+    color: string;
+    size: number;
+    tracking?: number;
+    uppercase?: boolean;
+  }
+) {
+  const output = options.uppercase ? text.toUpperCase() : text;
+  context.fillStyle = options.color;
+  context.font = `${options.size}px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace`;
+  context.textBaseline = "top";
+
+  if (!options.tracking) {
+    context.fillText(output, x, y);
+    return;
+  }
+
+  let currentX = x;
+  for (const character of output) {
+    context.fillText(character, currentX, y);
+    currentX += context.measureText(character).width + options.tracking;
+  }
+}
+
+function drawClippedExportText(
+  context: CanvasRenderingContext2D,
+  text: string,
+  x: number,
+  y: number,
+  maxWidth: number,
+  options: {
+    color: string;
+    size: number;
+  }
+) {
+  context.save();
+  context.beginPath();
+  context.rect(x, y, Math.max(0, maxWidth), options.size + 3);
+  context.clip();
+  drawExportText(context, text, x, y, options);
+  context.restore();
+}
+
+async function exportPinnedFramePreview(preview: BarcodePreviewData): Promise<void> {
+  if (!preview.sheet.url) {
+    throw new Error("Thumbnail sheet is unavailable");
+  }
+
+  const sheetImage = await loadImage(preview.sheet.url);
+  const frameLabel = `Frame ${preview.thumbnail.frame_index.toLocaleString()}`;
+  const timeLabel = formatTimestamp(preview.thumbnail.time_seconds);
+  const hoveredPixel = formatRgbValue(preview.rgb);
+  const hoveredPixelHsl = formatHslValue(preview.rgb);
+  const columnAverage = formatRgbValue(preview.avgRgb);
+  const columnAverageHex = formatHexValue(preview.avgRgb);
+
+  const metadataHeight = 58;
+  const canvas = document.createElement("canvas");
+  canvas.width = preview.thumbnail.width;
+  canvas.height = preview.thumbnail.height + metadataHeight;
+
+  const context = canvas.getContext("2d");
+  if (!context) {
+    throw new Error("Canvas export is unavailable");
+  }
+
+  context.fillStyle = "#111111";
+  context.fillRect(0, 0, canvas.width, canvas.height);
+
+  context.drawImage(
+    sheetImage,
+    preview.thumbnail.x,
+    preview.thumbnail.y,
+    preview.thumbnail.width,
+    preview.thumbnail.height,
+    0,
+    0,
+    preview.thumbnail.width,
+    preview.thumbnail.height
+  );
+
+  const metadataTop = preview.thumbnail.height;
+  context.fillStyle = "#4a4946";
+  context.fillRect(0, metadataTop, canvas.width, metadataHeight);
+
+  const inset = Math.max(10, Math.round(canvas.width * 0.035));
+  const contentTop = metadataTop + 11;
+  drawExportText(context, frameLabel, inset, contentTop, {
+    color: "#bcb6ad",
+    size: 7,
+    tracking: 1.9,
+    uppercase: true,
+  });
+  drawExportText(context, timeLabel, inset, contentTop + 18, {
+    color: "#f4f1eb",
+    size: 9,
+  });
+
+  const swatchSize = 15;
+  const colorX = Math.max(inset + 84, Math.round(canvas.width * 0.27));
+  context.fillStyle = hoveredPixel;
+  context.fillRect(colorX, contentTop + 13, swatchSize, swatchSize);
+  context.strokeStyle = "rgba(255, 255, 255, 0.22)";
+  context.strokeRect(colorX + 0.5, contentTop + 13.5, swatchSize - 1, swatchSize - 1);
+
+  const colorTextX = colorX + swatchSize + 10;
+  drawExportText(context, "Hovered pixel", colorTextX, contentTop, {
+    color: "#bcb6ad",
+    size: 7,
+    tracking: 1.7,
+    uppercase: true,
+  });
+  drawExportText(context, hoveredPixel, colorTextX, contentTop + 14, {
+    color: "#f4f1eb",
+    size: 8,
+  });
+  const averageLabel = "Avg";
+  const averageTextWidth = 42;
+  const averageTextX = canvas.width - inset - averageTextWidth;
+  const averageX = averageTextX - swatchSize - 8;
+  const colorLineMaxWidth = Math.max(0, averageX - 12 - colorTextX);
+  drawClippedExportText(
+    context,
+    hoveredPixelHsl,
+    colorTextX,
+    contentTop + 27,
+    colorLineMaxWidth,
+    {
+    color: "#c8c2b8",
+    size: 7,
+    }
+  );
+
+  if (averageX > colorTextX + 48) {
+    context.fillStyle = columnAverage;
+    context.fillRect(averageX, contentTop + 13, swatchSize, swatchSize);
+    context.strokeStyle = "rgba(255, 255, 255, 0.22)";
+    context.strokeRect(averageX + 0.5, contentTop + 13.5, swatchSize - 1, swatchSize - 1);
+
+    drawExportText(context, averageLabel, averageTextX, contentTop, {
+      color: "#bcb6ad",
+      size: 7,
+      tracking: 1.4,
+      uppercase: true,
+    });
+    drawClippedExportText(
+      context,
+      columnAverageHex,
+      averageTextX,
+      contentTop + 14,
+      averageTextWidth,
+      {
+        color: "#f4f1eb",
+        size: 8,
+      }
+    );
+  }
+
+  context.strokeStyle = "rgba(255, 255, 255, 0.18)";
+  context.lineWidth = 1;
+  context.strokeRect(0.5, 0.5, canvas.width - 1, canvas.height - 1);
+
+  const blob = await new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob((result) => {
+      if (result) {
+        resolve(result);
+        return;
+      }
+      reject(new Error("Unable to create PNG export"));
+    }, "image/png");
+  });
+
+  const objectUrl = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  const framePart = sanitizeFilenamePart(`frame-${preview.thumbnail.frame_index}`);
+  link.href = objectUrl;
+  link.download = `kalmus-${framePart || "pinned-frame"}.png`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(objectUrl);
+}
+
 function buildFilmSearchPreviewMovie(result: FilmSearchResult): BarcodePreviewMovie {
   return {
     title: result.title,
@@ -198,11 +416,28 @@ function StaticPreviewPanel({
   onToggleMinimized: () => void;
   onClearPin: () => void;
 }) {
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
   const previewHeight = preview?.thumbnail.height ?? 200;
   const frameLabel = preview
     ? `Frame ${preview.thumbnail.frame_index.toLocaleString()}`
     : "No thumbnail selected";
   const timeLabel = preview ? formatTimestamp(preview.thumbnail.time_seconds) : "";
+  const canExport = pinned && preview;
+
+  const handleExport = async () => {
+    if (!preview || exporting) return;
+
+    setExporting(true);
+    setExportError(null);
+    try {
+      await exportPinnedFramePreview(preview);
+    } catch (err) {
+      setExportError(err instanceof Error ? err.message : "Unable to export pinned frame");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   return (
     <div className="panel-bg border border-[var(--surface-border)] rounded-lg overflow-hidden">
@@ -218,6 +453,16 @@ function StaticPreviewPanel({
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          {canExport && (
+            <button
+              type="button"
+              onClick={handleExport}
+              disabled={exporting}
+              className="px-2.5 py-1 font-mono text-[10px] tracking-[0.18em] uppercase transition-colors border border-[var(--input-border)] hover:border-[var(--accent-amber)] hover:text-[var(--text-primary)] disabled:cursor-wait disabled:opacity-60"
+            >
+              {exporting ? "Exporting" : "Export"}
+            </button>
+          )}
           {pinned && preview && (
             <button
               type="button"
@@ -283,6 +528,12 @@ function StaticPreviewPanel({
               </div>
             )}
           </div>
+
+          {exportError && (
+            <p className="font-mono text-[10px] text-red-400">
+              {exportError}
+            </p>
+          )}
 
           <div className="grid gap-3">
             <MetricRow

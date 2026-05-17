@@ -458,7 +458,9 @@ export default function BarcodePreview({
                 <p className="font-mono text-xs kalmus-text-primary truncate">
                   {movie.title}{" "}
                   {movie.year ? (
-                    <span style={{ color: "var(--accent-amber)" }}>({movie.year})</span>
+                    <span style={{ color: "var(--accent-amber)" }}>
+                      ({movie.year})
+                    </span>
                   ) : null}
                 </p>
                 {movie.metadata.length > 0 && (
@@ -467,7 +469,10 @@ export default function BarcodePreview({
                   </p>
                 )}
                 {detailLines.map((line) => (
-                  <p key={line} className="font-mono text-[10px] kalmus-text-secondary truncate mt-0.5">
+                  <p
+                    key={line}
+                    className="font-mono text-[10px] kalmus-text-secondary truncate mt-0.5"
+                  >
                     {line}
                   </p>
                 ))}
@@ -482,7 +487,10 @@ export default function BarcodePreview({
                 {fallbackTitle}
               </p>
               {detailLines.map((line) => (
-                <p key={line} className="font-mono text-[10px] kalmus-text-secondary truncate mt-0.5">
+                <p
+                  key={line}
+                  className="font-mono text-[10px] kalmus-text-secondary truncate mt-0.5"
+                >
                   {line}
                 </p>
               ))}
@@ -517,7 +525,12 @@ export default function BarcodePreview({
               className="p-2 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded transition-colors"
               title="Download PNG"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -674,7 +687,9 @@ export default function BarcodePreview({
         >
           {/* Start */}
           <div className="flex items-center gap-2 min-w-0">
-            <span className="font-mono text-[11px] kalmus-text-secondary flex-shrink-0">▸</span>
+            <span className="font-mono text-[11px] kalmus-text-secondary flex-shrink-0">
+              ▸
+            </span>
             <input
               type="text"
               inputMode="numeric"
@@ -682,7 +697,9 @@ export default function BarcodePreview({
               defaultValue={frameRange?.[0] ?? 0}
               key={`start-${frameRange?.[0]}-${frameRange?.[1]}`}
               onBlur={(e) => commitStart(e.currentTarget.value)}
-              onKeyDown={(e) => e.key === "Enter" && commitStart(e.currentTarget.value)}
+              onKeyDown={(e) =>
+                e.key === "Enter" && commitStart(e.currentTarget.value)
+              }
               title="Start frame"
               className="font-mono text-[11px] bg-transparent text-center flex-shrink-0"
               style={{
@@ -734,7 +751,9 @@ export default function BarcodePreview({
               defaultValue={frameRange?.[1] ?? 0}
               key={`end-${frameRange?.[0]}-${frameRange?.[1]}`}
               onBlur={(e) => commitEnd(e.currentTarget.value)}
-              onKeyDown={(e) => e.key === "Enter" && commitEnd(e.currentTarget.value)}
+              onKeyDown={(e) =>
+                e.key === "Enter" && commitEnd(e.currentTarget.value)
+              }
               title="End frame"
               className="font-mono text-[11px] bg-transparent text-center flex-shrink-0"
               style={{
@@ -745,12 +764,14 @@ export default function BarcodePreview({
                 outline: "none",
               }}
             />
-            <span className="font-mono text-[11px] kalmus-text-secondary flex-shrink-0">◂</span>
+            <span className="font-mono text-[11px] kalmus-text-secondary flex-shrink-0">
+              ◂
+            </span>
           </div>
         </div>
       )}
 
-      {/* Footer Info */}
+      {/* Footer Info
       <div className="px-4 py-2 border-t border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900">
         <div className="flex flex-col gap-1 lg:flex-row lg:items-center lg:justify-between">
           <p className="text-xs text-neutral-500 dark:text-neutral-400">
@@ -772,7 +793,7 @@ export default function BarcodePreview({
             )}
           </div>
         </div>
-      </div>
+      </div> */}
     </div>
   );
 }
