@@ -9,7 +9,7 @@ import {
   computeHistogram,
   getHueColor,
   filterHueSamplesBySaturation,
-  pickRepresentativeFrameIndex,
+  pickDeterministicFrameIndex,
   rgbToHsv,
   trimHueSampleOutliers,
 } from "@/lib/barcode-utils";
@@ -81,9 +81,7 @@ export default function InteractiveHistogram({
       });
 
       for (let i = 0; i < representativeFrameIndices.length; i++) {
-        representativeFrameIndices[i] = pickRepresentativeFrameIndex(
-          binFrameIndices.get(i) ?? []
-        );
+        representativeFrameIndices[i] = pickDeterministicFrameIndex(binFrameIndices.get(i) ?? [], i);
       }
 
       // Generate colors for each bin based on hue
@@ -113,9 +111,7 @@ export default function InteractiveHistogram({
       });
 
       for (let i = 0; i < representativeFrameIndices.length; i++) {
-        representativeFrameIndices[i] = pickRepresentativeFrameIndex(
-          binFrameIndices.get(i) ?? []
-        );
+        representativeFrameIndices[i] = pickDeterministicFrameIndex(binFrameIndices.get(i) ?? [], i);
       }
 
       // Grayscale colors for brightness
