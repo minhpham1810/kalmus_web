@@ -229,6 +229,20 @@ export function pickRepresentativeFrameIndex(frameIndices: number[]): number | n
   return sorted[Math.floor(sorted.length / 2)] ?? null;
 }
 
+export function pickDeterministicFrameIndex(
+  frameIndices: number[],
+  seed: number = 0
+): number | null {
+  if (!frameIndices.length) return null;
+  const sorted = [...frameIndices].sort((a, b) => a - b);
+  let hash = (seed + 0x9e3779b9) | 0;
+  for (const index of sorted) {
+    hash = Math.imul(hash ^ index, 2654435761);
+  }
+  const position = Math.abs(hash) % sorted.length;
+  return sorted[position] ?? null;
+}
+
 export function buildPreviewFromFrameIndex({
   barcode,
   barcodeType,
@@ -486,7 +500,9 @@ export function computeHueLightBins(
     const avgG = Math.round(data.sumG / data.count);
     const avgB = Math.round(data.sumB / data.count);
     colorStrs.push(`rgb(${avgR},${avgG},${avgB})`);
-    representativeFrameIndices.push(pickRepresentativeFrameIndex(data.frameIndices));
+    representativeFrameIndices.push(
+      pickDeterministicFrameIndex(data.frameIndices, hueBin * 1000 + lightBin)
+    );
 
     maxCount = Math.max(maxCount, data.count);
   });
