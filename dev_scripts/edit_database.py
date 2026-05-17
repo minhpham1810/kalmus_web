@@ -10,16 +10,19 @@ pythonpath = os.getenv("PYTHONPATH")
 if pythonpath:
     sys.path.insert(0, pythonpath)
 
-from database import *
+from database import *  # noqa: F401, F403
 
 OMDB_KEY = os.getenv("OMDB_KEY")
 OMDB_URL = "https://www.omdbapi.com/"
+
 
 def list_recent_jobs(count: int = 10):
     jobs = get_recent_jobs(count)
     print("Job ID | Title | Date | Uploader")
     for job in jobs:
-        print(f"{job['job_id']} | {job['title']} | {job['job']['process_date']} | {job['job']['uploader']}")
+        print(
+            f"{job['job_id']} | {job['title']} | {job['job']['process_date']} | {job['job']['uploader']}")
+
 
 def format_date_safe(date_str: str) -> str | None:
     try:
@@ -27,34 +30,38 @@ def format_date_safe(date_str: str) -> str | None:
     except (ValueError, TypeError):
         return date_str  # Return original if parsing fails
 
-def get_upload_metadata(job_id: str) -> dict:
+
+def get_upload_metadata(job_id: str) -> UploadMetadata:
     barcode_path = Path(f'/home/kalmus/kalmus/results/{job_id}/barcode.json')
     try:
         with open(barcode_path, "r") as f:
             data = json.load(f)
 
-        upload_metadata = {
-            "width": data.get("high_bound_hor"),
-            "height": data.get("high_bound_ver"),
-            "fps": data.get("fps"),
-            "frame_count": data.get("film_length_in_frames"),
-        }
+        upload_metadata = UploadMetadata(
+            width=data.get("high_bound_hor"),
+            height=data.get("high_bound_ver"),
+            fps=data.get("fps"),
+            frame_count=data.get("film_length_in_frames"),
+        )
         return upload_metadata
     except json.JSONDecodeError:
-        print("Invalid JSON:", job_dir)
-        return {}
+        print("Invalid JSON:", barcode_path)
+        raise
+
 
 def edit_job(job_id: str):
     film = get_job(job_id)
     if not film:
         print("Film not found")
         return
-    
-    old_title, old_imdb_id, old_released, old_type, old_runtime = film["title"], film["imdb_id"], film["released"], film["type"], film["runtime_minutes"]
+
+    old_title, old_imdb_id, old_released, old_type, old_runtime = film["title"], film[
+        "imdb_id"], film["released"], film["type"], film["runtime_minutes"]
     new_title, new_imdb, new_released, new_type, new_runtime = old_title, old_imdb_id, old_released, old_type, old_runtime
     print(f"Editing: {old_title}", ({old_imdb_id}) if old_imdb_id else "")
 
-    use_imdb = input("Do you want to load data using an IMDb ID? (y/n): ").strip().lower() == "y"
+    use_imdb = input(
+        "Do you want to load data using an IMDb ID? (y/n): ").strip().lower() == "y"
 
     if use_imdb:
         new_imdb = input("Enter IMDb ID: ").strip()
@@ -66,60 +73,65 @@ def edit_job(job_id: str):
                 data = response.json()
                 new_title = data.get("Title", old_title)
                 new_imdb = data.get("imdbID", old_imdb_id)
-                new_released = format_date_safe(data.get("Released", old_released))
+                new_released = format_date_safe(
+                    data.get("Released")) or old_released
                 new_type = data.get("Type", old_type)
-                new_runtime = data.get("Runtime", old_runtime).replace(" min", "")
+                new_runtime = data.get(
+                    "Runtime", old_runtime).replace(" min", "")
             else:
-                print(f"IMDb error: {data.get('Error')}")
+                raise Exception(f"OMDb API error: {response.status_code}")
         except Exception as e:
             print(f"Error fetching IMDb data: {e}")
 
-    new_title = input(f"New title (leave blank to keep '{new_title}'): ").strip() or new_title
+    new_title = input(
+        f"New title (leave blank to keep '{new_title}'): ").strip() or new_title
     new_imdb = old_imdb_id  # IMDb ID is not editable manually
-    new_released = format_date_safe(input(f"New release date (leave blank to keep '{new_released}'): ").strip() or new_released)
-    new_type = input(f"New type (leave blank to keep '{new_type}'): ").strip() or new_type
-    new_runtime = input(f"New runtime in minutes (leave blank to keep '{new_runtime}'): ").strip() or new_runtime
+    new_released = format_date_safe(input(
+        f"New release date (leave blank to keep '{new_released}'): ").strip()) or new_released
+    new_type = input(
+        f"New type (leave blank to keep '{new_type}'): ").strip() or new_type
+    new_runtime = input(
+        f"New runtime in minutes (leave blank to keep '{new_runtime}'): ").strip() or new_runtime
 
     film_metadata = get_job_metadata(job_id)
-    film_metadata["movie"].update({
-        "title": new_title,
-        "imdb_id": new_imdb
-    })
+    film_metadata["movie"]["title"] = new_title
+    film_metadata["movie"]["imdb_id"] = new_imdb
     if "raw" not in film_metadata["movie"]:
-        film_metadata["movie"]["raw"] = {}
-    film_metadata["movie"]["raw"].update({
-        "Released": new_released,
-        "Type": new_type,
-        "Runtime": f"{new_runtime} min" if new_runtime else ""
-    })
+        film_metadata["movie"]["raw"] = MovieRaw(
+            Released=new_released,
+            Type=new_type,
+            Runtime=f"{new_runtime} min" if new_runtime else ""
+        )
     upload_metadata = get_upload_metadata(job_id)
 
-    upsert_job(job_id, film_metadata, upload_metadata, film["job"]["json"], film["job"]["poster"])
+    upsert_job(job_id, film_metadata, upload_metadata,
+               film["job"]["json"], film["job"]["poster"])
 
     print("Film updated!")
+
 
 def clear_screen():
     print("\033[2J\033[H\n", end="")
 
+
 def main():
     def cmd_list():
         list_recent_jobs(10)
-    
+
     def cmd_edit():
         job_id = input("Enter job ID to edit: ").strip()
         edit_job(job_id)
-    
+
     def cmd_delete():
         job_id = input("Enter job ID to delete: ").strip()
         delete_job(job_id)
         print("Job deleted!")
-    
+
     options = [
         ("List recently processed films", cmd_list),
         ("Edit film by job ID", cmd_edit),
         ("Delete film by job ID", cmd_delete),
     ]
-
 
     while True:
         clear_screen()
@@ -140,6 +152,7 @@ def main():
             print("Invalid choice")
 
         input("Press Enter to continue...")
+
 
 if __name__ == "__main__":
     main()
