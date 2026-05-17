@@ -188,16 +188,57 @@ function buildFilmSearchDetailLines(result: FilmSearchResult): string[] {
 function StaticPreviewPanel({
   preview,
   pinned,
+  minimized,
+  onToggleMinimized,
   onClearPin,
 }: {
   preview: BarcodePreviewData | null;
   pinned: boolean;
+  minimized: boolean;
+  onToggleMinimized: () => void;
   onClearPin: () => void;
 }) {
   const previewHeight = preview?.thumbnail.height ?? 200;
+  const frameLabel = preview
+    ? `Frame ${preview.thumbnail.frame_index.toLocaleString()}`
+    : "No thumbnail selected";
+  const timeLabel = preview ? formatTimestamp(preview.thumbnail.time_seconds) : "";
 
   return (
     <div className="panel-bg border border-[var(--surface-border)] rounded-lg overflow-hidden">
+      <div className="flex items-center justify-between gap-3 px-4 py-2 border-b border-[var(--surface-border)] bg-[var(--surface-bg-strong)]">
+        <div className="min-w-0">
+          <p className="font-mono text-[9px] tracking-[0.24em] uppercase kalmus-text-secondary">
+            Frame Thumbnail
+          </p>
+          <p className="font-mono text-[11px] kalmus-text-primary truncate mt-0.5">
+            {minimized
+              ? [frameLabel, timeLabel].filter(Boolean).join(" | ")
+              : "Hover the barcode or a plot to inspect a matching captured frame."}
+          </p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {pinned && preview && (
+            <button
+              type="button"
+              onClick={onClearPin}
+              className="px-2.5 py-1 font-mono text-[10px] tracking-[0.18em] uppercase transition-colors border border-[var(--input-border)] hover:border-[var(--accent-amber)] hover:text-[var(--text-primary)]"
+            >
+              Release
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onToggleMinimized}
+            className="px-2.5 py-1 font-mono text-[10px] tracking-[0.18em] uppercase transition-colors border border-[var(--input-border)] hover:border-[var(--accent-amber)] hover:text-[var(--text-primary)]"
+            aria-expanded={!minimized}
+          >
+            {minimized ? "Show" : "Minimize"}
+          </button>
+        </div>
+      </div>
+
+      {minimized ? null : (
       <div
         className="grid gap-4 p-4 lg:grid-cols-[minmax(260px,1.2fr)_minmax(240px,0.8fr)]"
         style={{ minHeight: `${previewHeight + 32}px` }}
@@ -228,12 +269,10 @@ function StaticPreviewPanel({
           <div className="flex items-start justify-between gap-3 min-h-[40px]">
             <div>
               <div className="font-mono text-[9px] tracking-[0.16em] uppercase kalmus-text-secondary">
-                {preview
-                  ? `Frame ${preview.thumbnail.frame_index.toLocaleString()}`
-                  : "No thumbnail selected"}
+                {frameLabel}
               </div>
               <div className="font-mono text-[11px] kalmus-text-primary mt-1">
-                {preview ? formatTimestamp(preview.thumbnail.time_seconds) : " "}
+                {timeLabel || " "}
               </div>
             </div>
             {pinned && preview && (
@@ -241,13 +280,6 @@ function StaticPreviewPanel({
                 <span className="font-mono text-[10px] tracking-[0.18em] uppercase px-2 py-0.5 border border-[var(--accent-amber)] text-[var(--accent-amber)]">
                   Pinned
                 </span>
-                <button
-                  type="button"
-                  onClick={onClearPin}
-                  className="px-2.5 py-1 font-mono text-[10px] tracking-[0.18em] uppercase transition-colors border border-[var(--input-border)] hover:border-[var(--accent-amber)] hover:text-[var(--text-primary)]"
-                >
-                  Release
-                </button>
               </div>
             )}
           </div>
@@ -290,6 +322,7 @@ function StaticPreviewPanel({
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }
@@ -523,6 +556,7 @@ export default function VisualizationPanel({
   const [compareSecondaryRange, setCompareSecondaryRange] = useState<[number, number] | null>(null);
   const [previewData, setPreviewData] = useState<BarcodePreviewData | null>(null);
   const [previewPinned, setPreviewPinned] = useState(false);
+  const [thumbnailViewerMinimized, setThumbnailViewerMinimized] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -839,6 +873,8 @@ export default function VisualizationPanel({
         <StaticPreviewPanel
           preview={previewData}
           pinned={previewPinned}
+          minimized={thumbnailViewerMinimized}
+          onToggleMinimized={() => setThumbnailViewerMinimized((value) => !value)}
           onClearPin={handleClearPreviewPin}
         />
       )}
