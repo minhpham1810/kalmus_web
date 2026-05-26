@@ -4,6 +4,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { ThumbnailManifest } from '@/lib/barcode-utils';
+import { hydrateBarcodeResult } from '@/lib/barcode-result';
 
 const execAsync = promisify(exec);
 
@@ -493,10 +494,16 @@ export async function getSlurmJobResult(jobId: string) {
       };
     }
 
+    // Read metadata
+    const metadataPath = path.join(outputDir, 'metadata.json');
+    const metadataContent = await fs.readFile(metadataPath, 'utf-8');
+    const metadata: JobMetadata = JSON.parse(metadataContent);
+
     // Read barcode result
     const barcodePath = path.join(outputDir, 'barcode.json');
     const barcodeContent = await fs.readFile(barcodePath, 'utf-8');
-    const barcodeData = JSON.parse(barcodeContent);
+    const rawBarcodeData = JSON.parse(barcodeContent) as Record<string, unknown>;
+    const barcodeData = hydrateBarcodeResult(rawBarcodeData, metadata.config);
 
     // Read summary if available
     const summaryPath = path.join(outputDir, 'summary.json');
@@ -507,11 +514,6 @@ export async function getSlurmJobResult(jobId: string) {
     } catch {
       // Summary file might not exist
     }
-
-    // Read metadata
-    const metadataPath = path.join(outputDir, 'metadata.json');
-    const metadataContent = await fs.readFile(metadataPath, 'utf-8');
-    const metadata: JobMetadata = JSON.parse(metadataContent);
 
     let thumbnailData: ThumbnailManifest | null = null;
     try {
