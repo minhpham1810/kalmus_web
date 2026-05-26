@@ -50,6 +50,11 @@ export default function InteractiveHueLight3DBar({
   const [camera, setCamera] = useState(DEFAULT_CAMERA);
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const getPresetButtonStyle = (isActive: boolean) => ({
+    background: isActive ? "var(--foreground)" : "var(--surface-bg-strong)",
+    color: isActive ? "var(--background)" : "var(--text-primary)",
+    borderColor: isActive ? "var(--foreground)" : "var(--input-border)",
+  });
 
   // Compute binned data
   const barData = useMemo(() => {
@@ -311,11 +316,8 @@ export default function InteractiveHueLight3DBar({
                 <button
                   key={preset}
                   onClick={() => handlePresetChange(preset)}
-                  className={`px-2 py-1 text-xs rounded transition-colors ${
-                    cameraPreset === preset
-                      ? "bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900"
-                      : "bg-white dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 border border-neutral-300 dark:border-neutral-600 hover:bg-neutral-100 dark:hover:bg-neutral-600"
-                  }`}
+                  className="px-2 py-1 text-xs rounded border transition-colors hover:bg-[var(--surface-hover)]"
+                  style={getPresetButtonStyle(cameraPreset === preset)}
                 >
                   {preset}
                 </button>

@@ -2,18 +2,22 @@
 
 import { createContext, useContext, useEffect, useSyncExternalStore } from 'react';
 
-export type BgLevel = 'grey10' | 'grey40' | 'grey60' | 'grey90';
+export type BgLevel = 'black' | 'white';
 const THEME_STORAGE_KEY = 'theme';
 const THEME_CHANGE_EVENT = 'kalmus-theme-change';
 
 export const BG_COLORS: Record<BgLevel, string> = {
-  grey10: 'linear-gradient(135deg, #060606 0%, #1a1a1a 100%)',
-  grey40: 'linear-gradient(135deg, #060606 0%, #555555 100%)',
-  grey60: 'linear-gradient(135deg, #111111 0%, #999999 100%)',
-  grey90: 'linear-gradient(135deg, #c8c8c8 0%, #f5f5f5 100%)',
+  black: '#000000',
+  white: '#ffffff',
 };
 
-const BG_CYCLE: BgLevel[] = ['grey10', 'grey40', 'grey60', 'grey90'];
+const BG_CYCLE: BgLevel[] = ['black', 'white'];
+const LEGACY_BG_LEVELS: Record<string, BgLevel> = {
+  grey10: 'black',
+  grey40: 'black',
+  grey60: 'black',
+  grey90: 'white',
+};
 
 interface ThemeContextType {
   bgLevel: BgLevel;
@@ -22,17 +26,25 @@ interface ThemeContextType {
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
-function isBgLevel(value: string | null): value is BgLevel {
-  return value !== null && BG_CYCLE.includes(value as BgLevel);
+function normalizeBgLevel(value: string | null): BgLevel {
+  if (value === 'black' || value === 'white') {
+    return value;
+  }
+
+  if (value && value in LEGACY_BG_LEVELS) {
+    return LEGACY_BG_LEVELS[value];
+  }
+
+  return 'black';
 }
 
 function getThemeSnapshot(): BgLevel {
   if (typeof window === 'undefined') {
-    return 'grey10';
+    return 'black';
   }
 
   const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
-  return isBgLevel(stored) ? stored : 'grey10';
+  return normalizeBgLevel(stored);
 }
 
 function subscribeThemeChange(callback: () => void) {
@@ -64,12 +76,12 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const bgLevel = useSyncExternalStore<BgLevel>(
     subscribeThemeChange,
     getThemeSnapshot,
-    (): BgLevel => 'grey10'
+    (): BgLevel => 'black'
   );
 
   useEffect(() => {
     const root = document.documentElement;
-    root.classList.toggle('dark', ['grey10', 'grey40', 'grey60'].includes(bgLevel));
+    root.classList.toggle('dark', bgLevel === 'black');
     root.setAttribute('data-bg-level', bgLevel);
   }, [bgLevel]);
 

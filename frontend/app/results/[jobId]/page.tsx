@@ -200,7 +200,7 @@ export default function ResultsPage() {
                     </button>
                     <button
                       onClick={handleProcessAnother}
-                      className="px-5 py-2 font-mono text-[11px] tracking-[0.18em] uppercase transition-all bg-[var(--accent-crimson)] text-[var(--foreground)] hover:brightness-110 hover:-translate-y-0.5 hover:shadow-md"
+                      className="px-5 py-2 font-mono text-[11px] tracking-[0.18em] uppercase transition-all bg-[var(--accent-crimson)] text-[var(--background)] hover:brightness-110 hover:-translate-y-0.5 hover:shadow-md"
                     >
                       Upload New Video
                     </button>
@@ -274,7 +274,7 @@ export default function ResultsPage() {
               </button>
               <button
                 onClick={handleProcessAnother}
-                className="px-5 py-2 font-mono text-[10px] tracking-[0.18em] uppercase transition-all bg-[var(--accent-crimson)] text-[var(--foreground)] hover:brightness-110 hover:-translate-y-0.5 hover:shadow-md flex items-center gap-2"
+                className="px-5 py-2 font-mono text-[10px] tracking-[0.18em] uppercase transition-all bg-[var(--accent-crimson)] text-[var(--background)] hover:brightness-110 hover:-translate-y-0.5 hover:shadow-md flex items-center gap-2"
               >
                 <svg
                   className="w-3 h-3"

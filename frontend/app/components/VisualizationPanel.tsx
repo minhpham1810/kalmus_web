@@ -1078,7 +1078,7 @@ export default function VisualizationPanel({
             <p className="font-mono text-xs kalmus-text-secondary mb-3">{error}</p>
             <button
               onClick={loadBarcodeData}
-              className="px-4 py-1.5 font-mono text-[10px] tracking-wider uppercase transition-all bg-[var(--accent-crimson)] text-[var(--foreground)] hover:brightness-110 hover:-translate-y-px hover:shadow-md"
+              className="px-4 py-1.5 font-mono text-[10px] tracking-wider uppercase transition-all bg-[var(--accent-crimson)] text-[var(--background)] hover:brightness-110 hover:-translate-y-px hover:shadow-md"
             >
               Retry
             </button>

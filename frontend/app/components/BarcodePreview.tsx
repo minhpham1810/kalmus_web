@@ -210,6 +210,11 @@ export default function BarcodePreview({
   const rulerContainerRef = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState(1);
   const [dragging, setDragging] = useState<"start" | "end" | null>(null);
+  const getZoomButtonStyle = (isActive: boolean) => ({
+    background: isActive ? "var(--foreground)" : "var(--surface-bg-strong)",
+    color: isActive ? "var(--background)" : "var(--text-primary)",
+    borderColor: isActive ? "var(--foreground)" : "var(--input-border)",
+  });
 
   const dimensions = {
     width: barcode[0]?.length || 0,
@@ -507,18 +512,15 @@ export default function BarcodePreview({
               <button
                 key={level}
                 onClick={() => setZoom(level)}
-                className={`px-2 py-1 text-xs rounded transition-colors ${
-                  zoom === level
-                    ? "bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900"
-                    : "bg-neutral-200 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-300 dark:hover:bg-neutral-600"
-                }`}
+                className="px-2 py-1 text-xs rounded border transition-colors hover:bg-[var(--surface-hover)]"
+                style={getZoomButtonStyle(zoom === level)}
               >
                 {level}x
               </button>
             ))}
           </div>
 
-          <div className="flex items-center gap-1 rounded border border-neutral-200 dark:border-neutral-700 bg-white/50 dark:bg-black/20 p-1">
+          <div className="flex items-center gap-1 rounded border border-[var(--surface-border)] bg-[var(--surface-bg)] p-1">
             {headerActions}
             <button
               onClick={handleDownload}
