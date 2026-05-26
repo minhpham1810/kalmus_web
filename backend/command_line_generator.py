@@ -376,16 +376,24 @@ def maybe_generate_thumbnail_manifest(video_path: str, barcode_obj: Barcode, out
     return manifest
 
 
-def check_should_process(imdb_id: str | None, barcode_type: str, frame_type: str, metric: str) -> bool:
+def check_should_process(
+    imdb_id: str | None,
+    barcode_type: str,
+    frame_type: str,
+    metric: str,
+    *,
+    force_reprocess: bool,
+    output_dir: str,
+) -> bool:
     existing_job_id = find_existing_analysis(
         imdb_id, barcode_type, frame_type, metric)
-    if existing_job_id and not args.force_reprocess:  # type: ignore
+    if existing_job_id and not force_reprocess:
         # NOTE: This prevents rerunning a film with the same parameters
         # This should not be an issue unless a film had issues with how it was ripped
         print(
             f"Equivalent analysis already exists for this movie/configuration: {existing_job_id}")
         write_duplicate_marker(
-            args.output_dir, existing_job_id)  # type: ignore
+            output_dir, existing_job_id)
         return False
 
     return True
@@ -527,7 +535,9 @@ def main(args: list[str] = sys.argv[1:]) -> int:
     if not check_should_process(film_metadata.get("movie").get("imdb_id"),
                                 film_metadata["config"]["barcode_type"].lower(),
                                 film_metadata["config"]["frame_type"].lower(),
-                                film_metadata["config"]["color_metric"].lower()):
+                                film_metadata["config"]["color_metric"].lower(),
+                                force_reprocess=parsed.force_reprocess,
+                                output_dir=parsed.output_dir):
         return 0
 
     print()
