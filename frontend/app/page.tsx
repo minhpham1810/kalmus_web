@@ -3,6 +3,11 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useState, useEffect, useRef } from "react";
+import FilmEditor, {FilmRecord} from "@/app/components/FilmEditor";
+
+// bucknell sso admin check
+const IS_ADMIN = false; //set true later before setting sso
+
 
 interface FilmSearchResult {
   job_id: string;
@@ -87,6 +92,16 @@ export default function Home() {
   const [searched, setSearched] = useState(false);
   const [loading, setLoading] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  //admin state
+  const [editingFilm, setEditingFilm] = useState<FilmRecord | null>(null);
+  const [editLoading, setEditLoading] = useState<string | null>(null);
+ //
+  const getSelectionButtonStyle = (isActive: boolean) => ({
+    background: isActive ? "var(--foreground)" : "var(--surface-bg)",
+    color: isActive ? "var(--background)" : "var(--text-primary)",
+    borderColor: isActive ? "var(--foreground)" : "var(--input-border)",
+  });
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -176,10 +191,51 @@ export default function Home() {
     }, 300);
   }, [activeSelection]);
 
+  // admin fetch film metadata
+  const handleEditClick = async (jobId: string) => {
+    setEditLoading(jobId);
+    try {
+      const res = await fetch (`/api/edit-film/${jobId}`);
+      if (!res.ok) throw new Error("Failed to load film metadata");
+      const film: FilmRecord = await res.json();
+      setEditingFilm(film);
+    } catch (err) {
+      console.error("Edit failed", err);
+    } finally {
+      setEditLoading(null);
+    }
+  };
+
+  // adming metadata save/delete udpate
+  const refreshResults = () => {
+    setEditingFilm(null);
+
+    if (activeSelection) {
+      const current = activeSelection;
+      setActiveSelection(null);
+      setTimeout(() => setActiveSelection(current), 0);
+    } else if (query.trim()) {
+      const current = query;
+      setQuery("");
+      setTimeout(() => setQuery(current), 0);
+    }
+  };
+
   const grouped = groupResults(results);
 
+  // admin film editor
   return (
     <div className="min-h-screen flex flex-col">
+      {/* film edit*/}
+      {editingFilm && (
+        <FilmEditor
+          film = {editingFilm}
+          onClose = {() => setEditingFilm(null)}
+          onSaved = {refreshResults}
+          onDeleted = {refreshResults}
+        />
+      )}
+
       {/* About link */}
       <div className="fixed top-5 right-24 z-50">
         <Link
@@ -356,11 +412,8 @@ export default function Home() {
             ).map((letter) => (
               <button
                 key={letter}
-                className={`px-2 py-1 border rounded text-sm font-mono transition-colors ${
-                  activeSelection === letter
-                    ? "bg-indigo-600 text-white"
-                    : "bg-white text-black"
-                }`}
+                className="px-2 py-1 border rounded text-sm font-mono transition-colors hover:bg-[var(--surface-hover)]"
+                style={getSelectionButtonStyle(activeSelection === letter)}
                 onClick={() => {
                   setActiveSelection(letter);
                   setQuery("");
@@ -372,11 +425,8 @@ export default function Home() {
 
             {/* Numbers */}
             <button
-              className={`px-2 py-1 border rounded text-sm font-mono transition-colors ${
-                activeSelection === "numbers"
-                  ? "bg-indigo-600 text-white"
-                  : "bg-white text-black"
-              }`}
+              className="px-2 py-1 border rounded text-sm font-mono transition-colors hover:bg-[var(--surface-hover)]"
+              style={getSelectionButtonStyle(activeSelection === "numbers")}
               onClick={() => {
                 setActiveSelection("numbers");
                 setQuery("");
@@ -391,11 +441,8 @@ export default function Home() {
                 setActiveSelection("symbols");
                 setQuery("");
               }}
-              className={`px-2 py-1 border rounded text-sm font-mono transition-colors ${
-                activeSelection === "symbols"
-                  ? "bg-indigo-600 text-white"
-                  : "bg-white text-black"
-              }`}
+              className="px-2 py-1 border rounded text-sm font-mono transition-colors hover:bg-[var(--surface-hover)]"
+              style={getSelectionButtonStyle(activeSelection === "symbols")}
             >
               #
             </button>
@@ -409,7 +456,8 @@ export default function Home() {
                 }, 0);
                 setQuery("");
               }}
-              className="px-2 py-1 border rounded text-sm font-mono transition-colors bg-white text-black"
+              className="px-2 py-1 border rounded text-sm font-mono transition-colors hover:bg-[var(--surface-hover)]"
+              style={getSelectionButtonStyle(activeSelection === "random")}
             >
               Surprise Me!
             </button>
@@ -532,10 +580,11 @@ export default function Home() {
                           {/* Analyses summary */}
                           <div>
                             {film.analyses.map((a) => (
+                              <div key = {a.job_id} className = "flex items-center gap-2">{/* edit button gap */}
                               <Link
                                 key={a.job_id}
                                 href={`/results/${a.job_id}`}
-                                className="grid grid-cols-[1fr_2fr_auto] items-center gap-4 border-b-2 border-transparent hover:border-blue-500"
+                                className="grid grid-cols-[1fr_2fr_auto] items-center gap-4 border-b-2 border-transparent hover:border-blue-500 flex-1"
                                 style={{ color: "var(--accent-amber)" }}
                               >
                                 <div className="flex items-center gap-1 font-mono text-xs kalmus-text-secondary capitalize">
@@ -565,6 +614,46 @@ export default function Home() {
                                   <span>View →</span>
                                 </div>
                               </Link>
+                              { /** edit button for films */}
+                              {IS_ADMIN && (
+                                  <button
+                                    onClick = {() => handleEditClick(a.job_id)}
+                                    disabled = {editLoading === a.job_id}
+                                    className = "font-mono text-[10px] tracking-wider uppercase transition-all flex items-center gap-1 shrink-0"
+                                    style={{
+                                      padding: "4px 10px",
+                                      background: "transparent",
+                                      border: "1px solid var(--surface-border)",
+                                      color: "var(--text-muted)",
+                                      cursor: "pointer",
+                                      opacity: editLoading === a.job_id ? 0.5 : 1,
+                                    }}
+                                    onMouseEnter = {(e) => {
+                                      e.currentTarget.style.borderColor = "var(--accent-amber)";
+                                      e.currentTarget.style.color = "var(--accent-amber)";
+                                    }}
+                                    onMouseLeave = {(e) => {
+                                      e.currentTarget.style.borderColor = "var(--surface-border)";
+                                      e.currentTarget.style.color = "var(--text-muted)";
+                                    }}
+                                  >
+                                    <svg
+                                      width = "10"
+                                      height = "10"
+                                      viewBox = "0 0 16 16"
+                                      fill = "none"
+                                      stroke = "currentColor"
+                                      strokeWidth = "1.5"
+                                      strokeLinecap = "round"
+                                      strokeLinejoin ="round"
+                                    >
+                                      <path d="M11.5 1.5l3 3L5 14H2v-3L11.5 1.5z" />
+                                    </svg>
+                                    {editLoading === a.job_id ? "…" : "Edit"}
+                                  </button>
+                                )}
+                              </div>
+
                             ))}
                           </div>
                         </div>

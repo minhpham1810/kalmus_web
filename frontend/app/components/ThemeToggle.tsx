@@ -3,17 +3,13 @@
 import { useTheme, BG_COLORS } from './ThemeProvider';
 
 const BG_LABELS: Record<string, string> = {
-  grey10: 'BG 10%',
-  grey40: 'BG 40%',
-  grey60: 'BG 60%',
-  grey90: 'BG 90%',
+  black: 'BLACK',
+  white: 'WHITE',
 };
 
 const TEXT_COLORS: Record<string, string> = {
-  grey10: '#d0d0d0',
-  grey40: '#d0d0d0',
-  grey60: '#ffffff',
-  grey90: '#1a1a1a',
+  black: '#ffffff',
+  white: '#000000',
 };
 
 export function ThemeToggle() {
@@ -26,8 +22,9 @@ export function ThemeToggle() {
       style={{
         background: BG_COLORS[bgLevel],
         color: TEXT_COLORS[bgLevel],
+        borderColor: 'var(--input-border)',
       }}
-      aria-label="Cycle background"
+      aria-label="Toggle color mode"
     >
       {BG_LABELS[bgLevel]}
     </button>
