@@ -59,10 +59,10 @@ export default function FileUpload({
         }}
       >
         {/* Corner brackets */}
-        <span aria-hidden className="absolute top-2 left-2 font-mono text-[10px] leading-none" style={{ color: 'var(--accent-amber)', opacity: 0.7 }}>⌐</span>
-        <span aria-hidden className="absolute top-2 right-2 font-mono text-[10px] leading-none" style={{ color: 'var(--accent-amber)', opacity: 0.7 }}>¬</span>
-        <span aria-hidden className="absolute bottom-2 left-2 font-mono text-[10px] leading-none" style={{ color: 'var(--accent-amber)', opacity: 0.7 }}>L</span>
-        <span aria-hidden className="absolute bottom-2 right-2 font-mono text-[10px] leading-none" style={{ color: 'var(--accent-amber)', opacity: 0.7 }}>J</span>
+        <span aria-hidden className="absolute top-2 left-2 font-mono text-xs leading-none" style={{ color: 'var(--accent-amber)', opacity: 0.7 }}>⌐</span>
+        <span aria-hidden className="absolute top-2 right-2 font-mono text-xs leading-none" style={{ color: 'var(--accent-amber)', opacity: 0.7 }}>¬</span>
+        <span aria-hidden className="absolute bottom-2 left-2 font-mono text-xs leading-none" style={{ color: 'var(--accent-amber)', opacity: 0.7 }}>L</span>
+        <span aria-hidden className="absolute bottom-2 right-2 font-mono text-xs leading-none" style={{ color: 'var(--accent-amber)', opacity: 0.7 }}>J</span>
 
         <input
           type="file"
@@ -92,7 +92,7 @@ export default function FileUpload({
               <p className="font-mono text-xs tracking-[0.15em] uppercase kalmus-text-primary">
                 Drop footage or click to load
               </p>
-              <p className="font-mono text-[10px] kalmus-text-muted mt-1 tracking-wider">
+              <p className="font-mono text-xs kalmus-text-muted mt-1 tracking-wider">
                 MP4 · AVI · MOV · MKV · FLV · WMV
               </p>
             </div>
@@ -122,7 +122,7 @@ export default function FileUpload({
                 <p className="font-mono text-xs kalmus-text-primary">
                   {selectedFile.name}
                 </p>
-                <p className="font-mono text-[10px] kalmus-text-secondary">
+                <p className="font-mono text-xs kalmus-text-secondary">
                   {formatFileSize(selectedFile.size)}
                 </p>
               </div>

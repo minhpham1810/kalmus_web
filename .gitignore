@@ -6,3 +6,6 @@ __pycache__
 
 # Database
 databases/
+
+# Generated test artifacts
+/tmp/frontend-test-build/

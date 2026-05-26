@@ -83,7 +83,7 @@ export default function SubmittedPage() {
               ✓
             </div>
             <div>
-              <div className="font-mono text-[9px] tracking-[0.35em] uppercase kalmus-text-secondary mb-0.5">
+              <div className="font-mono text-xs tracking-[0.35em] uppercase kalmus-text-secondary mb-0.5">
                 ▸ TRANSMISSION LOGGED
               </div>
               <h1 className="font-display text-xl tracking-wide kalmus-text-primary">
@@ -98,7 +98,7 @@ export default function SubmittedPage() {
 
           {/* Timing */}
           <div className="p-4 mb-6 kalmus-surface">
-            <div className="font-mono text-[9px] tracking-[0.3em] uppercase kalmus-text-secondary mb-2">
+            <div className="font-mono text-xs tracking-[0.3em] uppercase kalmus-text-secondary mb-2">
               Estimated Processing Time
             </div>
             <p className="font-mono text-sm kalmus-text-primary">
@@ -106,7 +106,7 @@ export default function SubmittedPage() {
                 ? `Estimated queue start: ${formattedEstimate}`
                 : "Typically 1-10 minutes"}
             </p>
-            <p className="font-mono text-[10px] kalmus-text-secondary mt-2 leading-relaxed">
+            <p className="font-mono text-xs kalmus-text-secondary mt-2 leading-relaxed">
               {formattedEstimate
                 ? "This reflects the scheduler's current start-time estimate. The analytics dashboard will be available after processing completes."
                 : "The cluster did not return a scheduler estimate. Most jobs complete within 1-10 minutes, depending on queue load and video size."}
@@ -115,7 +115,7 @@ export default function SubmittedPage() {
 
           {/* Job ID */}
           <div className="p-4 mb-6 kalmus-surface">
-            <div className="font-mono text-[9px] tracking-[0.3em] uppercase kalmus-text-secondary mb-2">
+            <div className="font-mono text-xs tracking-[0.3em] uppercase kalmus-text-secondary mb-2">
               Job ID
             </div>
             <div className="flex items-center justify-between gap-3">
@@ -143,7 +143,7 @@ export default function SubmittedPage() {
 
           {/* What happens next */}
           <div className="text-left space-y-3 mb-8">
-            <h2 className="font-mono text-[9px] tracking-[0.3em] uppercase kalmus-text-secondary">
+            <h2 className="font-mono text-xs tracking-[0.3em] uppercase kalmus-text-secondary">
               ▸ Processing sequence
             </h2>
             <ol className="space-y-3">
@@ -154,7 +154,7 @@ export default function SubmittedPage() {
               ].map((step, i) => (
                 <li key={i} className="flex items-start gap-3">
                   <span
-                    className="flex-shrink-0 font-mono text-[10px] mt-0.5 w-7"
+                    className="flex-shrink-0 font-mono text-xs mt-0.5 w-7"
                     style={{ color: 'var(--accent-amber)' }}
                   >
                     [{String(i + 1).padStart(2, '0')}]
@@ -169,7 +169,7 @@ export default function SubmittedPage() {
           <div className="flex flex-col sm:flex-row gap-3">
             <button
               onClick={() => router.push("/")}
-              className="flex-1 inline-flex items-center justify-center gap-2 px-5 py-2.5 font-mono text-[11px] tracking-[0.18em] uppercase transition-all kalmus-text-secondary border border-[var(--accent-crimson)] hover:bg-[var(--surface-bg-strong)] hover:text-[var(--text-primary)] hover:shadow-sm"
+              className="flex-1 inline-flex items-center justify-center gap-2 px-5 py-2.5 font-mono text-xs tracking-[0.18em] uppercase transition-all kalmus-text-secondary border border-[var(--accent-crimson)] hover:bg-[var(--surface-bg-strong)] hover:text-[var(--text-primary)] hover:shadow-sm"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -180,7 +180,7 @@ export default function SubmittedPage() {
         </div>
 
         {/* Note */}
-        <p className="font-mono text-[9px] text-center kalmus-text-muted leading-relaxed">
+        <p className="font-mono text-xs text-center kalmus-text-muted leading-relaxed">
           Save your Job ID — you can use it to access your dashboard at any time from{" "}
           <code className="font-mono kalmus-text-secondary">
             {typeof window !== "undefined" ? window.location.origin : ""}/results/{"{jobId}"}

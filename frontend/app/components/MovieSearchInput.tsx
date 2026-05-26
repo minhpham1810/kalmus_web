@@ -186,7 +186,7 @@ export default function MovieSearchInput({ onChange }: MovieSearchInputProps) {
               ({selected.year})
             </span>
           </p>
-          <p className="font-mono text-[10px] kalmus-text-secondary truncate mt-0.5">
+          <p className="font-mono text-xs kalmus-text-secondary truncate mt-0.5">
             {[
               selected.genre,
               selected.director && `Dir. ${selected.director}`,
@@ -226,7 +226,7 @@ export default function MovieSearchInput({ onChange }: MovieSearchInputProps) {
           <p className="font-mono text-xs kalmus-text-primary truncate">
             {submittedManual}
           </p>
-          <p className="font-mono text-[10px] kalmus-text-secondary">
+          <p className="font-mono text-xs kalmus-text-secondary">
             Entered manually
           </p>
         </div>
@@ -324,7 +324,7 @@ export default function MovieSearchInput({ onChange }: MovieSearchInputProps) {
                 <p className="font-mono text-xs kalmus-text-primary truncate">
                   {r.Title}
                 </p>
-                <p className="font-mono text-[10px] kalmus-text-secondary">
+                <p className="font-mono text-xs kalmus-text-secondary">
                   {r.Year} · {r.imdbID}
                 </p>
               </div>
@@ -340,7 +340,7 @@ export default function MovieSearchInput({ onChange }: MovieSearchInputProps) {
         query.trim().length >= 2 &&
         !error && (
           <div className="absolute top-full mt-1 left-0 right-0 z-10 px-3 py-2" style={{ background: 'var(--panel-gradient)', border: '1px solid var(--input-border)' }}>
-            <p className="font-mono text-[10px] kalmus-text-secondary">
+            <p className="font-mono text-xs kalmus-text-secondary">
               No results found.
             </p>
           </div>
@@ -348,7 +348,7 @@ export default function MovieSearchInput({ onChange }: MovieSearchInputProps) {
 
       {/* Error banner */}
       {error && (
-        <p className="mt-2 font-mono text-[10px] kalmus-text-secondary">
+        <p className="mt-2 font-mono text-xs kalmus-text-secondary">
           {error}
         </p>
       )}
@@ -370,7 +370,7 @@ export default function MovieSearchInput({ onChange }: MovieSearchInputProps) {
           <button
             onClick={handleManualSubmit}
             disabled={!manualInputValue.trim()}
-            className="px-3 py-1.5 font-mono text-[10px] tracking-wider uppercase transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            className="px-3 py-1.5 font-mono text-xs tracking-wider uppercase transition-all disabled:opacity-40 disabled:cursor-not-allowed"
             style={{ background: 'var(--surface-bg-strong)', border: '1px solid var(--accent-crimson)', color: 'var(--accent-amber)', borderRadius: 0 }}
           >
             Use This
@@ -382,7 +382,7 @@ export default function MovieSearchInput({ onChange }: MovieSearchInputProps) {
       {!showManualInput && (
         <button
           onClick={() => setShowManualInput(true)}
-          className="mt-2 font-mono text-[10px] underline kalmus-text-muted transition-colors"
+          className="mt-2 font-mono text-xs underline kalmus-text-muted transition-colors"
           onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-secondary)')}
           onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
         >

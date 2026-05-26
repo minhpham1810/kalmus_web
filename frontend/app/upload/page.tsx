@@ -25,7 +25,7 @@ export default function UploadPage() {
             </p>
             <Link
               href="/"
-              className="inline-flex items-center mt-3 font-mono text-[10px] tracking-[0.18em] uppercase kalmus-text-secondary hover:text-[var(--text-primary)] transition-colors"
+              className="inline-flex items-center mt-3 font-mono text-xs tracking-[0.18em] uppercase kalmus-text-secondary hover:text-[var(--text-primary)] transition-colors"
             >
               <span aria-hidden="true">&larr;</span>
               <span className="ml-1">Back to Archive</span>
@@ -37,7 +37,7 @@ export default function UploadPage() {
       </main>
 
       <footer className="py-6 text-center">
-        <p className="font-mono text-[9px] tracking-[0.28em] uppercase kalmus-text-muted">
+        <p className="font-mono text-xs tracking-[0.28em] uppercase kalmus-text-muted">
           Powered by{" "}
           <a
             href="https://github.com/KALMUS-Color-Toolkit/KALMUS"

@@ -41,7 +41,7 @@ export function getDb(): Database.Database {
         // This can be enabled, but due to concurrent writes to the database from the backend, it can cause disk I/O errors.
         // Enabling will not cause any crashes, but it will flood the logs.
         // For all purposes, the database is read-only from the frontend, so this should not cause any issues.
-        //   readonly: true, 
+        //   readonly: true,
         timeout: 5000,
     });
 }
@@ -49,7 +49,7 @@ export function getDb(): Database.Database {
 export function getAnalysesByImdbId(imdbId: string): FilmSearchResult[] {
   return withDb((db) => db
     .prepare(
-      `SELECT 
+      `SELECT
         f.job_id,
         f.title,
         f.imdb_id,

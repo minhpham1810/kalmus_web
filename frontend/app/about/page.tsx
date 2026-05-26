@@ -59,7 +59,14 @@ export default function AboutPage() {
               <p className="underline uppercase mb-2.5">
                 About The Barcode And Visualizations
               </p>
-              <Image src="/kalmus-description.png" alt="KALMUS Description" />
+              <Image
+                src="/kalmus-description.png"
+                alt="KALMUS Description"
+                width={1150}
+                height={307}
+                sizes="(max-width: 768px) 100vw, 672px"
+                className="w-full h-auto"
+              />
               <p>
                 The barcode is &ldquo;read&rdquo; top to bottom and then left to
                 right. The upper left corner represents the start of the film
@@ -77,10 +84,10 @@ export default function AboutPage() {
             </section>
             {/* Info Panel */}
             <div className="p-4 kalmus-surface">
-              <h4 className="font-mono text-[9px] tracking-[0.3em] uppercase kalmus-text-secondary mb-2">
+              <h4 className="font-mono text-xs tracking-[0.3em] uppercase kalmus-text-secondary mb-2">
                 ▸ About These Visualizations
               </h4>
-              <ul className="font-mono text-[10px] kalmus-text-secondary space-y-1">
+              <ul className="font-mono text-xs kalmus-text-secondary space-y-1">
                 <li>
                   <strong>Statistics:</strong> Overview of barcode metadata, dominant colors, and
                   brightness distribution

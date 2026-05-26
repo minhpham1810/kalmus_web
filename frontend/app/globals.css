@@ -20,6 +20,8 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-geist-sans);
+  font-size: 106.25%;
+  line-height: 1.55;
 }
 
 /* ── Panel utility ───────────────────────────────────────────────────────── */
@@ -64,6 +66,10 @@ html {
   /* Accent neutrals (used for borders, interactive text) */
   --accent-crimson: #b8b8b8;
   --accent-amber:   #ffffff;
+  --button-filled-bg: #ffffff;
+  --button-filled-text: #000000;
+  --button-filled-disabled-bg: #e5e5e5;
+  --button-filled-disabled-text: #000000;
 }
 
 /* ── black: solid black ──────────────────────────────────────────────────── */
@@ -100,6 +106,10 @@ html {
   --input-placeholder: #bdbdbd;
   --accent-crimson:    #b8b8b8;
   --accent-amber:      #ffffff;
+  --button-filled-bg:  #ffffff;
+  --button-filled-text: #000000;
+  --button-filled-disabled-bg: #d0d0d0;
+  --button-filled-disabled-text: #000000;
 }
 
 /* ── white: solid white ──────────────────────────────────────────────────── */
@@ -135,6 +145,10 @@ html {
   --input-placeholder: #555555;
   --accent-crimson:    #303030;
   --accent-amber:      #000000;
+  --button-filled-bg:  #000000;
+  --button-filled-text: #ffffff;
+  --button-filled-disabled-bg: #303030;
+  --button-filled-disabled-text: #ffffff;
 }
 
 .kalmus-input {
@@ -154,6 +168,20 @@ html {
 .kalmus-input option {
   background: var(--panel-gradient);
   color: var(--text-primary);
+}
+
+.kalmus-button-filled {
+  background: var(--button-filled-bg);
+  color: var(--button-filled-text);
+  border: 1px solid var(--button-filled-bg);
+  border-radius: 0;
+}
+
+.kalmus-button-filled:disabled,
+.kalmus-button-filled[aria-disabled="true"] {
+  background: var(--button-filled-disabled-bg);
+  color: var(--button-filled-disabled-text);
+  border-color: var(--button-filled-disabled-bg);
 }
 
 .kalmus-text-primary {

@@ -240,7 +240,7 @@ export default function Home() {
       <div className="fixed top-5 right-24 z-50">
         <Link
           href="/about"
-          className="font-mono text-[10px] tracking-[0.22em] uppercase kalmus-text-secondary hover:text-[var(--text-primary)] transition-colors"
+          className="font-mono text-xs tracking-[0.22em] uppercase kalmus-text-secondary hover:text-[var(--text-primary)] transition-colors"
         >
           About
         </Link>
@@ -273,7 +273,7 @@ export default function Home() {
               />
             </div>
 
-            <p className="font-mono text-[10px] tracking-[0.28em] uppercase kalmus-text-secondary">
+            <p className="font-mono text-xs tracking-[0.28em] uppercase kalmus-text-secondary">
               An archive and toolkit for analyzing film color
             </p>
           </header>
@@ -467,7 +467,7 @@ export default function Home() {
           <div className="text-center mb-14">
             <Link
               href="/upload"
-              className="inline-flex items-center gap-2 px-5 py-2 font-mono text-[11px] tracking-[0.22em] uppercase transition-all"
+              className="inline-flex items-center gap-2 px-5 py-2 font-mono text-xs tracking-[0.22em] uppercase transition-all"
               style={{
                 color: "var(--accent-amber)",
                 border: "1px solid var(--accent-amber)",
@@ -499,7 +499,7 @@ export default function Home() {
             <>
               {grouped.length > 0 ? (
                 <div>
-                  <p className="font-mono text-[9px] tracking-[0.35em] uppercase kalmus-text-secondary mb-4">
+                  <p className="font-mono text-xs tracking-[0.35em] uppercase kalmus-text-secondary mb-4">
                     ▸ {results.length} record{results.length !== 1 ? "s" : ""}{" "}
                     retrieved
                   </p>
@@ -610,7 +610,7 @@ export default function Home() {
                                   <span>{a.source_fps.toFixed(3)} fps,</span>
                                   <span>{a.source_frame_count} frames</span>
                                 </div>
-                                <div className="font-mono text-[10px] tracking-wider uppercase transition-colors">
+                                <div className="font-mono text-xs tracking-wider uppercase transition-colors">
                                   <span>View →</span>
                                 </div>
                               </Link>
@@ -619,7 +619,7 @@ export default function Home() {
                                   <button
                                     onClick = {() => handleEditClick(a.job_id)}
                                     disabled = {editLoading === a.job_id}
-                                    className = "font-mono text-[10px] tracking-wider uppercase transition-all flex items-center gap-1 shrink-0"
+                                    className = "font-mono text-xs tracking-wider uppercase transition-all flex items-center gap-1 shrink-0"
                                     style={{
                                       padding: "4px 10px",
                                       background: "transparent",
@@ -663,7 +663,7 @@ export default function Home() {
                 </div>
               ) : (
                 <div className="py-10 text-center">
-                  <p className="font-mono text-[9px] tracking-[0.35em] uppercase kalmus-text-secondary mb-2">
+                  <p className="font-mono text-xs tracking-[0.35em] uppercase kalmus-text-secondary mb-2">
                     ▸ No records found
                   </p>
                   <p className="text-sm font-light kalmus-text-secondary mb-8 font-mono">
@@ -671,7 +671,7 @@ export default function Home() {
                   </p>
                   <Link
                     href="/upload"
-                    className="inline-flex items-center gap-2 px-5 py-2 font-mono text-[11px] tracking-[0.22em] uppercase transition-all"
+                    className="inline-flex items-center gap-2 px-5 py-2 font-mono text-xs tracking-[0.22em] uppercase transition-all"
                     style={{
                       color: "var(--accent-amber)",
                       border: "1px solid var(--accent-amber)",
@@ -716,7 +716,7 @@ export default function Home() {
             opacity: 0.4,
           }}
         />
-        <p className="font-mono text-[9px] tracking-[0.28em] uppercase kalmus-text-muted">
+        <p className="font-mono text-xs tracking-[0.28em] uppercase kalmus-text-muted">
           Powered by{" "}
           <a
             href="https://github.com/KALMUS-Color-Toolkit/KALMUS"
