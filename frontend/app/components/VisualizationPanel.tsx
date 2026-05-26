@@ -447,10 +447,10 @@ function StaticPreviewPanel({
     <div className="panel-bg border border-[var(--surface-border)] rounded-lg overflow-hidden">
       <div className="flex items-center justify-between gap-3 px-4 py-2 border-b border-[var(--surface-border)] bg-[var(--surface-bg-strong)]">
         <div className="min-w-0">
-          <p className="font-mono text-[9px] tracking-[0.24em] uppercase kalmus-text-secondary">
+          <p className="font-mono text-xs tracking-[0.24em] uppercase kalmus-text-secondary">
             Frame Thumbnail
           </p>
-          <p className="font-mono text-[11px] kalmus-text-primary truncate mt-0.5">
+          <p className="font-mono text-xs kalmus-text-primary truncate mt-0.5">
             {minimized
               ? [frameLabel, timeLabel].filter(Boolean).join(" | ")
               : "Hover the barcode or a plot to inspect a matching captured frame."}
@@ -462,7 +462,7 @@ function StaticPreviewPanel({
               type="button"
               onClick={handleExport}
               disabled={exporting}
-              className="px-2.5 py-1 font-mono text-[10px] tracking-[0.18em] uppercase transition-colors border border-[var(--input-border)] hover:border-[var(--accent-amber)] hover:text-[var(--text-primary)] disabled:cursor-wait disabled:opacity-60"
+              className="px-2.5 py-1 font-mono text-xs tracking-[0.18em] uppercase transition-colors border border-[var(--input-border)] hover:border-[var(--accent-amber)] hover:text-[var(--text-primary)] disabled:cursor-wait disabled:opacity-60"
             >
               {exporting ? "Exporting" : "Export"}
             </button>
@@ -471,7 +471,7 @@ function StaticPreviewPanel({
             <button
               type="button"
               onClick={onClearPin}
-              className="px-2.5 py-1 font-mono text-[10px] tracking-[0.18em] uppercase transition-colors border border-[var(--input-border)] hover:border-[var(--accent-amber)] hover:text-[var(--text-primary)]"
+              className="px-2.5 py-1 font-mono text-xs tracking-[0.18em] uppercase transition-colors border border-[var(--input-border)] hover:border-[var(--accent-amber)] hover:text-[var(--text-primary)]"
             >
               Release
             </button>
@@ -479,7 +479,7 @@ function StaticPreviewPanel({
           <button
             type="button"
             onClick={onToggleMinimized}
-            className="px-2.5 py-1 font-mono text-[10px] tracking-[0.18em] uppercase transition-colors border border-[var(--input-border)] hover:border-[var(--accent-amber)] hover:text-[var(--text-primary)]"
+            className="px-2.5 py-1 font-mono text-xs tracking-[0.18em] uppercase transition-colors border border-[var(--input-border)] hover:border-[var(--accent-amber)] hover:text-[var(--text-primary)]"
             aria-expanded={!minimized}
           >
             {minimized ? "Show" : "Minimize"}
@@ -517,16 +517,16 @@ function StaticPreviewPanel({
         <div className="space-y-4" style={{ minHeight: `${previewHeight}px` }}>
           <div className="flex items-start justify-between gap-3 min-h-[40px]">
             <div>
-              <div className="font-mono text-[9px] tracking-[0.16em] uppercase kalmus-text-secondary">
+              <div className="font-mono text-xs tracking-[0.16em] uppercase kalmus-text-secondary">
                 {frameLabel}
               </div>
-              <div className="font-mono text-[11px] kalmus-text-primary mt-1">
+              <div className="font-mono text-xs kalmus-text-primary mt-1">
                 {timeLabel || " "}
               </div>
             </div>
             {pinned && preview && (
               <div className="flex items-center gap-2">
-                <span className="font-mono text-[10px] tracking-[0.18em] uppercase px-2 py-0.5 border border-[var(--accent-amber)] text-[var(--accent-amber)]">
+                <span className="font-mono text-xs tracking-[0.18em] uppercase px-2 py-0.5 border border-[var(--accent-amber)] text-[var(--accent-amber)]">
                   Pinned
                 </span>
               </div>
@@ -534,7 +534,7 @@ function StaticPreviewPanel({
           </div>
 
           {exportError && (
-            <p className="font-mono text-[10px] text-red-400">
+            <p className="font-mono text-xs text-red-400">
               {exportError}
             </p>
           )}
@@ -600,14 +600,14 @@ function MetricRow({
         style={{ background: swatch }}
       />
       <div className="min-w-0">
-        <div className="font-mono text-[9px] tracking-[0.18em] uppercase kalmus-text-secondary">
+        <div className="font-mono text-xs tracking-[0.18em] uppercase kalmus-text-secondary">
           {label}
         </div>
-        <div className="font-mono text-[11px] kalmus-text-primary mt-1 truncate">
+        <div className="font-mono text-xs kalmus-text-primary mt-1 truncate">
           {value}
         </div>
         {subValue && (
-          <div className="font-mono text-[10px] kalmus-text-muted mt-0.5 truncate">
+          <div className="font-mono text-xs kalmus-text-muted mt-0.5 truncate">
             {subValue}
           </div>
         )}
@@ -725,7 +725,7 @@ function FilmSearch({
 
   return (
     <div ref={containerRef} className="relative">
-      <label className="block font-mono text-[9px] tracking-[0.3em] uppercase kalmus-text-secondary mb-2">
+      <label className="block font-mono text-xs tracking-[0.3em] uppercase kalmus-text-secondary mb-2">
         Compare with a film
       </label>
       <div className="flex gap-2">
@@ -775,18 +775,18 @@ function FilmSearch({
                 <span className="font-mono text-xs kalmus-text-primary truncate">
                   {r.title}
                 </span>
-                <span className="font-mono text-[10px] kalmus-text-secondary shrink-0">
+                <span className="font-mono text-xs kalmus-text-secondary shrink-0">
                   {r.released ? r.released.slice(0, 4) : ""}
                 </span>
               </div>
               <div className="flex gap-2 mt-0.5">
-                <span className="font-mono text-[10px] kalmus-text-secondary">{r.barcode_type}</span>
+                <span className="font-mono text-xs kalmus-text-secondary">{r.barcode_type}</span>
                 <span style={{ color: 'var(--accent-crimson)' }}>·</span>
-                <span className="font-mono text-[10px] kalmus-text-secondary">{r.frame_type}</span>
+                <span className="font-mono text-xs kalmus-text-secondary">{r.frame_type}</span>
                 {r.job_id === currentJobId && (
                   <>
                     <span style={{ color: 'var(--accent-crimson)' }}>·</span>
-                    <span className="font-mono text-[10px] kalmus-text-secondary">Current</span>
+                    <span className="font-mono text-xs kalmus-text-secondary">Current</span>
                   </>
                 )}
               </div>
@@ -1088,7 +1088,7 @@ export default function VisualizationPanel({
             <p className="font-mono text-xs kalmus-text-secondary mb-3">{error}</p>
             <button
               onClick={loadBarcodeData}
-              className="px-4 py-1.5 font-mono text-[10px] tracking-wider uppercase transition-all bg-[var(--accent-crimson)] text-[var(--background)] hover:brightness-110 hover:-translate-y-px hover:shadow-md"
+              className="px-4 py-1.5 font-mono text-xs tracking-wider uppercase transition-all bg-[var(--accent-crimson)] text-[var(--background)] hover:brightness-110 hover:-translate-y-px hover:shadow-md"
             >
               Retry
             </button>
@@ -1148,7 +1148,7 @@ export default function VisualizationPanel({
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className="group flex items-center gap-2 py-3 px-4 font-mono text-[10px] tracking-[0.15em] uppercase whitespace-nowrap transition-all border-b-2"
+                className="group flex items-center gap-2 py-3 px-4 font-mono text-xs tracking-[0.15em] uppercase whitespace-nowrap transition-all border-b-2"
                 style={{
                   borderBottomColor: activeTab === tab.id ? 'var(--accent-amber)' : 'transparent',
                   color: activeTab === tab.id ? 'var(--text-primary)' : 'var(--text-secondary)',
@@ -1342,10 +1342,10 @@ export default function VisualizationPanel({
 
       {/* Info Panel
       <div className="p-4 kalmus-surface">
-        <h4 className="font-mono text-[9px] tracking-[0.3em] uppercase kalmus-text-secondary mb-2">
+        <h4 className="font-mono text-xs tracking-[0.3em] uppercase kalmus-text-secondary mb-2">
           ▸ About These Visualizations
         </h4>
-        <ul className="font-mono text-[10px] kalmus-text-secondary space-y-1">
+        <ul className="font-mono text-xs kalmus-text-secondary space-y-1">
           <li>
             <strong>Statistics:</strong> Overview of barcode metadata, dominant colors, and
             brightness distribution

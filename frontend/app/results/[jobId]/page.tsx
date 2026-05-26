@@ -178,7 +178,7 @@ export default function ResultsPage() {
                     />
                   </svg>
                 </div>
-                <div className="font-mono text-[9px] tracking-[0.3em] uppercase kalmus-text-secondary mb-2">
+                <div className="font-mono text-xs tracking-[0.3em] uppercase kalmus-text-secondary mb-2">
                   ▸ RETRIEVAL FAILED
                 </div>
                 <h2 className="font-display text-xl kalmus-text-primary mb-2">
@@ -194,13 +194,13 @@ export default function ResultsPage() {
                   <div className="flex items-center justify-center gap-3">
                     <button
                       onClick={() => router.push("/")}
-                      className="px-5 py-2 font-mono text-[11px] tracking-[0.18em] uppercase kalmus-text-secondary transition-all border border-[var(--input-border)] hover:bg-[var(--surface-bg-strong)] hover:text-[var(--text-primary)] hover:border-[var(--accent-amber)] hover:shadow-sm"
+                      className="px-5 py-2 font-mono text-xs tracking-[0.18em] uppercase kalmus-text-secondary transition-all border border-[var(--input-border)] hover:bg-[var(--surface-bg-strong)] hover:text-[var(--text-primary)] hover:border-[var(--accent-amber)] hover:shadow-sm"
                     >
                       Back to Search
                     </button>
                     <button
                       onClick={handleProcessAnother}
-                      className="px-5 py-2 font-mono text-[11px] tracking-[0.18em] uppercase transition-all bg-[var(--accent-crimson)] text-[var(--background)] hover:brightness-110 hover:-translate-y-0.5 hover:shadow-md"
+                      className="px-5 py-2 font-mono text-xs tracking-[0.18em] uppercase transition-all bg-[var(--accent-crimson)] text-[var(--background)] hover:brightness-110 hover:-translate-y-0.5 hover:shadow-md"
                     >
                       Upload New Video
                     </button>
@@ -235,7 +235,7 @@ export default function ResultsPage() {
           {/* Header */}
           {reusedFrom && (
             <div className="panel-bg p-4 mb-6" style={{ border: '1px solid var(--accent-amber)', borderLeftWidth: 3 }}>
-              <p className="font-mono text-[10px] kalmus-text-secondary">
+              <p className="font-mono text-xs kalmus-text-secondary">
                 Equivalent analysis request <code className="kalmus-text-primary">{reusedFrom.slice(0, 8)}</code> matched an existing result. Showing the saved dashboard instead of creating a duplicate run.
               </p>
             </div>
@@ -243,7 +243,7 @@ export default function ResultsPage() {
 
           <div className="mb-8 flex items-start justify-between">
             {/* <div>
-              <div className="font-mono text-[9px] tracking-[0.35em] uppercase kalmus-text-secondary mb-1">
+              <div className="font-mono text-xs tracking-[0.35em] uppercase kalmus-text-secondary mb-1">
                 ▸ BARCODE ANALYSIS
               </div>
               <h1 className="font-display text-2xl tracking-wide kalmus-text-primary mb-1">
@@ -255,7 +255,7 @@ export default function ResultsPage() {
             <div className="flex items-center gap-3">
               <button
                 onClick={() => router.push("/")}
-                className="px-5 py-2 font-mono text-[10px] tracking-[0.18em] uppercase kalmus-text-secondary transition-all border border-[var(--surface-border)] hover:bg-[var(--surface-bg-strong)] hover:text-[var(--text-primary)] hover:border-[var(--accent-amber)] hover:shadow-sm flex items-center gap-2"
+                className="px-5 py-2 font-mono text-xs tracking-[0.18em] uppercase kalmus-text-secondary transition-all border border-[var(--surface-border)] hover:bg-[var(--surface-bg-strong)] hover:text-[var(--text-primary)] hover:border-[var(--accent-amber)] hover:shadow-sm flex items-center gap-2"
               >
                 <svg
                   className="w-3 h-3"
@@ -274,7 +274,7 @@ export default function ResultsPage() {
               </button>
               <button
                 onClick={handleProcessAnother}
-                className="px-5 py-2 font-mono text-[10px] tracking-[0.18em] uppercase transition-all bg-[var(--accent-crimson)] text-[var(--background)] hover:brightness-110 hover:-translate-y-0.5 hover:shadow-md flex items-center gap-2"
+                className="px-5 py-2 font-mono text-xs tracking-[0.18em] uppercase transition-all bg-[var(--accent-crimson)] text-[var(--background)] hover:brightness-110 hover:-translate-y-0.5 hover:shadow-md flex items-center gap-2"
               >
                 <svg
                   className="w-3 h-3"
@@ -307,12 +307,12 @@ export default function ResultsPage() {
 
           {/* Job Metadata Card
           <div className="panel-bg p-6 mb-6 mt-6" style={{ border: '1px solid var(--surface-border)', borderLeftWidth: 3, borderLeftColor: 'var(--accent-crimson)' }}>
-            <div className="font-mono text-[9px] tracking-[0.3em] uppercase kalmus-text-secondary mb-4">
+            <div className="font-mono text-xs tracking-[0.3em] uppercase kalmus-text-secondary mb-4">
               ▸ Job Information
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div>
-                <div className="font-mono text-[9px] tracking-[0.2em] uppercase kalmus-text-secondary mb-1">
+                <div className="font-mono text-xs tracking-[0.2em] uppercase kalmus-text-secondary mb-1">
                   Total Frames
                 </div>
                 <div className="font-mono text-sm kalmus-text-primary">
@@ -320,7 +320,7 @@ export default function ResultsPage() {
                 </div>
               </div>
               <div>
-                <div className="font-mono text-[9px] tracking-[0.2em] uppercase kalmus-text-secondary mb-1">
+                <div className="font-mono text-xs tracking-[0.2em] uppercase kalmus-text-secondary mb-1">
                   Color Metric
                 </div>
                 <div className="font-mono text-sm kalmus-text-primary">
@@ -328,7 +328,7 @@ export default function ResultsPage() {
                 </div>
               </div>
               <div>
-                <div className="font-mono text-[9px] tracking-[0.2em] uppercase kalmus-text-secondary mb-1">
+                <div className="font-mono text-xs tracking-[0.2em] uppercase kalmus-text-secondary mb-1">
                   Frame Type
                 </div>
                 <div className="font-mono text-sm kalmus-text-primary">
@@ -336,7 +336,7 @@ export default function ResultsPage() {
                 </div>
               </div>
               <div>
-                <div className="font-mono text-[9px] tracking-[0.2em] uppercase kalmus-text-secondary mb-1">
+                <div className="font-mono text-xs tracking-[0.2em] uppercase kalmus-text-secondary mb-1">
                   Barcode Type
                 </div>
                 <div className="font-mono text-sm kalmus-text-primary">
@@ -346,7 +346,7 @@ export default function ResultsPage() {
             </div>
 
             <div className="mt-4 pt-4" style={{ borderTop: '1px solid rgba(100,100,100,0.2)' }}>
-              <div className="font-mono text-[9px] tracking-[0.2em] uppercase kalmus-text-secondary mb-1">
+              <div className="font-mono text-xs tracking-[0.2em] uppercase kalmus-text-secondary mb-1">
                 Job ID
               </div>
               <code className="font-mono text-xs kalmus-text-muted">
@@ -358,7 +358,7 @@ export default function ResultsPage() {
       </main>
 
       <footer className="py-6 text-center">
-        <p className="font-mono text-[9px] tracking-[0.28em] uppercase kalmus-text-muted">
+        <p className="font-mono text-xs tracking-[0.28em] uppercase kalmus-text-muted">
           Powered by{" "}
           <a
             href="https://github.com/KALMUS-Color-Toolkit/KALMUS"

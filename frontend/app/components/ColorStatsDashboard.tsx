@@ -226,7 +226,7 @@ export default function ColorStatsDashboard({
         </h3>
         {isFiltered && (
           <span
-            className="font-mono text-[10px] tracking-wider uppercase px-2 py-0.5 flex-shrink-0"
+            className="font-mono text-xs tracking-wider uppercase px-2 py-0.5 flex-shrink-0"
             style={{
               border: "1px solid var(--accent-amber)",
               color: "var(--accent-amber)",

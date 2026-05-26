@@ -469,14 +469,14 @@ export default function BarcodePreview({
                   ) : null}
                 </p>
                 {movie.metadata.length > 0 && (
-                  <p className="font-mono text-[10px] kalmus-text-secondary truncate mt-0.5">
+                  <p className="font-mono text-xs kalmus-text-secondary truncate mt-0.5">
                     {movie.metadata.join(" · ")}
                   </p>
                 )}
                 {detailLines.map((line) => (
                   <p
                     key={line}
-                    className="font-mono text-[10px] kalmus-text-secondary truncate mt-0.5"
+                    className="font-mono text-xs kalmus-text-secondary truncate mt-0.5"
                   >
                     {line}
                   </p>
@@ -485,7 +485,7 @@ export default function BarcodePreview({
             </div>
           ) : (
             <div className="kalmus-surface px-3 py-2.5">
-              <p className="font-mono text-[9px] tracking-[0.24em] uppercase kalmus-text-secondary">
+              <p className="font-mono text-xs tracking-[0.24em] uppercase kalmus-text-secondary">
                 Barcode Preview
               </p>
               <p className="font-mono text-xs kalmus-text-primary truncate mt-1">
@@ -494,7 +494,7 @@ export default function BarcodePreview({
               {detailLines.map((line) => (
                 <p
                   key={line}
-                  className="font-mono text-[10px] kalmus-text-secondary truncate mt-0.5"
+                  className="font-mono text-xs kalmus-text-secondary truncate mt-0.5"
                 >
                   {line}
                 </p>
@@ -689,7 +689,7 @@ export default function BarcodePreview({
         >
           {/* Start */}
           <div className="flex items-center gap-2 min-w-0">
-            <span className="font-mono text-[11px] kalmus-text-secondary flex-shrink-0">
+            <span className="font-mono text-xs kalmus-text-secondary flex-shrink-0">
               ▸
             </span>
             <input
@@ -703,7 +703,7 @@ export default function BarcodePreview({
                 e.key === "Enter" && commitStart(e.currentTarget.value)
               }
               title="Start frame"
-              className="font-mono text-[11px] bg-transparent text-center flex-shrink-0"
+              className="font-mono text-xs bg-transparent text-center flex-shrink-0"
               style={{
                 width: "4.5rem",
                 border: "1px solid var(--input-border)",
@@ -713,7 +713,7 @@ export default function BarcodePreview({
               }}
             />
             {fps && sampledFrameRate && (
-              <span className="font-mono text-[11px] kalmus-text-muted truncate">
+              <span className="font-mono text-xs kalmus-text-muted truncate">
                 {indexToTime(frameRange[0])}
               </span>
             )}
@@ -721,13 +721,13 @@ export default function BarcodePreview({
 
           {/* Center */}
           <div className="flex items-center gap-2 flex-shrink-0">
-            <span className="font-mono text-[10px] kalmus-text-muted tracking-wider uppercase whitespace-nowrap">
+            <span className="font-mono text-xs kalmus-text-muted tracking-wider uppercase whitespace-nowrap">
               {(frameRange[1] - frameRange[0] + 1).toLocaleString()} frames
             </span>
             {!isAtFullRange && (
               <button
                 onClick={() => onFrameRangeChange!([0, totalColorFrames! - 1])}
-                className="px-2 py-0.5 font-mono text-[10px] tracking-wider uppercase transition-colors hover:opacity-80"
+                className="px-2 py-0.5 font-mono text-xs tracking-wider uppercase transition-colors hover:opacity-80"
                 style={{
                   border: "1px solid var(--input-border)",
                   color: "var(--accent-amber)",
@@ -742,7 +742,7 @@ export default function BarcodePreview({
           {/* End */}
           <div className="flex items-center gap-2 min-w-0 justify-end">
             {fps && sampledFrameRate && (
-              <span className="font-mono text-[11px] kalmus-text-muted truncate">
+              <span className="font-mono text-xs kalmus-text-muted truncate">
                 {indexToTime(frameRange[1])}
               </span>
             )}
@@ -757,7 +757,7 @@ export default function BarcodePreview({
                 e.key === "Enter" && commitEnd(e.currentTarget.value)
               }
               title="End frame"
-              className="font-mono text-[11px] bg-transparent text-center flex-shrink-0"
+              className="font-mono text-xs bg-transparent text-center flex-shrink-0"
               style={{
                 width: "4.5rem",
                 border: "1px solid var(--input-border)",
@@ -766,7 +766,7 @@ export default function BarcodePreview({
                 outline: "none",
               }}
             />
-            <span className="font-mono text-[11px] kalmus-text-secondary flex-shrink-0">
+            <span className="font-mono text-xs kalmus-text-secondary flex-shrink-0">
               ◂
             </span>
           </div>
@@ -781,7 +781,7 @@ export default function BarcodePreview({
               ? "Color barcode showing the temporal color distribution of the video. Each column represents frames, each row a time segment."
               : "Brightness barcode showing the temporal brightness distribution of the video."}
           </p>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-neutral-500 dark:text-neutral-400">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-neutral-500 dark:text-neutral-400">
             <span>
               {dimensions.width} x {dimensions.height} pixels
             </span>
