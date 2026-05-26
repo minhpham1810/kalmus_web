@@ -159,11 +159,11 @@ export default function BarcodeComparison({
   };
 
   return (
-    <div className="panel-bg border border-neutral-200 dark:border-neutral-700 rounded p-6">
-      <h3 className="text-sm font-medium mb-2 text-neutral-700 dark:text-neutral-300 uppercase tracking-wide">
+    <div className="panel-bg border border-[var(--surface-border)] rounded p-6">
+      <h3 className="text-sm font-medium mb-2 kalmus-text-secondary uppercase tracking-wide">
         Barcode Comparison
       </h3>
-      <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-6">
+      <p className="text-xs kalmus-text-muted mb-6">
         Comparing {title1} and {title2}
       </p>
 
@@ -171,7 +171,7 @@ export default function BarcodeComparison({
         <div className="flex items-center justify-center py-12">
           <div className="flex items-center gap-3">
             <svg
-              className="animate-spin h-5 w-5 text-neutral-600 dark:text-neutral-400"
+              className="animate-spin h-5 w-5 kalmus-text-secondary"
               viewBox="0 0 24 24"
             >
               <circle
@@ -189,7 +189,7 @@ export default function BarcodeComparison({
                 d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
               />
             </svg>
-            <span className="text-sm text-neutral-600 dark:text-neutral-400">
+            <span className="text-sm kalmus-text-secondary">
               Computing similarity metrics...
             </span>
           </div>
@@ -197,8 +197,8 @@ export default function BarcodeComparison({
       )}
 
       {error && (
-        <div className="bg-neutral-100 dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-700 rounded p-4">
-          <p className="text-sm text-neutral-900 dark:text-neutral-100">{error}</p>
+        <div className="kalmus-surface-strong rounded p-4">
+          <p className="text-sm kalmus-text-primary">{error}</p>
         </div>
       )}
 
@@ -207,18 +207,18 @@ export default function BarcodeComparison({
           {Object.entries(metrics).map(([key, value]) => {
             const desc = metricDescriptions[key as keyof typeof metricDescriptions];
             return (
-              <div key={key} className="border-b border-neutral-200 dark:border-neutral-700 pb-4 last:border-0">
+              <div key={key} className="border-b border-[var(--surface-border)] pb-4 last:border-0">
                 <div className="flex items-start justify-between mb-2">
                   <div>
                     <div className="flex items-center gap-2">
-                      <h4 className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
+                      <h4 className="text-sm font-medium kalmus-text-primary">
                         {desc.name}
                       </h4>
-                      <span className="text-xs px-2 py-0.5 bg-neutral-100 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-400 rounded">
+                      <span className="text-xs px-2 py-0.5 bg-[var(--surface-bg-strong)] kalmus-text-secondary rounded">
                         {desc.tag}
                       </span>
                     </div>
-                    <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
+                    <p className="text-xs kalmus-text-muted mt-1">
                       {desc.description}
                     </p>
                   </div>
@@ -229,22 +229,22 @@ export default function BarcodeComparison({
                   </span>
                 </div>
 
-                <div className="w-full bg-neutral-200 dark:bg-neutral-700 rounded-full h-2 mt-2">
+                <div className="w-full bg-[var(--surface-bg-strong)] rounded-full h-2 mt-2">
                   <div
                     className="h-2 rounded-full transition-all duration-500 bg-gradient-to-r from-red-500 via-yellow-500 to-green-500"
                     style={{ width: `${getProgressWidth(value, key)}%` }}
                   />
                 </div>
 
-                <p className="text-xs text-neutral-400 dark:text-neutral-500 mt-1">
+                <p className="text-xs kalmus-text-muted mt-1">
                   {desc.range}
                 </p>
               </div>
             );
           })}
 
-          <div className="mt-6 bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded p-4">
-            <p className="text-xs text-neutral-600 dark:text-neutral-400">
+          <div className="mt-6 kalmus-surface-strong rounded p-4">
+            <p className="text-xs kalmus-text-secondary">
               <strong>Note:</strong> Different metrics capture different aspects of similarity.
               Use multiple metrics together for comprehensive analysis.
             </p>

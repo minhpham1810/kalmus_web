@@ -25,7 +25,7 @@ interface FilmSearchResult {
   imdb_id: string | null;
   poster: string | null;
   director: string | null;
-  runtime_minutes: string | null;
+  runtime_minutes: string | number | null;
   country: string | null;
   released: string | null;
   barcode_type: string;
@@ -51,13 +51,17 @@ interface VisualizationMovieMetadata {
   };
 }
 
-function formatRuntime(runtime: string | null | undefined): string | null {
+function formatRuntime(runtime: string | number | null | undefined): string | null {
   if (!runtime) return null;
-  const match = runtime.match(/(\d+)/);
-  if (!match) return runtime;
 
-  const totalMinutes = parseInt(match[1], 10);
-  if (Number.isNaN(totalMinutes)) return runtime;
+  const totalMinutes =
+    typeof runtime === "number"
+      ? runtime
+      : parseInt(runtime.match(/(\d+)/)?.[1] ?? "", 10);
+
+  if (!Number.isFinite(totalMinutes)) {
+    return typeof runtime === "string" ? runtime : null;
+  }
 
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
@@ -375,7 +379,7 @@ function buildFilmSearchPreviewMovie(result: FilmSearchResult): BarcodePreviewMo
     posterUrl: result.poster,
     metadata: [
       result.director ? `Dir. ${result.director}` : null,
-      result.runtime_minutes,
+      formatRuntime(result.runtime_minutes),
       result.country,
     ].filter((value): value is string => Boolean(value)),
   };
@@ -722,7 +726,7 @@ function FilmSearch({
   return (
     <div ref={containerRef} className="relative">
       <label className="block font-mono text-[9px] tracking-[0.3em] uppercase kalmus-text-secondary mb-2">
-        Compare with another film
+        Compare with a film
       </label>
       <div className="flex gap-2">
         <div className="relative flex-1">
@@ -762,7 +766,7 @@ function FilmSearch({
             <button
               key={r.job_id}
               onClick={() => handleSelect(r)}
-              className={`w-full text-left px-4 py-3 transition-colors ${r.job_id === currentJobId ? "opacity-40" : ""}`}
+              className="w-full text-left px-4 py-3 transition-colors"
               style={{ borderBottom: '1px solid var(--surface-border)' }}
               onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-hover)')}
               onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
@@ -779,6 +783,12 @@ function FilmSearch({
                 <span className="font-mono text-[10px] kalmus-text-secondary">{r.barcode_type}</span>
                 <span style={{ color: 'var(--accent-crimson)' }}>·</span>
                 <span className="font-mono text-[10px] kalmus-text-secondary">{r.frame_type}</span>
+                {r.job_id === currentJobId && (
+                  <>
+                    <span style={{ color: 'var(--accent-crimson)' }}>·</span>
+                    <span className="font-mono text-[10px] kalmus-text-secondary">Current</span>
+                  </>
+                )}
               </div>
             </button>
           ))}
