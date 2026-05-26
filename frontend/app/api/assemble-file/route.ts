@@ -3,9 +3,10 @@ import { readdir, unlink, rm } from 'fs/promises';
 import { createReadStream } from 'fs';
 import { PassThrough } from 'stream';
 import path from 'path';
-import { sendJobNotificationEmail, SLURM_CONFIG, submitSlurmJob, JobConfig } from '@/lib/slurm';
+import { JobConfig } from '@/lib/slurm';
 import { streamToHPC } from '@/lib/hpc-transfer';
-import { findDuplicateAnalyses } from '@/lib/db';
+import { findDuplicateAnalysisSignatures, FRAME_TYPE_OPTIONS, parseAnalysisConfigPayload } from '@/lib/multi-analysis';
+import { submitBarcodeBatch } from '@/lib/barcode-submission';
 
 export const maxDuration = 600;
 export const dynamic = 'force-dynamic';
@@ -24,10 +25,7 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        const jobConfig: JobConfig = {
-            color_metric: config.color_metric || 'Average',
-            frame_type: config.frame_type || 'Whole_frame',
-            barcode_type: config.barcode_type || 'Color',
+        const sharedConfig = {
             sampled_rate: parseInt(config.sampled_rate) || 1,
             skip_over: parseInt(config.skip_over) || 0,
             total_frames: parseInt(config.total_frames) || 100000000,
@@ -37,44 +35,23 @@ export async function POST(request: NextRequest) {
                 : config.save_thumbnails === 'true' || config.save_thumbnails === true,
             partition: config.partition || 'short',
             email: config.email || undefined,
-            force_reprocess: config.force_reprocess === 'true' || config.force_reprocess === true,
-        };
-        const videoTitle =
-            movie && typeof movie.title === 'string' && movie.title.trim()
-                ? movie.title.trim()
-                : filename;
-
-        const duplicateMatch = findDuplicateAnalyses(
-            (movie?.imdb_id as string | undefined) || null,
-            {
-                barcode_type: jobConfig.barcode_type,
-                frame_type: jobConfig.frame_type,
-                color_metric: jobConfig.color_metric,
-            }
+        } satisfies Omit<JobConfig, 'color_metric' | 'frame_type' | 'barcode_type'>;
+        const analysisConfigs = parseAnalysisConfigPayload(config.analysis_configs);
+        const invalidFrameType = analysisConfigs.find(
+            ({ frame_type }) => !FRAME_TYPE_OPTIONS.includes(frame_type as (typeof FRAME_TYPE_OPTIONS)[number]),
         );
-
-        if (duplicateMatch.exactMatch && !jobConfig.force_reprocess) {
-            if (jobConfig.email) {
-                try {
-                    await sendJobNotificationEmail({
-                        email: jobConfig.email,
-                        status: 'DUPLICATE',
-                        resultsUrl: `${SLURM_CONFIG.websiteUrl}/results/${duplicateMatch.exactMatch.job_id}`,
-                        videoTitle,
-                    });
-                } catch (error) {
-                    console.error('Failed to send duplicate notification email:', error);
-                }
-            }
-
-            await rm(path.join(CHUNKS_DIR, uploadId), { recursive: true, force: true });
-
-            return NextResponse.json({
-                success: true,
-                duplicate: true,
-                existingJobId: duplicateMatch.exactMatch.job_id,
-                existingAnalysis: duplicateMatch.exactMatch,
-            });
+        if (invalidFrameType) {
+            return NextResponse.json(
+                { error: `Invalid frame type: ${invalidFrameType.frame_type}` },
+                { status: 400 }
+            );
+        }
+        const duplicateSignatures = findDuplicateAnalysisSignatures(analysisConfigs);
+        if (duplicateSignatures.length > 0) {
+            return NextResponse.json(
+                { error: 'Each batch option must be unique. Duplicate barcode type, frame type, and metric combination.' },
+                { status: 400 }
+            );
         }
 
         // Get all chunks from /tmp
@@ -148,23 +125,22 @@ export async function POST(request: NextRequest) {
         } : undefined;
 
         // Submit SLURM job
-        const result = await submitSlurmJob(
+        const batch = await submitBarcodeBatch({
             videoPath,
-            filename,
-            {
-                ...jobConfig,
-                video_title: videoTitle,
-            },
+            videoFilename: filename,
+            sharedConfig,
+            analysisConfigs,
             user,
-            movie as Record<string, unknown> | undefined
-        );
+            movie: movie as Record<string, unknown> | undefined,
+        });
 
         return NextResponse.json({
             success: true,
-            message: 'Job submitted successfully',
-            jobId: result.jobId,
+            message: 'Jobs submitted successfully',
+            batchId: batch.batchId,
+            jobs: batch.jobs,
             filename: filename,
-            estimatedTime: result.estimatedTime,
+            createdAt: batch.createdAt,
         });
     } catch (error) {
         console.error('Error assembling file and submitting job:', error);

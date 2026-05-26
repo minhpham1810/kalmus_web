@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     return NextResponse.json({
       color_metrics: [
@@ -13,11 +13,11 @@ export async function GET(request: NextRequest) {
         'Bright',
       ],
       frame_types: [
-        'Whole_frame',
-        'High_contrast_region',
-        'Low_contrast_region',
-        'Foreground',
-        'Background',
+        'whole_frame',
+        'high_contrast',
+        'low_contrast',
+        'foreground',
+        'background',
       ],
       barcode_types: ['Color', 'Brightness'],
       partitions: ['short', 'medium', 'long', 'lowpriority'],
