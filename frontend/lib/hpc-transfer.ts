@@ -17,12 +17,16 @@
 
 import { Readable } from 'stream';
 import path from 'path';
-import { mkdir, rm } from 'fs/promises';
+import { copyFile, mkdir, rm } from 'fs/promises';
 import { createWriteStream } from 'fs';
 import { pipeline } from 'stream/promises';
 
 export interface TransferResult {
   remotePath: string;
+}
+
+function shellQuote(value: string): string {
+  return `'${value.replace(/'/g, `'\"'\"'`)}'`;
 }
 
 const HPC_CONFIG = {
@@ -60,6 +64,32 @@ export async function streamToHPC(
   }
 
   return streamDirect(readable, targetPath);
+}
+
+export function buildClonedUploadPath(sourcePath: string, suffix: string): string {
+  const parsed = path.parse(sourcePath);
+  return path.join(parsed.dir, `${parsed.name}__${suffix}${parsed.ext}`);
+}
+
+export async function cloneUploadedVideo(
+  sourcePath: string,
+  targetPath: string,
+): Promise<TransferResult> {
+  if (HPC_CONFIG.host && HPC_CONFIG.username) {
+    const conn = await tryConnectSSH();
+    if (conn) {
+      try {
+        return await copyViaSSH(conn, sourcePath, targetPath);
+      } catch (err) {
+        console.error('SFTP copy failed:', (err as Error).message);
+        throw err;
+      }
+    }
+  }
+
+  await mkdir(path.dirname(targetPath), { recursive: true });
+  await copyFile(sourcePath, targetPath);
+  return { remotePath: targetPath };
 }
 
 // ─── SSH connection attempt ──────────────────────────────────────────────────
@@ -138,6 +168,41 @@ async function streamViaSFTP(
         });
 
         readable.pipe(writeStream);
+      });
+    });
+  });
+}
+
+async function copyViaSSH(
+  conn: SSH2Client,
+  sourcePath: string,
+  targetPath: string,
+): Promise<TransferResult> {
+  const remoteDir = path.dirname(targetPath);
+  const command = `mkdir -p ${shellQuote(remoteDir)} && cp ${shellQuote(sourcePath)} ${shellQuote(targetPath)}`;
+
+  return new Promise<TransferResult>((resolve, reject) => {
+    conn.exec(command, (err, stream) => {
+      if (err) {
+        conn.end();
+        reject(new Error(`SSH copy error: ${err.message}`));
+        return;
+      }
+
+      let stderr = "";
+
+      stream.on("close", (code: number) => {
+        conn.end();
+        if (code === 0) {
+          resolve({ remotePath: targetPath });
+          return;
+        }
+
+        reject(new Error(`SSH copy failed (${code}): ${stderr.trim()}`));
+      });
+
+      stream.stderr.on("data", (chunk: Buffer) => {
+        stderr += chunk.toString();
       });
     });
   });

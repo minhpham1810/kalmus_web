@@ -1,15 +1,20 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import {
+  AnalysisConfig,
+  buildAnalysisConfigPayload,
+  createAnalysisConfig,
+  findDuplicateAnalysisSignatures,
+  getNextAvailableAnalysisConfig,
+  getInitialAnalysisConfigs,
+} from "@/lib/multi-analysis";
 import FileUpload from "./FileUpload";
 import ConfigPanel from "./ConfigPanel";
 import MovieSearchInput, { MovieInfo } from "./MovieSearchInput";
 
-export interface BarcodeConfig {
-  color_metric: string;
-  frame_type: string;
-  barcode_type: string;
+export interface SharedBarcodeConfig {
   sampled_rate: number;
   skip_over: number;
   total_frames: number;
@@ -26,17 +31,21 @@ interface ExistingAnalysis {
   metric: string;
 }
 
-type DuplicateCheckConfig = Pick<
-  BarcodeConfig,
-  "barcode_type" | "color_metric" | "frame_type"
->;
+interface DuplicateState {
+  analyses: ExistingAnalysis[];
+  exactMatch: ExistingAnalysis | null;
+  loading: boolean;
+}
+
+interface BatchSubmitResponse {
+  success: boolean;
+  batchId?: string;
+  error?: string;
+}
 
 export default function BarcodeGenerator() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [config, setConfig] = useState<BarcodeConfig>({
-    color_metric: "Average",
-    frame_type: "Whole_frame",
-    barcode_type: "Color",
+  const [sharedConfig, setSharedConfig] = useState<SharedBarcodeConfig>({
     sampled_rate: 1,
     skip_over: 0,
     total_frames: 100000000,
@@ -45,148 +54,250 @@ export default function BarcodeGenerator() {
     partition: "short",
     email: "",
   });
+  const [analysisConfigs, setAnalysisConfigs] = useState<AnalysisConfig[]>(
+    getInitialAnalysisConfigs(),
+  );
+  const [duplicateStates, setDuplicateStates] = useState<Record<string, DuplicateState>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
-  const [jobId, setJobId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [movieInfo, setMovieInfo] = useState<MovieInfo | null>(null);
-  const [existingAnalyses, setExistingAnalyses] = useState<
-    ExistingAnalysis[]
-  >([]);
-  const [exactDuplicate, setExactDuplicate] = useState<ExistingAnalysis | null>(null);
-  const [duplicateCheckLoading, setDuplicateCheckLoading] = useState(false);
-  const [forceReprocess, setForceReprocess] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const xhrRef = useRef<XMLHttpRequest | null>(null);
   const router = useRouter();
 
   const movieStepComplete = movieInfo !== null;
   const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
-  const framesPerColumn = Math.round((config.seconds_per_column * 24) / config.sampled_rate);
+  const framesPerColumn = Math.round(
+    (sharedConfig.seconds_per_column * 24) / sharedConfig.sampled_rate,
+  );
 
-  const resetDuplicateState = () => {
-    setExistingAnalyses([]);
-    setExactDuplicate(null);
-    setDuplicateCheckLoading(false);
-    setForceReprocess(false);
-  };
+  const duplicateCheckLoading = useMemo(
+    () => analysisConfigs.some((config) => duplicateStates[config.clientId]?.loading),
+    [analysisConfigs, duplicateStates],
+  );
+  const duplicateMetrics = useMemo(
+    () => findDuplicateAnalysisSignatures(analysisConfigs),
+    [analysisConfigs],
+  );
+  const canAddAnalysisConfig = useMemo(
+    () => getNextAvailableAnalysisConfig(analysisConfigs) !== null,
+    [analysisConfigs],
+  );
 
-  const getDuplicateCheckUrl = useCallback((movie: MovieInfo | null, currentConfig: DuplicateCheckConfig) => {
-    if (!movie || !("imdb_id" in movie) || !movie.imdb_id) {
-      return null;
-    }
+  const getDuplicateCheckUrl = useCallback(
+    (movie: MovieInfo | null, currentConfig: AnalysisConfig) => {
+      if (!movie || !("imdb_id" in movie) || !movie.imdb_id) {
+        return null;
+      }
 
-    return `/api/duplicate-check?imdb_id=${encodeURIComponent(movie.imdb_id)}&barcode_type=${encodeURIComponent(currentConfig.barcode_type)}&frame_type=${encodeURIComponent(currentConfig.frame_type)}&color_metric=${encodeURIComponent(currentConfig.color_metric)}`;
-  }, []);
+      return `/api/duplicate-check?imdb_id=${encodeURIComponent(
+        movie.imdb_id,
+      )}&barcode_type=${encodeURIComponent(
+        currentConfig.barcode_type,
+      )}&frame_type=${encodeURIComponent(
+        currentConfig.frame_type,
+      )}&color_metric=${encodeURIComponent(currentConfig.color_metric)}`;
+    },
+    [],
+  );
 
-  const fetchDuplicateState = useCallback(async (movie: MovieInfo | null, currentConfig: DuplicateCheckConfig) => {
-    const url = getDuplicateCheckUrl(movie, currentConfig);
-    if (!url) {
+  const fetchDuplicateState = useCallback(
+    async (movie: MovieInfo | null, currentConfig: AnalysisConfig) => {
+      const url = getDuplicateCheckUrl(movie, currentConfig);
+      if (!url) {
+        return {
+          analyses: [] as ExistingAnalysis[],
+          exactMatch: null as ExistingAnalysis | null,
+        };
+      }
+
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error("Failed to check for existing analyses");
+      }
+
+      const data = await response.json();
       return {
-        analyses: [] as ExistingAnalysis[],
-        exactMatch: null as ExistingAnalysis | null,
+        analyses: (data.analyses || []) as ExistingAnalysis[],
+        exactMatch: (data.exactMatch || null) as ExistingAnalysis | null,
       };
-    }
+    },
+    [getDuplicateCheckUrl],
+  );
 
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error("Failed to check for existing analyses");
-    }
-
-    const data = await response.json();
-    return {
-      analyses: (data.analyses || []) as ExistingAnalysis[],
-      exactMatch: (data.exactMatch || null) as ExistingAnalysis | null,
-    };
-  }, [getDuplicateCheckUrl]);
+  const resetDuplicateState = useCallback(() => {
+    setDuplicateStates({});
+  }, []);
 
   const handleFileSelect = (file: File | null) => {
     setSelectedFile(file);
     setMovieInfo(null);
     resetDuplicateState();
-    setSubmitted(false);
     setError(null);
-    setJobId(null);
   };
 
-  const handleMovieChange = async (movie: MovieInfo | null) => {
+  const handleMovieChange = (movie: MovieInfo | null) => {
     setMovieInfo(movie);
-    setForceReprocess(false);
   };
 
-  const handleConfigChange = (newConfig: Partial<BarcodeConfig>) => {
-    setConfig((prev) => ({ ...prev, ...newConfig }));
-    setForceReprocess(false);
+  const handleSharedConfigChange = (newConfig: Partial<SharedBarcodeConfig>) => {
+    setSharedConfig((prev) => ({ ...prev, ...newConfig }));
+  };
+
+  const handleAnalysisConfigChange = (
+    clientId: string,
+    newConfig: Partial<AnalysisConfig>,
+  ) => {
+    const existingConfig = analysisConfigs.find((config) => config.clientId === clientId);
+    if (!existingConfig) {
+      return;
+    }
+
+    const nextConfig = {
+      ...existingConfig,
+      ...newConfig,
+    };
+    const hasDuplicateSignature = analysisConfigs.some(
+      (config) =>
+        config.clientId !== clientId &&
+        config.barcode_type === nextConfig.barcode_type &&
+        config.frame_type === nextConfig.frame_type &&
+        config.color_metric === nextConfig.color_metric,
+    );
+    if (hasDuplicateSignature) {
+      setError(
+        "Each batch option must be unique. Duplicate barcode type, frame type, and metric combination.",
+      );
+      return;
+    }
+
+    setError((currentError) =>
+      currentError?.startsWith("Each batch option must be unique") ? null : currentError,
+    );
+    setAnalysisConfigs((prev) =>
+      prev.map((config) =>
+        config.clientId === clientId ? { ...config, ...newConfig } : config,
+      ),
+    );
+  };
+
+  const handleAddAnalysisConfig = () => {
+    const nextConfig = getNextAvailableAnalysisConfig(analysisConfigs);
+    if (!nextConfig) {
+      setError("All available barcode combinations are already in this batch.");
+      return;
+    }
+
+    setError((currentError) =>
+      currentError?.startsWith("All available barcode combinations")
+        ? null
+        : currentError,
+    );
+    setAnalysisConfigs((prev) => [
+      ...prev,
+      createAnalysisConfig(
+        {
+          ...prev[prev.length - 1],
+          ...nextConfig,
+          forceReprocess: false,
+        },
+      ),
+    ]);
+  };
+
+  const handleRemoveAnalysisConfig = (clientId: string) => {
+    setAnalysisConfigs((prev) => {
+      if (prev.length === 1) {
+        return prev;
+      }
+      return prev.filter((config) => config.clientId !== clientId);
+    });
+
+    setDuplicateStates((prev) => {
+      const next = { ...prev };
+      delete next[clientId];
+      return next;
+    });
   };
 
   useEffect(() => {
     let cancelled = false;
-    const duplicateCheckConfig: DuplicateCheckConfig = {
-      barcode_type: config.barcode_type,
-      color_metric: config.color_metric,
-      frame_type: config.frame_type,
+
+    if (!movieInfo || !("imdb_id" in movieInfo) || !movieInfo.imdb_id) {
+      setDuplicateStates(
+        Object.fromEntries(
+          analysisConfigs.map((config) => [
+            config.clientId,
+            {
+              analyses: [],
+              exactMatch: null,
+              loading: false,
+            } satisfies DuplicateState,
+          ]),
+        ),
+      );
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    setDuplicateStates((prev) =>
+      Object.fromEntries(
+        analysisConfigs.map((config) => [
+          config.clientId,
+          {
+            analyses: prev[config.clientId]?.analyses || [],
+            exactMatch: prev[config.clientId]?.exactMatch || null,
+            loading: true,
+          } satisfies DuplicateState,
+        ]),
+      ),
+    );
+
+    const runDuplicateChecks = async () => {
+      const results = await Promise.all(
+        analysisConfigs.map(async (config) => {
+          try {
+            const duplicateState = await fetchDuplicateState(movieInfo, config);
+            return [config.clientId, { ...duplicateState, loading: false }] as const;
+          } catch {
+            return [
+              config.clientId,
+              {
+                analyses: [],
+                exactMatch: null,
+                loading: false,
+              } satisfies DuplicateState,
+            ] as const;
+          }
+        }),
+      );
+
+      if (!cancelled) {
+        setDuplicateStates(Object.fromEntries(results));
+      }
     };
 
-    const runDuplicateCheck = async () => {
-      const url = getDuplicateCheckUrl(movieInfo, duplicateCheckConfig);
-      if (!url) {
-        if (!cancelled) {
-          setExistingAnalyses([]);
-          setExactDuplicate(null);
-          setDuplicateCheckLoading(false);
-        }
-        return;
-      }
-
-      setDuplicateCheckLoading(true);
-
-      try {
-        const duplicateState = await fetchDuplicateState(movieInfo, duplicateCheckConfig);
-        if (!cancelled) {
-          setExistingAnalyses(duplicateState.analyses);
-          setExactDuplicate(duplicateState.exactMatch);
-        }
-      } catch {
-        if (!cancelled) {
-          setExistingAnalyses([]);
-          setExactDuplicate(null);
-        }
-      } finally {
-        if (!cancelled) {
-          setDuplicateCheckLoading(false);
-        }
-      }
-    };
-
-    void runDuplicateCheck();
+    void runDuplicateChecks();
 
     return () => {
       cancelled = true;
     };
-  }, [
-    movieInfo,
-    config.barcode_type,
-    config.color_metric,
-    config.frame_type,
-    fetchDuplicateState,
-    getDuplicateCheckUrl,
-  ]);
+  }, [analysisConfigs, fetchDuplicateState, movieInfo]);
 
-  // Helper: Determine optimal chunk size based on file size
   const getOptimalChunkSize = (fileSize: number): number => {
-    if (fileSize > 1 * 1024 * 1024 * 1024) return 25 * 1024 * 1024; // >1GB: 25MB chunks
-    if (fileSize > 500 * 1024 * 1024) return 15 * 1024 * 1024;      // >500MB: 15MB chunks
-    if (fileSize > 100 * 1024 * 1024) return 10 * 1024 * 1024;      // >100MB: 10MB chunks
-    return 5 * 1024 * 1024;                                          // default: 5MB chunks
+    if (fileSize > 1 * 1024 * 1024 * 1024) return 25 * 1024 * 1024;
+    if (fileSize > 500 * 1024 * 1024) return 15 * 1024 * 1024;
+    if (fileSize > 100 * 1024 * 1024) return 10 * 1024 * 1024;
+    return 5 * 1024 * 1024;
   };
 
-  // Helper: Upload a single chunk with retry logic
   const uploadChunkWithRetry = async (
     chunkFormData: FormData,
     chunkIndex: number,
     maxRetries = 3,
-    signal?: AbortSignal
+    signal?: AbortSignal,
   ): Promise<void> => {
     let lastError: Error | null = null;
 
@@ -200,40 +311,38 @@ export default function BarcodeGenerator() {
 
         if (response.ok) return;
 
-        // Don't retry client errors (4xx)
         if (response.status >= 400 && response.status < 500) {
           const errorData = await response.json();
           throw new Error(errorData.error || `Failed to upload chunk ${chunkIndex}`);
         }
-      } catch (error) {
-        lastError = error as Error;
+      } catch (uploadError) {
+        lastError = uploadError as Error;
       }
 
-      // Exponential backoff: 1s, 2s, 4s
       if (attempt < maxRetries - 1) {
-        await new Promise(r => setTimeout(r, Math.pow(2, attempt) * 1000));
+        await new Promise((resolve) =>
+          setTimeout(resolve, Math.pow(2, attempt) * 1000),
+        );
       }
     }
 
-    throw lastError || new Error(`Failed to upload chunk ${chunkIndex} after ${maxRetries} retries`);
+    throw lastError || new Error(`Failed to upload chunk ${chunkIndex}`);
   };
 
-  // Helper: Upload chunks in parallel with concurrency limit
   const uploadChunksParallel = async (
     file: File,
     uploadId: string,
     onProgress: (progress: number) => void,
-    signal: AbortSignal
-  ): Promise<number> => {
-    const CHUNK_SIZE = getOptimalChunkSize(file.size);
-    const CONCURRENT_UPLOADS = 4; // Upload 4 chunks at a time
-
-    const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+    signal: AbortSignal,
+  ): Promise<void> => {
+    const chunkSize = getOptimalChunkSize(file.size);
+    const concurrentUploads = 4;
+    const totalChunks = Math.ceil(file.size / chunkSize);
     let completedChunks = 0;
 
     const uploadChunk = async (chunkIndex: number): Promise<void> => {
-      const start = chunkIndex * CHUNK_SIZE;
-      const end = Math.min(start + CHUNK_SIZE, file.size);
+      const start = chunkIndex * chunkSize;
+      const end = Math.min(start + chunkSize, file.size);
       const chunk = file.slice(start, end);
 
       const chunkFormData = new FormData();
@@ -244,21 +353,16 @@ export default function BarcodeGenerator() {
       chunkFormData.append("filename", file.name);
 
       await uploadChunkWithRetry(chunkFormData, chunkIndex, 3, signal);
-
-      completedChunks++;
+      completedChunks += 1;
       onProgress(Math.round((completedChunks / totalChunks) * 100));
     };
 
-    // Process chunks in batches
-    const chunkIndices = Array.from({ length: totalChunks }, (_, i) => i);
+    const chunkIndices = Array.from({ length: totalChunks }, (_, index) => index);
 
-    for (let i = 0; i < chunkIndices.length; i += CONCURRENT_UPLOADS) {
+    for (let i = 0; i < chunkIndices.length; i += concurrentUploads) {
       if (signal.aborted) throw new Error("Upload was cancelled");
-      const batch = chunkIndices.slice(i, i + CONCURRENT_UPLOADS);
-      await Promise.all(batch.map(uploadChunk));
+      await Promise.all(chunkIndices.slice(i, i + concurrentUploads).map(uploadChunk));
     }
-
-    return totalChunks;
   };
 
   const handleSubmit = async () => {
@@ -267,8 +371,15 @@ export default function BarcodeGenerator() {
       return;
     }
 
-    if (!config.email || !config.email.includes("@")) {
+    if (!sharedConfig.email || !sharedConfig.email.includes("@")) {
       setError("Please enter a valid email address");
+      return;
+    }
+
+    if (duplicateMetrics.length > 0) {
+      setError(
+        "Each batch option must be unique. Duplicate barcode type, frame type, and metric combination.",
+      );
       return;
     }
 
@@ -278,31 +389,21 @@ export default function BarcodeGenerator() {
 
     const abortController = new AbortController();
     abortRef.current = abortController;
+    const analysisPayload = buildAnalysisConfigPayload(analysisConfigs);
 
     try {
-      const duplicateState = await fetchDuplicateState(movieInfo, {
-        barcode_type: config.barcode_type,
-        color_metric: config.color_metric,
-        frame_type: config.frame_type,
-      });
-      setExistingAnalyses(duplicateState.analyses);
-      setExactDuplicate(duplicateState.exactMatch);
-
-      if (duplicateState.exactMatch && !forceReprocess) {
-        setError("An equivalent analysis already exists. View the existing result or choose Reprocess anyway.");
-        return;
-      }
-
-      // Use chunked upload for files larger than 50MB
       const useChunkedUpload = selectedFile.size > 50 * 1024 * 1024;
 
       if (useChunkedUpload) {
-        // Chunked upload with parallel processing
         const uploadId = crypto.randomUUID();
 
-        await uploadChunksParallel(selectedFile, uploadId, setUploadProgress, abortController.signal);
+        await uploadChunksParallel(
+          selectedFile,
+          uploadId,
+          setUploadProgress,
+          abortController.signal,
+        );
 
-        // After all chunks uploaded, assemble and submit job
         const assembleResponse = await fetch(`${API_BASE}/api/assemble-file`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -310,17 +411,14 @@ export default function BarcodeGenerator() {
             uploadId,
             filename: selectedFile.name,
             config: {
-              color_metric: config.color_metric,
-              frame_type: config.frame_type,
-              barcode_type: config.barcode_type,
-              sampled_rate: config.sampled_rate.toString(),
-              skip_over: config.skip_over.toString(),
-              total_frames: config.total_frames.toString(),
+              sampled_rate: sharedConfig.sampled_rate.toString(),
+              skip_over: sharedConfig.skip_over.toString(),
+              total_frames: sharedConfig.total_frames.toString(),
               frames_per_column: framesPerColumn.toString(),
-              save_thumbnails: "true",
-              partition: config.partition || "short",
-              email: config.email,
-              force_reprocess: forceReprocess.toString(),
+              save_thumbnails: String(sharedConfig.save_thumbnails),
+              partition: sharedConfig.partition || "short",
+              email: sharedConfig.email,
+              analysis_configs: analysisPayload,
             },
             movie: movieInfo,
           }),
@@ -328,91 +426,87 @@ export default function BarcodeGenerator() {
 
         if (!assembleResponse.ok) {
           const errorData = await assembleResponse.json();
-          throw new Error(errorData.error || "Failed to assemble file and submit job");
+          throw new Error(errorData.error || "Failed to assemble file and submit jobs");
         }
 
-        const data = await assembleResponse.json();
-        if (data.duplicate && data.existingJobId) {
-          router.push(`/results/${data.existingJobId}`);
-          return;
+        const data = (await assembleResponse.json()) as BatchSubmitResponse;
+        if (!data.batchId) {
+          throw new Error("Batch submission did not return a batch id");
         }
 
-        setJobId(data.jobId);
-        setSubmitted(true);
-        router.push(`/submitted/${data.jobId}`);
-      } else {
-        // Regular upload for smaller files
-        const formData = new FormData();
-        formData.append("video", selectedFile);
-        formData.append("color_metric", config.color_metric);
-        formData.append("frame_type", config.frame_type);
-        formData.append("barcode_type", config.barcode_type);
-        formData.append("sampled_rate", config.sampled_rate.toString());
-        formData.append("skip_over", config.skip_over.toString());
-        formData.append("total_frames", config.total_frames.toString());
-        formData.append("frames_per_column", framesPerColumn.toString());
-        formData.append("save_thumbnails", "true");
-        formData.append("partition", config.partition || "short");
-        formData.append("email", config.email);
-        formData.append("movie", JSON.stringify(movieInfo));
-        formData.append("force_reprocess", forceReprocess.toString());
+        router.push(`/submitted/batch/${data.batchId}`);
+        return;
+      }
 
-        // Use XMLHttpRequest for upload progress tracking
-        const xhr = new XMLHttpRequest();
+      const formData = new FormData();
+      formData.append("video", selectedFile);
+      formData.append("sampled_rate", sharedConfig.sampled_rate.toString());
+      formData.append("skip_over", sharedConfig.skip_over.toString());
+      formData.append("total_frames", sharedConfig.total_frames.toString());
+      formData.append("frames_per_column", framesPerColumn.toString());
+      formData.append("save_thumbnails", String(sharedConfig.save_thumbnails));
+      formData.append("partition", sharedConfig.partition || "short");
+      formData.append("email", sharedConfig.email);
+      formData.append("movie", JSON.stringify(movieInfo));
+      formData.append("analysis_configs", JSON.stringify(analysisPayload));
 
-        xhr.upload.addEventListener("progress", (e) => {
-          if (e.lengthComputable) {
-            const percentComplete = Math.round((e.loaded / e.total) * 100);
-            setUploadProgress(percentComplete);
+      const xhr = new XMLHttpRequest();
+
+      xhr.upload.addEventListener("progress", (event) => {
+        if (event.lengthComputable) {
+          setUploadProgress(Math.round((event.loaded / event.total) * 100));
+        }
+      });
+
+      await new Promise<void>((resolve, reject) => {
+        xhr.addEventListener("load", () => {
+          if (xhr.status !== 200) {
+            try {
+              const data = JSON.parse(xhr.responseText) as BatchSubmitResponse;
+              reject(new Error(data.error || "Failed to submit jobs"));
+            } catch {
+              reject(new Error(`Upload failed with status ${xhr.status}`));
+            }
+            return;
+          }
+
+          try {
+            const data = JSON.parse(xhr.responseText) as BatchSubmitResponse;
+            if (!data.batchId) {
+              reject(new Error("Batch submission did not return a batch id"));
+              return;
+            }
+
+            router.push(`/submitted/batch/${data.batchId}`);
+            resolve();
+          } catch {
+            reject(new Error("Invalid response from server"));
           }
         });
 
-        await new Promise<void>((resolve, reject) => {
-          xhr.addEventListener("load", () => {
-            if (xhr.status === 200) {
-              try {
-                const data = JSON.parse(xhr.responseText);
-                if (data.duplicate && data.existingJobId) {
-                  router.push(`/results/${data.existingJobId}`);
-                  resolve();
-                  return;
-                }
-                setJobId(data.jobId);
-                setSubmitted(true);
-                router.push(`/submitted/${data.jobId}`);
-                resolve();
-              } catch {
-                reject(new Error("Invalid response from server"));
-              }
-            } else {
-              try {
-                const data = JSON.parse(xhr.responseText);
-                reject(new Error(data.error || "Failed to submit job"));
-              } catch {
-                reject(new Error(`Upload failed with status ${xhr.status}`));
-              }
-            }
-          });
-
-          xhr.addEventListener("error", () => {
-            reject(new Error("Network error occurred during upload"));
-          });
-
-          xhr.addEventListener("abort", () => {
-            reject(new Error("Upload was cancelled"));
-          });
-
-          xhr.open("POST", `${API_BASE}/api/generate-barcode`);
-          xhrRef.current = xhr;
-          xhr.send(formData);
+        xhr.addEventListener("error", () => {
+          reject(new Error("Network error occurred during upload"));
         });
+
+        xhr.addEventListener("abort", () => {
+          reject(new Error("Upload was cancelled"));
+        });
+
+        xhr.open("POST", `${API_BASE}/api/generate-barcode`);
+        xhrRef.current = xhr;
+        xhr.send(formData);
+      });
+    } catch (submitError) {
+      if (
+        (submitError as Error)?.name === "AbortError" ||
+        (submitError as Error)?.message === "Upload was cancelled"
+      ) {
+        return;
       }
-    } catch (err) {
-      if ((err as Error)?.name === "AbortError" || (err as Error)?.message === "Upload was cancelled") {
-        // Cancelled — do not show error
-      } else {
-        setError(err instanceof Error ? err.message : "An error occurred");
-      }
+
+      setError(
+        submitError instanceof Error ? submitError.message : "An error occurred",
+      );
     } finally {
       setIsSubmitting(false);
       setUploadProgress(0);
@@ -428,271 +522,265 @@ export default function BarcodeGenerator() {
     setUploadProgress(0);
   };
 
-  const handleNewUpload = () => {
-    setSelectedFile(null);
-    setMovieInfo(null);
-    resetDuplicateState();
-    setSubmitted(false);
-    setJobId(null);
-    setError(null);
-    setUploadProgress(0);
-    setConfig({
-      ...config,
-      email: config.email, // Keep email
-    });
-  };
-
   return (
     <div className="space-y-6">
-      {!submitted ? (
+      <div
+        className="panel-bg p-6"
+        style={{
+          border: "1px solid var(--surface-border)",
+          borderLeftWidth: 3,
+          borderLeftColor: "var(--accent-crimson)",
+        }}
+      >
+        <h2 className="font-mono text-xs tracking-[0.35em] uppercase kalmus-text-secondary mb-4">
+          ▸ Video Upload
+        </h2>
+        <FileUpload onFileSelect={handleFileSelect} selectedFile={selectedFile} />
+      </div>
+
+      {selectedFile && (
         <>
-          <div className="panel-bg p-6" style={{ border: '1px solid var(--surface-border)', borderLeftWidth: 3, borderLeftColor: 'var(--accent-crimson)' }}>
-            <h2 className="font-mono text-[9px] tracking-[0.35em] uppercase kalmus-text-secondary mb-4">
-              ▸ Video Upload
+          <div
+            className="panel-bg p-6"
+            style={{
+              border: "1px solid var(--surface-border)",
+              borderLeftWidth: 3,
+              borderLeftColor: "var(--accent-crimson)",
+            }}
+          >
+            <h2 className="font-mono text-xs tracking-[0.35em] uppercase kalmus-text-secondary mb-1">
+              ▸ Movie Title <span style={{ color: "var(--accent-amber)" }}>*</span>
             </h2>
-            <FileUpload
-              onFileSelect={handleFileSelect}
-              selectedFile={selectedFile}
-            />
+            <p className="font-mono text-xs kalmus-text-muted mb-3">
+              Search by title or enter an IMDb ID to attach metadata to your barcode.
+            </p>
+            <MovieSearchInput key={selectedFile.name} onChange={handleMovieChange} />
           </div>
 
-          {selectedFile && (
+          {movieStepComplete && (
             <>
-              <div className="panel-bg p-6" style={{ border: '1px solid var(--surface-border)', borderLeftWidth: 3, borderLeftColor: 'var(--accent-crimson)' }}>
-                <h2 className="font-mono text-[9px] tracking-[0.35em] uppercase kalmus-text-secondary mb-1">
-                  ▸ Movie Title <span style={{ color: 'var(--accent-amber)' }}>*</span>
+              <div
+                className="panel-bg p-6"
+                style={{
+                  border: "1px solid var(--surface-border)",
+                  borderLeftWidth: 3,
+                  borderLeftColor: "var(--accent-crimson)",
+                }}
+              >
+                <h2 className="font-mono text-xs tracking-[0.35em] uppercase kalmus-text-secondary mb-4">
+                  ▸ Configuration
                 </h2>
-                <p className="font-mono text-[10px] kalmus-text-muted mb-3">
-                  Search by title or enter an IMDb ID to attach metadata to your barcode.
-                </p>
-                <MovieSearchInput key={selectedFile.name} onChange={handleMovieChange} />
+                <ConfigPanel
+                  sharedConfig={sharedConfig}
+                  analysisConfigs={analysisConfigs}
+                  onSharedConfigChange={handleSharedConfigChange}
+                  onAnalysisConfigChange={handleAnalysisConfigChange}
+                  onAddAnalysisConfig={handleAddAnalysisConfig}
+                  onRemoveAnalysisConfig={handleRemoveAnalysisConfig}
+                  canAddAnalysisConfig={canAddAnalysisConfig}
+                />
               </div>
 
-              {movieStepComplete && (
-                <>
-                  <div className="panel-bg p-6" style={{ border: '1px solid var(--surface-border)', borderLeftWidth: 3, borderLeftColor: 'var(--accent-crimson)' }}>
-                    <h2 className="font-mono text-[9px] tracking-[0.35em] uppercase kalmus-text-secondary mb-4">
-                      ▸ Configuration
-                    </h2>
-                    <ConfigPanel config={config} onConfigChange={handleConfigChange} />
-                  </div>
+              {movieInfo &&
+                analysisConfigs.map((config, index) => {
+                  const duplicateState = duplicateStates[config.clientId];
+                  if (
+                    !duplicateState ||
+                    (!duplicateState.loading && duplicateState.analyses.length === 0)
+                  ) {
+                    return null;
+                  }
 
-                  {movieInfo && existingAnalyses.length > 0 && (
-                    <div className="panel-bg p-6" style={{ border: '1px solid var(--surface-border)', borderLeftWidth: 3, borderLeftColor: exactDuplicate && !forceReprocess ? 'var(--accent-amber)' : 'var(--accent-crimson)' }}>
+                  const exactDuplicate = duplicateState.exactMatch;
+
+                  return (
+                    <div
+                      key={`duplicate-${config.clientId}`}
+                      className="panel-bg p-6"
+                      style={{
+                        border: "1px solid var(--surface-border)",
+                        borderLeftWidth: 3,
+                        borderLeftColor:
+                          exactDuplicate && !config.forceReprocess
+                            ? "var(--accent-amber)"
+                            : "var(--accent-crimson)",
+                      }}
+                    >
                       <div className="flex items-start justify-between gap-4 mb-4">
                         <div>
                           <p className="font-mono text-xs kalmus-text-primary mb-1">
-                            {exactDuplicate && !forceReprocess
-                              ? "An equivalent analysis already exists for these settings."
-                              : exactDuplicate && forceReprocess
-                                ? "Reprocessing override enabled for an existing analysis."
-                                : "This film already has analyses in the database."}
+                            Analysis {index + 1}:{" "}
+                            {duplicateState.loading
+                              ? "Checking existing analyses..."
+                              : exactDuplicate && !config.forceReprocess
+                                ? "Equivalent analysis already exists for this row."
+                                : exactDuplicate && config.forceReprocess
+                                  ? "Reprocessing override enabled for this row."
+                                  : "This film already has saved analyses."}
                           </p>
-                          <p className="font-mono text-[10px] kalmus-text-secondary">
-                            {duplicateCheckLoading
-                              ? "Checking current settings against saved analyses..."
-                              : exactDuplicate && !forceReprocess
-                                ? "Reuse the existing dashboard by default, or explicitly choose to reprocess."
-                                : exactDuplicate && forceReprocess
-                                  ? "Submitting now will generate a new run for the same movie and configuration."
-                                  : "Existing analyses are listed below; different settings can still be submitted normally."}
+                          <p className="font-mono text-xs kalmus-text-secondary">
+                            {duplicateState.loading
+                              ? "Comparing this configuration against the archive."
+                              : exactDuplicate && !config.forceReprocess
+                                ? "Submitting will reuse the existing result unless you explicitly reprocess this row."
+                                : exactDuplicate && config.forceReprocess
+                                  ? "Submitting will create a new job even though an equivalent result exists."
+                                  : "These saved analyses may still be useful reference points before you submit."}
                           </p>
                         </div>
-                        {exactDuplicate && (
+                        {exactDuplicate && !duplicateState.loading && (
                           <div className="flex gap-2 shrink-0">
                             <button
                               onClick={() => router.push(`/results/${exactDuplicate.job_id}`)}
-                              className="px-3 py-1.5 font-mono text-[10px] tracking-[0.12em] uppercase transition-all hover:opacity-90"
-                              style={{ background: 'var(--accent-amber)', color: 'var(--background)' }}
+                              className="px-3 py-1.5 font-mono text-xs tracking-[0.12em] uppercase transition-all hover:opacity-90"
+                              style={{
+                                background: "var(--accent-amber)",
+                                color: "var(--background)",
+                              }}
                             >
                               View Existing
                             </button>
                             <button
-                              onClick={() => setForceReprocess((prev) => !prev)}
-                              className="px-3 py-1.5 font-mono text-[10px] tracking-[0.12em] uppercase transition-all kalmus-text-secondary hover:text-[var(--text-primary)]"
-                              style={{ border: '1px solid var(--input-border)' }}
+                              onClick={() =>
+                                handleAnalysisConfigChange(config.clientId, {
+                                  forceReprocess: !config.forceReprocess,
+                                })
+                              }
+                              className="px-3 py-1.5 font-mono text-xs tracking-[0.12em] uppercase transition-all kalmus-text-secondary hover:text-[var(--text-primary)]"
+                              style={{ border: "1px solid var(--input-border)" }}
                             >
-                              {forceReprocess ? "Cancel Reprocess" : "Reprocess Anyway"}
+                              {config.forceReprocess
+                                ? "Cancel Reprocess"
+                                : "Reprocess Anyway"}
                             </button>
                           </div>
                         )}
                       </div>
 
-                      <div className="space-y-2">
-                        {existingAnalyses.map((a) => {
-                          const isExactMatch = exactDuplicate?.job_id === a.job_id;
-                          return (
-                            <div key={a.job_id} className="flex items-center justify-between font-mono text-[10px] kalmus-text-secondary">
-                              <span>
-                                <span className="px-1.5 py-0.5 mr-2" style={{ background: 'var(--surface-bg-strong)', color: isExactMatch ? 'var(--accent-amber)' : 'var(--text-secondary)' }}>
-                                  {a.barcode_type}
-                                </span>
-                                {a.frame_type.replace(/_/g, " ")} · {a.metric}
-                                {isExactMatch && (
-                                  <span className="ml-2" style={{ color: 'var(--accent-amber)' }}>
-                                    matching config
-                                  </span>
-                                )}
-                              </span>
-                              <button
-                                onClick={() => router.push(`/results/${a.job_id}`)}
-                                className="underline transition-colors hover:text-[var(--text-primary)]"
-                                style={{ color: isExactMatch ? 'var(--accent-amber)' : 'var(--text-secondary)' }}
+                      {!duplicateState.loading && (
+                        <div className="space-y-2">
+                          {duplicateState.analyses.map((analysis) => {
+                            const isExactMatch = exactDuplicate?.job_id === analysis.job_id;
+                            return (
+                              <div
+                                key={analysis.job_id}
+                                className="flex items-center justify-between font-mono text-xs kalmus-text-secondary"
                               >
-                                View
-                              </button>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {isSubmitting && uploadProgress > 0 && (
-                    <div className="panel-bg p-6" style={{ border: '1px solid var(--surface-border)' }}>
-                      <div className="mb-2 flex justify-between items-center">
-                        <span className="font-mono text-[10px] tracking-[0.18em] uppercase kalmus-text-muted">
-                          Uploading footage...
-                        </span>
-                        <span className="font-mono text-sm" style={{ color: 'var(--accent-amber)' }}>
-                          {uploadProgress}%
-                        </span>
-                      </div>
-                      <div className="w-full h-1.5" style={{ background: 'var(--surface-bg-strong)' }}>
-                        <div
-                          className="h-1.5 transition-all duration-300"
-                          style={{ width: `${uploadProgress}%`, background: 'var(--accent-crimson)' }}
-                        />
-                      </div>
-                      <div className="mt-2 flex items-center justify-between">
-                        <p className="font-mono text-[10px] kalmus-text-muted">
-                          {uploadProgress < 100
-                            ? "Please wait while your video is being uploaded..."
-                            : "Upload complete! Processing job submission..."}
-                        </p>
-                        {uploadProgress < 100 && (
-                          <button
-                            onClick={handleCancel}
-                            className="ml-4 px-3 py-1 font-mono text-[10px] tracking-wider uppercase transition-colors kalmus-text-secondary hover:text-[var(--text-primary)]"
-                            style={{ border: '1px solid var(--input-border)' }}
-                          >
-                            Cancel
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="flex justify-end">
-                    <button
-                      onClick={handleSubmit}
-                      disabled={isSubmitting || !config.email || duplicateCheckLoading || (!!exactDuplicate && !forceReprocess)}
-                      className="px-6 py-2.5 font-mono text-[11px] tracking-[0.22em] uppercase transition-all hover:opacity-90 hover:-translate-y-0.5 disabled:opacity-40 disabled:cursor-not-allowed"
-                      style={{ background: 'var(--accent-crimson)', color: 'var(--background)', borderRadius: 0 }}
-                    >
-                      {isSubmitting ? (
-                        <span className="flex items-center gap-2">
-                          <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                            <circle
-                              className="opacity-25"
-                              cx="12"
-                              cy="12"
-                              r="10"
-                              stroke="currentColor"
-                              strokeWidth="4"
-                              fill="none"
-                            />
-                            <path
-                              className="opacity-75"
-                              fill="currentColor"
-                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                            />
-                          </svg>
-                          {uploadProgress < 100 ? `Uploading ${uploadProgress}%` : "Submitting..."}
-                        </span>
-                      ) : (
-                        exactDuplicate && !forceReprocess ? "Existing Analysis Found" : "Submit Job"
+                                <span>
+                                  <span
+                                    className="px-1.5 py-0.5 mr-2"
+                                    style={{
+                                      background: "var(--surface-bg-strong)",
+                                      color: isExactMatch
+                                        ? "var(--accent-amber)"
+                                        : "var(--text-secondary)",
+                                    }}
+                                  >
+                                    {analysis.barcode_type}
+                                  </span>
+                                  {analysis.frame_type.replace(/_/g, " ")} · {analysis.metric}
+                                  {isExactMatch && (
+                                    <span className="ml-2" style={{ color: "var(--accent-amber)" }}>
+                                      matching config
+                                    </span>
+                                  )}
+                                </span>
+                                <button
+                                  onClick={() => router.push(`/results/${analysis.job_id}`)}
+                                  className="underline transition-colors hover:text-[var(--text-primary)]"
+                                  style={{
+                                    color: isExactMatch
+                                      ? "var(--accent-amber)"
+                                      : "var(--text-secondary)",
+                                  }}
+                                >
+                                  View
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
                       )}
-                    </button>
+                    </div>
+                  );
+                })}
+
+              {isSubmitting && uploadProgress > 0 && (
+                <div className="panel-bg p-6" style={{ border: "1px solid var(--surface-border)" }}>
+                  <div className="mb-2 flex justify-between items-center">
+                    <span className="font-mono text-xs tracking-[0.18em] uppercase kalmus-text-muted">
+                      Uploading footage...
+                    </span>
+                    <span className="font-mono text-sm" style={{ color: "var(--accent-amber)" }}>
+                      {uploadProgress}%
+                    </span>
                   </div>
-                </>
+                  <div className="w-full h-1.5" style={{ background: "var(--surface-bg-strong)" }}>
+                    <div
+                      className="h-1.5 transition-all duration-300"
+                      style={{
+                        width: `${uploadProgress}%`,
+                        background: "var(--accent-crimson)",
+                      }}
+                    />
+                  </div>
+                  <div className="mt-2 flex items-center justify-between">
+                    <p className="font-mono text-xs kalmus-text-muted">
+                      {uploadProgress < 100
+                        ? "Please wait while your video is being uploaded..."
+                        : "Upload complete! Processing batch submission..."}
+                    </p>
+                    {uploadProgress < 100 && (
+                      <button
+                        onClick={handleCancel}
+                        className="ml-4 px-3 py-1 font-mono text-xs tracking-wider uppercase transition-colors kalmus-text-secondary hover:text-[var(--text-primary)]"
+                        style={{ border: "1px solid var(--input-border)" }}
+                      >
+                        Cancel
+                      </button>
+                    )}
+                  </div>
+                </div>
               )}
+
+              <div className="flex justify-end">
+                <button
+                  onClick={handleSubmit}
+                  disabled={isSubmitting || !sharedConfig.email || duplicateCheckLoading || duplicateMetrics.length > 0}
+                  className="kalmus-button-filled px-6 py-2.5 font-mono text-xs tracking-[0.22em] uppercase transition-all hover:brightness-90 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:hover:brightness-100 disabled:hover:translate-y-0"
+                >
+                  {isSubmitting ? (
+                    <span className="flex items-center gap-2">
+                      <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                          fill="none"
+                        />
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        />
+                      </svg>
+                      {uploadProgress < 100 ? `Uploading ${uploadProgress}%` : "Submitting..."}
+                    </span>
+                  ) : (
+                    "Submit Jobs"
+                  )}
+                </button>
+              </div>
             </>
           )}
         </>
-      ) : (
-        <div className="panel-bg p-8" style={{ border: '1px solid var(--surface-border)', borderLeftWidth: 3, borderLeftColor: 'var(--accent-crimson)' }}>
-          <div>
-            <div className="mb-6">
-              <div className="flex items-center gap-3 mb-3">
-                <div
-                  className="inline-flex items-center justify-center w-10 h-10 font-mono text-sm"
-                  style={{ border: '1px solid var(--accent-amber)', color: 'var(--accent-amber)' }}
-                >
-                  ✓
-                </div>
-                <div className="font-mono text-[9px] tracking-[0.35em] uppercase kalmus-text-secondary">
-                  ▸ TRANSMISSION LOGGED
-                </div>
-              </div>
-              <h2 className="font-display text-xl kalmus-text-primary mb-1">
-                Job Submitted
-              </h2>
-              <p className="font-mono text-xs kalmus-text-secondary">
-                Your video is being processed on the HPC cluster.
-              </p>
-            </div>
-
-            <div className="pl-4 mb-6 space-y-2" style={{ borderLeft: '2px solid var(--surface-border)' }}>
-              {movieInfo && (
-                <div className="font-mono text-xs">
-                  <span className="kalmus-text-secondary">Movie: </span>
-                  <span className="kalmus-text-primary">
-                    {movieInfo.title}{"year" in movieInfo ? ` (${movieInfo.year})` : ""}
-                  </span>
-                </div>
-              )}
-              <div className="font-mono text-xs">
-                <span className="kalmus-text-secondary">Partition: </span>
-                <span className="kalmus-text-primary">{config.partition}</span>
-              </div>
-              <div className="font-mono text-xs">
-                <span className="kalmus-text-secondary">Email: </span>
-                <span className="kalmus-text-primary">{config.email}</span>
-              </div>
-              <div className="font-mono text-xs">
-                <span className="kalmus-text-secondary">Expected time: </span>
-                <span className="kalmus-text-primary">1-10 minutes</span>
-              </div>
-              {jobId && (
-                <div className="font-mono text-xs">
-                  <span className="kalmus-text-secondary">Job ID: </span>
-                  <code className="kalmus-text-secondary">
-                    {jobId.substring(0, 8)}
-                  </code>
-                </div>
-              )}
-            </div>
-
-            <div className="p-4 mb-6 kalmus-surface">
-              <p className="font-mono text-[10px] kalmus-text-secondary leading-relaxed">
-                You&apos;ll receive an email when the job completes, fails, or reuses an existing analysis. The message includes a direct link to the result page.
-              </p>
-            </div>
-
-            <button
-              onClick={handleNewUpload}
-              className="px-5 py-2 font-mono text-[11px] tracking-[0.22em] uppercase transition-all hover:opacity-90 hover:-translate-y-0.5"
-              style={{ background: 'var(--accent-crimson)', color: 'var(--background)', borderRadius: 0 }}
-            >
-              Process Another Video
-            </button>
-          </div>
-        </div>
       )}
 
       {error && (
-        <div className="p-4 kalmus-surface-strong" style={{ border: '1px solid var(--accent-crimson)' }}>
+        <div className="p-4 kalmus-surface-strong" style={{ border: "1px solid var(--accent-crimson)" }}>
           <p className="font-mono text-xs kalmus-text-secondary">{error}</p>
         </div>
       )}

@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sendJobNotificationEmail, SLURM_CONFIG, submitSlurmJob, JobConfig } from '@/lib/slurm';
+import { JobConfig } from '@/lib/slurm';
 import { streamToHPC } from '@/lib/hpc-transfer';
-import { findDuplicateAnalyses } from '@/lib/db';
 import { Readable } from 'stream';
 import type { ReadableStream as NodeReadableStream } from 'stream/web';
+import { findDuplicateAnalysisSignatures, FRAME_TYPE_OPTIONS, parseAnalysisConfigPayload } from '@/lib/multi-analysis';
+import { submitBarcodeBatch } from '@/lib/barcode-submission';
 
 // Configure route segment for large file uploads
 export const maxDuration = 600; // 10 minutes timeout for large uploads
@@ -27,10 +28,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Extract configuration from form data
-    const config: JobConfig = {
-      color_metric: (formData.get('color_metric') as string) || 'Average',
-      frame_type: (formData.get('frame_type') as string) || 'Whole_frame',
-      barcode_type: (formData.get('barcode_type') as string) || 'Color',
+    const sharedConfig = {
       sampled_rate: parseInt((formData.get('sampled_rate') as string) || '1'),
       skip_over: parseInt((formData.get('skip_over') as string) || '0'),
       total_frames: parseInt((formData.get('total_frames') as string) || '100000000'),
@@ -38,8 +36,26 @@ export async function POST(request: NextRequest) {
       save_thumbnails: (formData.get('save_thumbnails') as string) !== 'false',
       partition: (formData.get('partition') as string) || 'short',
       email: (formData.get('email') as string) || undefined,
-      force_reprocess: (formData.get('force_reprocess') as string) === 'true',
-    };
+    } satisfies Omit<JobConfig, 'color_metric' | 'frame_type' | 'barcode_type'>;
+    const analysisConfigs = parseAnalysisConfigPayload(
+      (formData.get('analysis_configs') as string | null) || undefined,
+    );
+    const invalidFrameType = analysisConfigs.find(
+      ({ frame_type }) => !FRAME_TYPE_OPTIONS.includes(frame_type as (typeof FRAME_TYPE_OPTIONS)[number]),
+    );
+    if (invalidFrameType) {
+      return NextResponse.json(
+        { error: `Invalid frame type: ${invalidFrameType.frame_type}` },
+        { status: 400 }
+      );
+    }
+    const duplicateSignatures = findDuplicateAnalysisSignatures(analysisConfigs);
+    if (duplicateSignatures.length > 0) {
+      return NextResponse.json(
+        { error: 'Each batch option must be unique. Duplicate barcode type, frame type, and metric combination.' },
+        { status: 400 }
+      );
+    }
 
     // Parse movie metadata (JSON-encoded form field)
     let movie: Record<string, unknown> | undefined;
@@ -47,42 +63,6 @@ export async function POST(request: NextRequest) {
     if (movieRaw) {
       try { movie = JSON.parse(movieRaw); } catch { /* ignore malformed */ }
     }
-    const videoTitle =
-      movie && typeof movie.title === 'string' && movie.title.trim()
-        ? movie.title.trim()
-        : videoFile.name;
-
-    const duplicateMatch = findDuplicateAnalyses(
-      (movie?.imdb_id as string | undefined) || null,
-      {
-        barcode_type: config.barcode_type,
-        frame_type: config.frame_type,
-        color_metric: config.color_metric,
-      }
-    );
-
-    if (duplicateMatch.exactMatch && !config.force_reprocess) {
-      if (config.email) {
-        try {
-          await sendJobNotificationEmail({
-            email: config.email,
-            status: 'DUPLICATE',
-            resultsUrl: `${SLURM_CONFIG.websiteUrl}/results/${duplicateMatch.exactMatch.job_id}`,
-            videoTitle,
-          });
-        } catch (error) {
-          console.error('Failed to send duplicate notification email:', error);
-        }
-      }
-
-      return NextResponse.json({
-        success: true,
-        duplicate: true,
-        existingJobId: duplicateMatch.exactMatch.job_id,
-        existingAnalysis: duplicateMatch.exactMatch,
-      });
-    }
-
     // Extract user info from headers (if available from upstream auth)
     const username = request.headers.get('x-username');
     const email = request.headers.get('x-mail');
@@ -106,17 +86,22 @@ export async function POST(request: NextRequest) {
     const { remotePath: videoPath } = await streamToHPC(nodeStream, filename);
 
     // Submit SLURM job
-    const result = await submitSlurmJob(videoPath, videoFile.name, {
-      ...config,
-      video_title: videoTitle,
-    }, user, movie);
+    const batch = await submitBarcodeBatch({
+      videoPath,
+      videoFilename: videoFile.name,
+      sharedConfig,
+      analysisConfigs,
+      user,
+      movie,
+    });
 
     return NextResponse.json({
       success: true,
-      message: 'Job submitted successfully',
-      jobId: result.jobId,
+      message: 'Jobs submitted successfully',
+      batchId: batch.batchId,
+      jobs: batch.jobs,
       filename: videoFile.name,
-      estimatedTime: result.estimatedTime,
+      createdAt: batch.createdAt,
     });
   } catch (error) {
     console.error('Error submitting SLURM job:', error);

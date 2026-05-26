@@ -1,0 +1,19 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "outDir": "../../tmp/frontend-test-build",
+    "rootDir": ".."
+  },
+  "include": [
+    "../tests/barcode-result.test.ts",
+    "../tests/multi-analysis.test.ts",
+    "../tests/job-metadata.test.ts",
+    "../lib/barcode-result.ts",
+    "../lib/multi-analysis.ts",
+    "../lib/submission-batches.ts",
+    "../lib/job-metadata.ts"
+  ]
+}
