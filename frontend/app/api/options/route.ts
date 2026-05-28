@@ -9,8 +9,6 @@ export async function GET() {
         'Mode',
         'Top-dominant',
         'Weighted-dominant',
-        'Brightest',
-        'Bright',
       ],
       frame_types: [
         'whole_frame',

@@ -30,8 +30,6 @@ export const COLOR_METRIC_OPTIONS = [
   "Mode",
   "Top-dominant",
   "Weighted-dominant",
-  "Brightest",
-  "Bright",
 ] as const;
 
 const DEFAULT_ANALYSIS_VALUES = {
