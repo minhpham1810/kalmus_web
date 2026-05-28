@@ -9,9 +9,11 @@
   },
   "include": [
     "../tests/barcode-result.test.ts",
+    "../tests/barcode-utils.test.ts",
     "../tests/multi-analysis.test.ts",
     "../tests/job-metadata.test.ts",
     "../lib/barcode-result.ts",
+    "../lib/barcode-utils.ts",
     "../lib/multi-analysis.ts",
     "../lib/submission-batches.ts",
     "../lib/job-metadata.ts"

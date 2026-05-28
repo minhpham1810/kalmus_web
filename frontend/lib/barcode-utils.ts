@@ -6,6 +6,12 @@
 export type RGB = [number, number, number];
 export type HSV = [number, number, number]; // H: 0-360, S: 0-1, V: 0-1
 export type HSL = [number, number, number]; // H: 0-360, S: 0-1, L: 0-1
+export interface Oklch {
+  lightness: number;
+  chroma: number;
+  hue: number;
+}
+
 export interface HueSample {
   hue: number;
   saturation: number;
@@ -31,7 +37,7 @@ export interface PreparedHueHistogramSamples {
   mode: HueHistogramMode;
 }
 
-export const DEFAULT_HUE_CHROMA_THRESHOLD = 10;
+export const DEFAULT_HUE_CHROMA_THRESHOLD = 0.025;
 
 const HUE_HISTOGRAM_ACHROMATIC_DELTA = 30;
 const HUE_HISTOGRAM_BLACK_MAX = 60;
@@ -157,6 +163,40 @@ export function rgbToHsl(r: number, g: number, b: number): HSL {
   }
 
   return [h, s, l];
+}
+
+function srgbChannelToLinear(channel: number): number {
+  const normalized = channel / 255;
+  return normalized <= 0.04045
+    ? normalized / 12.92
+    : Math.pow((normalized + 0.055) / 1.055, 2.4);
+}
+
+/**
+ * Convert RGB (0-255) to OKLCH. Chroma is perceptual colorfulness:
+ * near 0 is gray/weakly colored, larger values are visibly chromatic.
+ */
+export function rgbToOklch(r: number, g: number, b: number): Oklch {
+  const rLinear = srgbChannelToLinear(r);
+  const gLinear = srgbChannelToLinear(g);
+  const bLinear = srgbChannelToLinear(b);
+
+  const l = 0.4122214708 * rLinear + 0.5363325363 * gLinear + 0.0514459929 * bLinear;
+  const m = 0.2119034982 * rLinear + 0.6806995451 * gLinear + 0.1073969566 * bLinear;
+  const s = 0.0883024619 * rLinear + 0.2817188376 * gLinear + 0.6299787005 * bLinear;
+
+  const lRoot = Math.cbrt(l);
+  const mRoot = Math.cbrt(m);
+  const sRoot = Math.cbrt(s);
+
+  const lightness =
+    0.2104542553 * lRoot + 0.7936177850 * mRoot - 0.0040720468 * sRoot;
+  const a = 1.9779984951 * lRoot - 2.4285922050 * mRoot + 0.4505937099 * sRoot;
+  const bAxis = 0.0259040371 * lRoot + 0.7827717662 * mRoot - 0.8086757660 * sRoot;
+  const chroma = Math.sqrt(a * a + bAxis * bAxis);
+  const hue = (Math.atan2(bAxis, a) * 180 / Math.PI + 360) % 360;
+
+  return { lightness, chroma, hue };
 }
 
 /**
@@ -464,14 +504,14 @@ export function filterHueSamplesBySaturation(
   );
 }
 
-function getRgbChroma([r, g, b]: RGB): number {
-  return Math.max(r, g, b) - Math.min(r, g, b);
+function getPerceptualChroma([r, g, b]: RGB): number {
+  return rgbToOklch(r, g, b).chroma;
 }
 
 /**
  * Prepare hue samples for the interactive histogram. Perceptual mode counts
- * only colors with enough absolute RGB channel spread to have a meaningful
- * visible hue; raw mode mirrors KALMUS/HSV by counting every RGB sample.
+ * only colors with enough OKLCH chroma to have a meaningful visible hue;
+ * raw mode mirrors KALMUS/HSV by counting every RGB sample.
  */
 export function prepareHueHistogramSamples(
   colors: RGB[],
@@ -485,7 +525,7 @@ export function prepareHueHistogramSamples(
   const samples: HueHistogramSample[] = [];
 
   colors.forEach((color, index) => {
-    if (mode === "perceptual" && getRgbChroma(color) < chromaThreshold) {
+    if (mode === "perceptual" && getPerceptualChroma(color) < chromaThreshold) {
       lowChromaCount++;
       return;
     }
