@@ -451,9 +451,9 @@ export default function BarcodePreview({
                 <img
                   src={movie.posterUrl}
                   alt={movie.title}
-                  className="w-10 flex-shrink-0"
+                  className="w-20 flex-shrink-0"
                   style={{
-                    maxHeight: "60px",
+                    // maxHeight: "60px",
                     objectFit: "cover",
                     border: "1px solid var(--surface-border)",
                   }}
@@ -468,11 +468,11 @@ export default function BarcodePreview({
                     </span>
                   ) : null}
                 </p>
-                {movie.metadata.length > 0 && (
+                {/* {movie.metadata.length > 0 && (
                   <p className="font-mono text-xs kalmus-text-secondary truncate mt-0.5">
                     {movie.metadata.join(" · ")}
                   </p>
-                )}
+                )} */}
                 {detailLines.map((line) => (
                   <p
                     key={line}
