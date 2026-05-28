@@ -11,6 +11,28 @@ export interface HueSample {
   saturation: number;
 }
 
+export interface HueHistogramSample extends HueSample {
+  index: number;
+}
+
+export type HueHistogramMode = "perceptual" | "raw";
+
+export interface PrepareHueHistogramOptions {
+  mode?: HueHistogramMode;
+  saturationThreshold?: number;
+  chromaThreshold?: number;
+}
+
+export interface PreparedHueHistogramSamples {
+  samples: HueHistogramSample[];
+  lowChromaCount: number;
+  totalCount: number;
+  chromaThreshold: number;
+  mode: HueHistogramMode;
+}
+
+export const DEFAULT_HUE_CHROMA_THRESHOLD = 10;
+
 const HUE_HISTOGRAM_ACHROMATIC_DELTA = 30;
 const HUE_HISTOGRAM_BLACK_MAX = 60;
 const HUE_HISTOGRAM_WHITE_MIN = 195;
@@ -442,6 +464,52 @@ export function filterHueSamplesBySaturation(
   );
 }
 
+function getRgbChroma([r, g, b]: RGB): number {
+  return Math.max(r, g, b) - Math.min(r, g, b);
+}
+
+/**
+ * Prepare hue samples for the interactive histogram. Perceptual mode counts
+ * only colors with enough absolute RGB channel spread to have a meaningful
+ * visible hue; raw mode mirrors KALMUS/HSV by counting every RGB sample.
+ */
+export function prepareHueHistogramSamples(
+  colors: RGB[],
+  options: PrepareHueHistogramOptions = {}
+): PreparedHueHistogramSamples {
+  const mode = options.mode ?? "perceptual";
+  const saturationThreshold = options.saturationThreshold ?? 0;
+  const chromaThreshold = options.chromaThreshold ?? DEFAULT_HUE_CHROMA_THRESHOLD;
+  let lowChromaCount = 0;
+
+  const samples: HueHistogramSample[] = [];
+
+  colors.forEach((color, index) => {
+    if (mode === "perceptual" && getRgbChroma(color) < chromaThreshold) {
+      lowChromaCount++;
+      return;
+    }
+
+    const [hue, saturation] = rgbToHsv(color[0], color[1], color[2]);
+    samples.push({ hue, saturation, index });
+  });
+
+  const filteredSamples =
+    saturationThreshold <= 0
+      ? samples
+      : samples.filter(
+          (sample) => sample.saturation > 0 && sample.saturation >= saturationThreshold
+        );
+
+  return {
+    samples: filteredSamples,
+    lowChromaCount,
+    totalCount: colors.length,
+    chromaThreshold,
+    mode,
+  };
+}
+
 /**
  * Compute 2D Hue/Light bins for 3D bar plot
  */
@@ -632,26 +700,33 @@ export function downloadCSV(content: string, filename: string): void {
  * Get color for histogram bin based on hue value
  */
 export function getHueColor(hue: number): string {
-  // Convert hue to RGB for display using HSL
-  const h = hue / 360;
-  const s = 0.8;
-  const l = 0.5;
+  const normalizedHue = (((hue % 360) + 360) % 360) / 60;
+  const chroma = 1;
+  const x = chroma * (1 - Math.abs((normalizedHue % 2) - 1));
 
-  const hue2rgb = (p: number, q: number, t: number) => {
-    let tNorm = t;
-    if (tNorm < 0) tNorm += 1;
-    if (tNorm > 1) tNorm -= 1;
-    if (tNorm < 1 / 6) return p + (q - p) * 6 * tNorm;
-    if (tNorm < 1 / 2) return q;
-    if (tNorm < 2 / 3) return p + (q - p) * (2 / 3 - tNorm) * 6;
-    return p;
-  };
+  let r = 0;
+  let g = 0;
+  let b = 0;
 
-  const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-  const p = 2 * l - q;
-  const r = hue2rgb(p, q, h + 1 / 3);
-  const g = hue2rgb(p, q, h);
-  const b = hue2rgb(p, q, h - 1 / 3);
+  if (normalizedHue < 1) {
+    r = chroma;
+    g = x;
+  } else if (normalizedHue < 2) {
+    r = x;
+    g = chroma;
+  } else if (normalizedHue < 3) {
+    g = chroma;
+    b = x;
+  } else if (normalizedHue < 4) {
+    g = x;
+    b = chroma;
+  } else if (normalizedHue < 5) {
+    r = x;
+    b = chroma;
+  } else {
+    r = chroma;
+    b = x;
+  }
 
   return `rgb(${Math.round(r * 255)},${Math.round(g * 255)},${Math.round(b * 255)})`;
 }

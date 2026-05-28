@@ -4,14 +4,12 @@ import { useState, useMemo } from "react";
 import PlotlyWrapper from "./PlotlyWrapper";
 import {
   RGB,
-  filterHueHistogramColors,
-  getHueSamples,
   computeHistogram,
+  DEFAULT_HUE_CHROMA_THRESHOLD,
   getHueColor,
-  filterHueSamplesBySaturation,
+  HueHistogramMode,
   pickDeterministicFrameIndex,
-  rgbToHsv,
-  trimHueSampleOutliers,
+  prepareHueHistogramSamples,
 } from "@/lib/barcode-utils";
 
 interface InteractiveHistogramProps {
@@ -26,6 +24,10 @@ interface InteractiveHistogramProps {
 
 const BIN_STEP_OPTIONS = [1, 2, 5, 10, 15, 20, 30];
 const SATURATION_THRESHOLDS = [0, 0.05, 0.10, 0.15, 0.20, 0.30];
+const HUE_HISTOGRAM_MODES: Array<{ value: HueHistogramMode; label: string }> = [
+  { value: "perceptual", label: "Perceptual hue" },
+  { value: "raw", label: "Raw HSV / KALMUS" },
+];
 
 export default function InteractiveHistogram({
   colors,
@@ -38,42 +40,22 @@ export default function InteractiveHistogram({
 }: InteractiveHistogramProps) {
   const [binStep, setBinStep] = useState(1);
   const [satThreshold, setSatThreshold] = useState(0);
+  const [hueMode, setHueMode] = useState<HueHistogramMode>("perceptual");
 
   const histogramData = useMemo(() => {
     if (barcodeType === "Color" && colors) {
-      // Exclude near-achromatic black/white RGBs before hue exists, then trim/filter hue.
-      const filteredColors = filterHueHistogramColors(colors);
-      const rawSamples = getHueSamples(filteredColors);
-      const trimmedSamples = trimHueSampleOutliers(rawSamples, 0.01);
-      const filteredSamples = filterHueSamplesBySaturation(trimmedSamples, satThreshold);
+      const preparedHueSamples = prepareHueHistogramSamples(colors, {
+        mode: hueMode,
+        chromaThreshold: DEFAULT_HUE_CHROMA_THRESHOLD,
+        saturationThreshold: satThreshold,
+      });
+      const filteredSamples = preparedHueSamples.samples;
       const hues = filteredSamples.map((sample) => sample.hue);
       const { binCenters, counts } = computeHistogram(hues, binStep, 360);
       const representativeFrameIndices = new Array(binCenters.length).fill(null) as Array<number | null>;
 
-      const indexedFilteredColors = colors
-        .map((color, index) => ({ color, index }))
-        .filter(({ color }) => filterHueHistogramColors([color]).length > 0)
-        .map(({ color, index }) => {
-          const [hue, saturation] = rgbToHsv(color[0], color[1], color[2]);
-          return { hue, saturation, index };
-        })
-        .sort((a, b) => a.hue - b.hue);
-
-      const trimCount = Math.floor(indexedFilteredColors.length * 0.01);
-      const trimmedIndexedSamples =
-        trimCount > 0 && trimCount < indexedFilteredColors.length
-          ? indexedFilteredColors.slice(trimCount)
-          : indexedFilteredColors;
-
-      const finalIndexedSamples =
-        satThreshold > 0
-          ? trimmedIndexedSamples.filter(
-              (sample) => sample.saturation > 0 && sample.saturation >= satThreshold
-            )
-          : trimmedIndexedSamples;
-
       const binFrameIndices = new Map<number, number[]>();
-      finalIndexedSamples.forEach((sample) => {
+      filteredSamples.forEach((sample) => {
         const binIndex = Math.min(Math.floor(sample.hue / binStep), binCenters.length - 1);
         const existing = binFrameIndices.get(binIndex) ?? [];
         existing.push(sample.index);
@@ -96,6 +78,11 @@ export default function InteractiveHistogram({
         xTicks: Array.from({ length: 13 }, (_, i) => i * 30), // 0, 30, 60, ..., 360
         maxX: 360,
         representativeFrameIndices,
+        totalCount: preparedHueSamples.totalCount,
+        lowChromaCount: preparedHueSamples.lowChromaCount,
+        hueSampleCount: filteredSamples.length,
+        chromaThreshold: preparedHueSamples.chromaThreshold,
+        hueMode: preparedHueSamples.mode,
       };
     } else if (barcodeType === "Brightness" && brightness) {
       // Brightness histogram (0-255)
@@ -129,11 +116,16 @@ export default function InteractiveHistogram({
         xTicks: Array.from({ length: 18 }, (_, i) => i * 15), // 0, 15, 30, ..., 255
         maxX: 255,
         representativeFrameIndices,
+        totalCount: brightness.length,
+        lowChromaCount: 0,
+        hueSampleCount: brightness.length,
+        chromaThreshold: 0,
+        hueMode: "raw" as HueHistogramMode,
       };
     }
 
     return null;
-  }, [colors, brightness, barcodeType, binStep, satThreshold]);
+  }, [colors, brightness, barcodeType, binStep, satThreshold, hueMode]);
 
   if (!histogramData) {
     return (
@@ -227,6 +219,24 @@ export default function InteractiveHistogram({
 
       {/* Controls */}
       <div className="flex items-center gap-4 flex-wrap">
+        {barcodeType === "Color" && (
+          <div className="flex items-center gap-2">
+            <label className="text-xs text-neutral-600 dark:text-neutral-400">
+              Hue Mode:
+            </label>
+            <select
+              value={hueMode}
+              onChange={(e) => setHueMode(e.target.value as HueHistogramMode)}
+              className="kalmus-input px-2 py-1 text-xs"
+            >
+              {HUE_HISTOGRAM_MODES.map((mode) => (
+                <option key={mode.value} value={mode.value}>
+                  {mode.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         <div className="flex items-center gap-2">
           <label className="text-xs text-neutral-600 dark:text-neutral-400">
             Bin Step:
@@ -262,13 +272,24 @@ export default function InteractiveHistogram({
           </div>
         )}
         <span className="text-xs text-neutral-500 dark:text-neutral-400">
-          Total samples: {histogramData.y.reduce((a, b) => a + b, 0).toLocaleString()}
+          Chart samples: {histogramData.hueSampleCount.toLocaleString()}
         </span>
+        {barcodeType === "Color" && histogramData.hueMode === "perceptual" && (
+          <span className="text-xs text-neutral-500 dark:text-neutral-400">
+            Low-chroma / non-hue: {histogramData.lowChromaCount.toLocaleString()} (
+            {histogramData.totalCount > 0
+              ? ((histogramData.lowChromaCount / histogramData.totalCount) * 100).toFixed(1)
+              : "0.0"}
+            %)
+          </span>
+        )}
       </div>
 
       <p className="text-xs text-neutral-500 dark:text-neutral-400">
         {barcodeType === "Color"
-          ? `Distribution of hue values (0-360°) across all sampled frames. Near-achromatic black and white RGB values are excluded before hue conversion, then the bottom 1% of hue values are trimmed.${satThreshold > 0 ? ` An additional saturation filter of > ${satThreshold} is applied afterward.` : ""}`
+          ? histogramData.hueMode === "perceptual"
+            ? `Distribution of visible hue values (0-360°). Colors with RGB channel spread below ${histogramData.chromaThreshold} are counted as low-chroma / non-hue.${satThreshold > 0 ? ` Hue samples also require saturation > ${satThreshold}.` : ""}`
+            : `Raw KALMUS/HSV hue distribution (0-360°) across all sampled frames. Near-black and gray colors can collapse to hue 0.${satThreshold > 0 ? ` Hue samples also require saturation > ${satThreshold}.` : ""}`
           : "Distribution of brightness values (0-255) across all sampled frames."}
       </p>
     </div>
