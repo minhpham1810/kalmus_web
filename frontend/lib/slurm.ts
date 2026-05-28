@@ -75,6 +75,56 @@ function shellQuote(value: string): string {
   return `'${value.replace(/'/g, `'\"'\"'`)}'`;
 }
 
+// Conservative max frames processable within ~45 min per frame type.
+// Derived from observed job timings: GrabCut ~1s/frame, watershed ~0.3s/frame.
+const FRAME_TYPE_MAX_PROCESSABLE: Partial<Record<string, number>> = {
+  foreground: 2500,
+  background: 2500,
+  high_contrast: 8000,
+  low_contrast: 8000,
+};
+
+async function getVideoFrameCount(videoPath: string): Promise<number | null> {
+  try {
+    const { stdout } = await execAsync(
+      `ffprobe -v error -select_streams v:0 -show_entries stream=nb_frames -of default=noprint_wrappers=1:nokey=1 ${shellQuote(videoPath)}`
+    );
+    const frames = parseInt(stdout.trim(), 10);
+    if (!isNaN(frames) && frames > 0) return frames;
+  } catch { /* fall through to duration-based estimate */ }
+
+  try {
+    const { stdout } = await execAsync(
+      `ffprobe -v error -select_streams v:0 -show_entries stream=r_frame_rate,duration -of json ${shellQuote(videoPath)}`
+    );
+    const info = JSON.parse(stdout) as { streams?: { r_frame_rate?: string; duration?: string }[] };
+    const stream = info.streams?.[0];
+    if (stream?.duration && stream?.r_frame_rate) {
+      const [num, den] = stream.r_frame_rate.split('/').map(Number);
+      const fps = num / den;
+      return Math.ceil(parseFloat(stream.duration) * fps);
+    }
+  } catch { /* ignore */ }
+
+  return null;
+}
+
+function applyFrameTypeConstraints(config: JobConfig, actualFrameCount: number | null): JobConfig {
+  let { total_frames, sampled_rate } = config;
+
+  if (actualFrameCount !== null) {
+    total_frames = Math.min(total_frames, actualFrameCount);
+
+    const maxProcessable = FRAME_TYPE_MAX_PROCESSABLE[config.frame_type];
+    if (maxProcessable !== undefined) {
+      const minRate = Math.ceil(actualFrameCount / maxProcessable);
+      sampled_rate = Math.max(sampled_rate, minRate);
+    }
+  }
+
+  return { ...config, total_frames, sampled_rate };
+}
+
 export async function sendJobNotificationEmail({
   email,
   status,
@@ -125,7 +175,7 @@ export function generateSlurmScript(
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=16GB
-#SBATCH --time=01:00:00
+#SBATCH --time=08:00:00
 #SBATCH --output=${outputDir}/slurm_%j.stdout.txt
 #SBATCH --error=${outputDir}/slurm_%j.stderr.txt
 
@@ -141,6 +191,22 @@ echo ""
 
 # Create output directory
 mkdir -p ${outputDir}
+
+# Handle SIGTERM sent by SLURM when wall time is exceeded
+timeout_handler() {
+  echo ""
+  echo "Job killed by SLURM time limit at: $(date)"
+  echo "TIMEOUT" > ${outputDir}/status.txt
+  if [ -n "${config.email}" ]; then
+    python3 ${notificationScript} \\
+      --email "${config.email}" \\
+      --status "FAILED" \\
+      --results-url "${notificationResultsUrl}" \\
+      --video-title "${notificationTitle}" || true
+  fi
+  exit 1
+}
+trap timeout_handler SIGTERM
 
 # Activate Python environment
 ${SLURM_CONFIG.pythonEnv}
@@ -266,8 +332,12 @@ export async function submitSlurmJob(
     const outputDir = path.join(SLURM_CONFIG.resultsDir, jobId);
     await fs.mkdir(outputDir, { recursive: true });
 
+    // Cap total_frames to actual video length and enforce per-frame-type sampled_rate floors
+    const actualFrameCount = await getVideoFrameCount(videoPath);
+    const effectiveConfig = applyFrameTypeConstraints(config, actualFrameCount);
+
     // Generate SLURM script
-    const script = generateSlurmScript(jobId, videoPath, videoFilename, config);
+    const script = generateSlurmScript(jobId, videoPath, videoFilename, effectiveConfig);
     const scriptPath = path.join(SLURM_CONFIG.scriptsDir, `${jobId}.sh`);
 
     // Write script to file
@@ -301,7 +371,7 @@ export async function submitSlurmJob(
       slurmJobId,
       videoPath,
       videoFilename,
-      config,
+      config: effectiveConfig,
       submittedAt: new Date().toISOString(),
       status: 'PENDING',
       user: user || undefined,
