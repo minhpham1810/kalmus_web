@@ -304,13 +304,13 @@ export default function ColorStatsDashboard({
               <div className="flex-1 space-y-1">
                 <div className="text-sm">
                   <span className="text-neutral-500 dark:text-neutral-400">RGB:</span>{" "}
-                  <code className="text-neutral-900 dark:text-neutral-100 font-mono text-xs">
+                  <code className="kalmus-text-primary font-mono text-xs">
                     ({stats.averageColor.join(", ")})
                   </code>
                 </div>
                 <div className="text-sm">
                   <span className="text-neutral-500 dark:text-neutral-400">HEX:</span>{" "}
-                  <code className="text-neutral-900 dark:text-neutral-100 font-mono text-xs">
+                  <code className="kalmus-text-primary font-mono text-xs">
                     {rgbToHex(stats.averageColor)}
                   </code>
                 </div>
@@ -385,7 +385,7 @@ function BrightnessStatCard({ label, value }: { label: string; value: number }) 
   return (
     <div className="bg-neutral-100 dark:bg-neutral-900 rounded p-2 text-center">
       <div className="text-xs text-neutral-500 dark:text-neutral-400 mb-1">{label}</div>
-      <div className="text-sm font-medium text-neutral-900 dark:text-neutral-100">{value}</div>
+      <div className="text-sm font-medium kalmus-text-primary">{value}</div>
     </div>
   );
 }
