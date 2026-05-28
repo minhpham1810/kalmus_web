@@ -127,6 +127,8 @@ export default function InteractiveHistogram({
     return null;
   }, [colors, brightness, barcodeType, binStep, satThreshold, hueMode]);
 
+  const plotUiRevision = `${barcodeType}-${binStep}-${satThreshold}-${hueMode}`;
+
   if (!histogramData) {
     return (
       <div className="bg-neutral-100 dark:bg-neutral-900 rounded p-8 text-center">
@@ -184,6 +186,7 @@ export default function InteractiveHistogram({
               color: "#666",
             },
             autosize: true,
+            uirevision: plotUiRevision,
           }}
           config={{
             displayModeBar: true,
