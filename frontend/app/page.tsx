@@ -3,11 +3,6 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useState, useEffect, useRef } from "react";
-import FilmEditor, {FilmRecord} from "@/app/components/FilmEditor";
-
-// bucknell sso admin check
-const IS_ADMIN = false; //set true later before setting sso
-
 
 interface FilmSearchResult {
   job_id: string;
@@ -51,6 +46,13 @@ interface GroupedFilm {
   }[];
 }
 
+type BarcodePixel = [number, number, number] | number;
+
+interface FilmOfDayBarcode {
+  barcode: BarcodePixel[][];
+  barcodeType: "Color" | "Brightness";
+}
+
 function groupResults(results: FilmSearchResult[]): GroupedFilm[] {
   const map = new Map<string, GroupedFilm>();
   for (const r of results) {
@@ -82,6 +84,155 @@ function groupResults(results: FilmSearchResult[]): GroupedFilm[] {
   return Array.from(map.values());
 }
 
+function BarcodeImagePreview({ data }: { data: FilmOfDayBarcode }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const barcode = data.barcode;
+    if (!canvas || barcode.length === 0) return;
+
+    const height = barcode.length;
+    const width = barcode[0]?.length || 0;
+    if (width === 0) return;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    canvas.width = width;
+    canvas.height = height;
+
+    const imageData = ctx.createImageData(width, height);
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const pixel = barcode[y][x];
+        const idx = (y * width + x) * 4;
+
+        if (data.barcodeType === "Color" && Array.isArray(pixel)) {
+          imageData.data[idx] = pixel[0];
+          imageData.data[idx + 1] = pixel[1];
+          imageData.data[idx + 2] = pixel[2];
+        } else {
+          const gray = typeof pixel === "number" ? pixel : pixel[0] || 0;
+          imageData.data[idx] = gray;
+          imageData.data[idx + 1] = gray;
+          imageData.data[idx + 2] = gray;
+        }
+        imageData.data[idx + 3] = 255;
+      }
+    }
+
+    ctx.putImageData(imageData, 0, 0);
+  }, [data]);
+
+  return (
+    <div className="pt-5">
+      <canvas
+        ref={canvasRef}
+        aria-label="Film of the Day barcode preview"
+        className="block w-full h-auto"
+        style={{
+          border: "1px solid rgba(100,100,100,0.25)",
+          imageRendering: "auto",
+        }}
+      />
+    </div>
+  );
+}
+
+function FilmResultCard({ film }: { film: GroupedFilm }) {
+  const format = (val: string | null) =>
+    val ? val.split(",").join(" & ") : null;
+
+  const metadataParts = [
+    format(film.director),
+    film.released && new Date(film.released).getFullYear(),
+    film.runtime_minutes &&
+      `${Math.floor(Number(film.runtime_minutes) / 60)}h${Number(film.runtime_minutes) % 60}m`,
+    format(film.country),
+  ].filter(Boolean);
+
+  return (
+    <div
+      className="py-5 flex gap-5 group"
+      style={{
+        borderBottomWidth: 1,
+        borderBottomColor: "rgba(100,100,100,0.25)",
+      }}
+    >
+      <div className="w-[80px] aspect-[2/3] shrink-0">
+        {film.poster ? (
+          <img
+            src={film.poster}
+            alt={film.title}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="w-full h-full kalmus-help flex items-center justify-center">
+            No poster
+          </div>
+        )}
+      </div>
+
+      <div className="flex flex-col justify-between flex-1 min-w-0">
+        <div>
+          <h3 className="text-lg tracking-tight kalmus-text-primary leading-snug font-display">
+            {film.imdb_id ? (
+              <a
+                href={`https://www.imdb.com/title/${film.imdb_id}/`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:underline"
+              >
+                {film.title}
+              </a>
+            ) : (
+              <span>{film.title}</span>
+            )}
+          </h3>
+          <div className="font-mono text-xs kalmus-text-secondary mt-1">
+            {metadataParts.length > 0 && (
+              <span>({metadataParts.join(", ")})</span>
+            )}
+          </div>
+        </div>
+
+        <div>
+          {film.analyses.map((a) => (
+            <Link
+              key={a.job_id}
+              href={`/results/${a.job_id}`}
+              aria-label={`View result for ${film.title}`}
+              className="grid grid-cols-1 sm:grid-cols-[1fr_2fr_auto] items-start sm:items-center gap-2 sm:gap-4 border-b-2 border-transparent py-2 sm:py-1 hover:border-blue-500"
+            >
+              <div className="flex items-center gap-1 font-mono text-xs kalmus-text-secondary capitalize">
+                <span>{a.barcode_type}</span>
+                <span style={{ color: "var(--accent-crimson)" }}>|</span>
+                <span>{a.frame_type.replace(/_/g, " ")}</span>
+                <span style={{ color: "var(--accent-crimson)" }}>|</span>
+                <span>{a.metric}</span>
+              </div>
+              <div className="flex items-center gap-1 font-mono text-xs kalmus-text-secondary">
+                <span>Source File:</span>
+                <span>
+                  {a.source_width} x {a.source_height},
+                </span>
+                <span>{Number(a.source_fps).toFixed(3)} fps,</span>
+                <span>{a.source_frame_count} frames</span>
+              </div>
+              <div
+                className="justify-self-start sm:justify-self-end font-mono text-xs tracking-wider uppercase px-3 py-1.5 transition-colors kalmus-button-filled"
+              >
+                <span>View →</span>
+              </div>
+            </Link>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Home() {
   const helpRef = useRef<HTMLDivElement>(null);
 
@@ -89,14 +240,17 @@ export default function Home() {
   const [activeSelection, setActiveSelection] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<FilmSearchResult[]>([]);
+  const [filmOfDayResults, setFilmOfDayResults] = useState<FilmSearchResult[]>(
+    [],
+  );
+  const [filmOfDayBarcode, setFilmOfDayBarcode] =
+    useState<FilmOfDayBarcode | null>(null);
+  const [filmOfDayLoading, setFilmOfDayLoading] = useState(true);
+  const [filmOfDayBarcodeLoading, setFilmOfDayBarcodeLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const [loading, setLoading] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  //admin state
-  const [editingFilm, setEditingFilm] = useState<FilmRecord | null>(null);
-  const [editLoading, setEditLoading] = useState<string | null>(null);
- //
   const getSelectionButtonStyle = (isActive: boolean) => ({
     background: isActive ? "var(--foreground)" : "var(--surface-bg)",
     color: isActive ? "var(--background)" : "var(--text-primary)",
@@ -113,6 +267,80 @@ export default function Home() {
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadFilmOfDay() {
+      try {
+        const res = await fetch("/api/film-of-day");
+        const data = await res.json();
+        if (!cancelled) {
+          setFilmOfDayResults(data.results || []);
+        }
+      } catch {
+        if (!cancelled) {
+          setFilmOfDayResults([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setFilmOfDayLoading(false);
+        }
+      }
+    }
+
+    loadFilmOfDay();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    const jobId = filmOfDayResults[0]?.job_id;
+    if (!jobId) {
+      setFilmOfDayBarcode(null);
+      return;
+    }
+
+    let cancelled = false;
+    setFilmOfDayBarcodeLoading(true);
+
+    async function loadFilmOfDayBarcode() {
+      try {
+        const res = await fetch(`/api/job-result/${jobId}`);
+        const data = await res.json();
+        const barcode = data?.barcode?.barcode;
+        const barcodeType = data?.barcode?.barcode_type || "Color";
+
+        if (
+          !cancelled &&
+          Array.isArray(barcode) &&
+          (barcodeType === "Color" || barcodeType === "Brightness")
+        ) {
+          setFilmOfDayBarcode({
+            barcode: barcode as BarcodePixel[][],
+            barcodeType,
+          });
+        } else if (!cancelled) {
+          setFilmOfDayBarcode(null);
+        }
+      } catch {
+        if (!cancelled) {
+          setFilmOfDayBarcode(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setFilmOfDayBarcodeLoading(false);
+        }
+      }
+    }
+
+    loadFilmOfDayBarcode();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [filmOfDayResults]);
 
   useEffect(() => {
     // Currently, searching does nothing when a selction button is active
@@ -191,51 +419,18 @@ export default function Home() {
     }, 300);
   }, [activeSelection]);
 
-  // admin fetch film metadata
-  const handleEditClick = async (jobId: string) => {
-    setEditLoading(jobId);
-    try {
-      const res = await fetch (`/api/edit-film/${jobId}`);
-      if (!res.ok) throw new Error("Failed to load film metadata");
-      const film: FilmRecord = await res.json();
-      setEditingFilm(film);
-    } catch (err) {
-      console.error("Edit failed", err);
-    } finally {
-      setEditLoading(null);
-    }
-  };
-
-  // adming metadata save/delete udpate
-  const refreshResults = () => {
-    setEditingFilm(null);
-
-    if (activeSelection) {
-      const current = activeSelection;
-      setActiveSelection(null);
-      setTimeout(() => setActiveSelection(current), 0);
-    } else if (query.trim()) {
-      const current = query;
-      setQuery("");
-      setTimeout(() => setQuery(current), 0);
-    }
-  };
-
   const grouped = groupResults(results);
+  const filmOfDay = groupResults(filmOfDayResults)[0] || null;
+  const showFilmOfDay =
+    !filmOfDayLoading &&
+    !!filmOfDay &&
+    !searched &&
+    !loading &&
+    !query.trim() &&
+    !activeSelection;
 
-  // admin film editor
   return (
     <div className="min-h-screen flex flex-col">
-      {/* film edit*/}
-      {editingFilm && (
-        <FilmEditor
-          film = {editingFilm}
-          onClose = {() => setEditingFilm(null)}
-          onSaved = {refreshResults}
-          onDeleted = {refreshResults}
-        />
-      )}
-
       {/* About link */}
       <div className="fixed top-5 right-24 z-50">
         <Link
@@ -494,6 +689,28 @@ export default function Home() {
             </Link>
           </div>
 
+          {showFilmOfDay && (
+            <section className="mb-14 kalmus-surface px-4 py-5 sm:px-6 sm:py-6">
+              <p className="text-center font-mono text-xs tracking-[0.35em] uppercase kalmus-text-secondary mb-4">
+                KALMUS Film of the Day
+              </p>
+
+              <div
+                className="divide-y"
+                style={{
+                  borderColor: "var(--accent-crimson)",
+                  borderTopWidth: 1,
+                  opacity: 1,
+                }}
+              >
+                <FilmResultCard film={filmOfDay} />
+              </div>
+              {!filmOfDayBarcodeLoading && filmOfDayBarcode && (
+                <BarcodeImagePreview data={filmOfDayBarcode} />
+              )}
+            </section>
+          )}
+
           {/* Results */}
           {searched && !loading && (
             <>
@@ -513,151 +730,10 @@ export default function Home() {
                     }}
                   >
                     {grouped.map((film) => (
-                      <div
+                      <FilmResultCard
                         key={`${film.title}::${film.imdb_id ?? ""}`}
-                        className="py-5 flex gap-5 group"
-                        style={{
-                          borderBottomWidth: 1,
-                          borderBottomColor: "rgba(100,100,100,0.25)",
-                        }}
-                      >
-                        {/* Poster */}
-                        <div className="w-[80px] aspect-[2/3] shrink-0">
-                          {film.poster ? (
-                            <img
-                              src={film.poster}
-                              alt={film.title}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div className="w-full h-full kalmus-help flex items-center justify-center">
-                              No poster
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Content */}
-                        <div className="flex flex-col justify-between flex-1 min-w-0">
-                          {/* Title and metadata */}
-                          <div>
-                            <h3 className="text-lg tracking-tight kalmus-text-primary leading-snug font-display">
-                              {film.imdb_id ? (
-                                <a
-                                  href={`https://www.imdb.com/title/${film.imdb_id}/`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="hover:underline"
-                                >
-                                  {film.title}
-                                </a>
-                              ) : (
-                                <span>{film.title}</span>
-                              )}
-                            </h3>
-                            <div className="font-mono text-xs kalmus-text-secondary mt-1">
-                              {(() => {
-                                const format = (val: string | null) =>
-                                  val ? val.split(",").join(" & ") : null;
-
-                                const parts = [
-                                  format(film.director),
-                                  film.released &&
-                                    new Date(film.released).getFullYear(),
-                                  film.runtime_minutes &&
-                                    `${Math.floor(Number(film.runtime_minutes) / 60)}h${Number(film.runtime_minutes) % 60}m`,
-                                  format(film.country),
-                                ].filter(Boolean);
-
-                                return (
-                                  parts.length > 0 && (
-                                    <span>({parts.join(", ")})</span>
-                                  )
-                                );
-                              })()}
-                            </div>
-                          </div>
-
-                          {/* Analyses summary */}
-                          <div>
-                            {film.analyses.map((a) => (
-                              <div key = {a.job_id} className = "flex items-center gap-2">{/* edit button gap */}
-                              <Link
-                                key={a.job_id}
-                                href={`/results/${a.job_id}`}
-                                className="grid grid-cols-[1fr_2fr_auto] items-center gap-4 border-b-2 border-transparent hover:border-blue-500 flex-1"
-                                style={{ color: "var(--accent-amber)" }}
-                              >
-                                <div className="flex items-center gap-1 font-mono text-xs kalmus-text-secondary capitalize">
-                                  <span>{a.barcode_type}</span>
-                                  <span
-                                    style={{ color: "var(--accent-crimson)" }}
-                                  >
-                                    |
-                                  </span>
-                                  <span>{a.frame_type.replace(/_/g, " ")}</span>
-                                  <span
-                                    style={{ color: "var(--accent-crimson)" }}
-                                  >
-                                    |
-                                  </span>
-                                  <span>{a.metric}</span>
-                                </div>
-                                <div className="flex items-center gap-1 font-mono text-xs kalmus-text-secondary">
-                                  <span>Source File:</span>
-                                  <span>
-                                    {a.source_width} x {a.source_height},
-                                  </span>
-                                  <span>{a.source_fps.toFixed(3)} fps,</span>
-                                  <span>{a.source_frame_count} frames</span>
-                                </div>
-                                <div className="font-mono text-xs tracking-wider uppercase transition-colors">
-                                  <span>View →</span>
-                                </div>
-                              </Link>
-                              { /** edit button for films */}
-                              {IS_ADMIN && (
-                                  <button
-                                    onClick = {() => handleEditClick(a.job_id)}
-                                    disabled = {editLoading === a.job_id}
-                                    className = "font-mono text-xs tracking-wider uppercase transition-all flex items-center gap-1 shrink-0"
-                                    style={{
-                                      padding: "4px 10px",
-                                      background: "transparent",
-                                      border: "1px solid var(--surface-border)",
-                                      color: "var(--text-muted)",
-                                      cursor: "pointer",
-                                      opacity: editLoading === a.job_id ? 0.5 : 1,
-                                    }}
-                                    onMouseEnter = {(e) => {
-                                      e.currentTarget.style.borderColor = "var(--accent-amber)";
-                                      e.currentTarget.style.color = "var(--accent-amber)";
-                                    }}
-                                    onMouseLeave = {(e) => {
-                                      e.currentTarget.style.borderColor = "var(--surface-border)";
-                                      e.currentTarget.style.color = "var(--text-muted)";
-                                    }}
-                                  >
-                                    <svg
-                                      width = "10"
-                                      height = "10"
-                                      viewBox = "0 0 16 16"
-                                      fill = "none"
-                                      stroke = "currentColor"
-                                      strokeWidth = "1.5"
-                                      strokeLinecap = "round"
-                                      strokeLinejoin ="round"
-                                    >
-                                      <path d="M11.5 1.5l3 3L5 14H2v-3L11.5 1.5z" />
-                                    </svg>
-                                    {editLoading === a.job_id ? "…" : "Edit"}
-                                  </button>
-                                )}
-                              </div>
-
-                            ))}
-                          </div>
-                        </div>
-                      </div>
+                        film={film}
+                      />
                     ))}
                   </div>
                 </div>
