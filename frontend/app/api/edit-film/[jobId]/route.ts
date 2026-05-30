@@ -200,8 +200,8 @@ export async function DELETE(
             }
 
             // deete from main table
-            db.prepare("DELETE FROM films WHERE job_id = ?").run(jobId);
             db.prepare("DELETE FROM analyzed_files WHERE job_id = ?").run(jobId);
+            db.prepare("DELETE FROM films WHERE job_id = ?").run(jobId);
 
             // Delete from the FTS search table
             db.prepare("DELETE FROM films_search WHERE job_id = ?").run(jobId);
