@@ -1,3 +1,4 @@
+import path from "path";
 import { findDuplicateAnalyses } from "@/lib/db";
 import { buildClonedUploadPath, cloneUploadedVideo, deleteUploadedVideo } from "@/lib/hpc-transfer";
 import { sendJobNotificationEmail, SLURM_CONFIG, submitSlurmJob } from "@/lib/slurm";
@@ -63,6 +64,7 @@ export async function submitBarcodeBatch({
             status: "DUPLICATE",
             resultsUrl: `${SLURM_CONFIG.websiteUrl}/results/${duplicateMatch.exactMatch.job_id}`,
             videoTitle,
+            metadataFile: path.join(SLURM_CONFIG.resultsDir, duplicateMatch.exactMatch.job_id, 'metadata.json'),
           });
         } catch (error) {
           console.error("Failed to send duplicate notification email:", error);
