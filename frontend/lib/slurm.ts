@@ -130,14 +130,16 @@ export async function sendJobNotificationEmail({
   status,
   resultsUrl,
   videoTitle,
+  metadataFile,
 }: {
   email: string;
   status: NotificationStatus;
   resultsUrl: string;
   videoTitle: string;
+  metadataFile?: string;
 }): Promise<void> {
   const emailScript = shellQuote(SLURM_CONFIG.emailScript);
-  const args = [
+  const argList = [
     '--email',
     email,
     '--status',
@@ -146,7 +148,11 @@ export async function sendJobNotificationEmail({
     resultsUrl,
     '--video-title',
     videoTitle,
-  ].map(shellQuote).join(' ');
+  ];
+  if (metadataFile) {
+    argList.push('--metadata-file', metadataFile);
+  }
+  const args = argList.map(shellQuote).join(' ');
 
   await execAsync(`python3 ${emailScript} ${args}`);
 }
@@ -202,7 +208,8 @@ timeout_handler() {
       --email "${config.email}" \\
       --status "FAILED" \\
       --results-url "${notificationResultsUrl}" \\
-      --video-title "${notificationTitle}" || true
+      --video-title "${notificationTitle}" \\
+      --metadata-file "${outputDir}/metadata.json" || true
   fi
   exit 1
 }
@@ -265,13 +272,15 @@ if [ $EXIT_CODE -eq 0 ]; then
         --email "${config.email}" \\
         --status "DUPLICATE" \\
         --results-url "${SLURM_CONFIG.websiteUrl}/results/\${DUPLICATE_JOB_ID}" \\
-        --video-title "${notificationTitle}"
+        --video-title "${notificationTitle}" \\
+        --metadata-file "${outputDir}/metadata.json"
     else
       python3 ${notificationScript} \\
         --email "${config.email}" \\
         --status "COMPLETED" \\
         --results-url "${notificationResultsUrl}" \\
-        --video-title "${notificationTitle}"
+        --video-title "${notificationTitle}" \\
+        --metadata-file "${outputDir}/metadata.json"
     fi
 
     EMAIL_EXIT_CODE=$?
@@ -291,7 +300,8 @@ else
       --email "${config.email}" \\
       --status "FAILED" \\
       --results-url "${notificationResultsUrl}" \\
-      --video-title "${notificationTitle}"
+      --video-title "${notificationTitle}" \\
+      --metadata-file "${outputDir}/metadata.json"
 
     EMAIL_EXIT_CODE=$?
     if [ $EMAIL_EXIT_CODE -eq 0 ]; then
