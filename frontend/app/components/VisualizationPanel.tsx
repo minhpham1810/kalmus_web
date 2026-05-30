@@ -243,6 +243,7 @@ async function exportPinnedFramePreview(preview: BarcodePreviewData): Promise<vo
   const hoveredPixel = formatRgbValue(preview.rgb);
   const hoveredPixelHsl = formatHslValue(preview.rgb);
   const columnAverage = formatRgbValue(preview.avgRgb);
+  const columnAverageHsl = formatHslValue(preview.avgRgb);
   const columnAverageHex = formatHexValue(preview.avgRgb);
 
   const metadataHeight = 58;
@@ -317,8 +318,8 @@ async function exportPinnedFramePreview(preview: BarcodePreviewData): Promise<vo
     contentTop + 27,
     colorLineMaxWidth,
     {
-    color: "#c8c2b8",
-    size: 7,
+      color: "#c8c2b8",
+      size: 7,
     }
   );
 
@@ -343,6 +344,17 @@ async function exportPinnedFramePreview(preview: BarcodePreviewData): Promise<vo
       {
         color: "#f4f1eb",
         size: 8,
+      }
+    );
+    drawClippedExportText(
+      context,
+      columnAverageHsl,
+      averageTextX,
+      contentTop + 27,
+      averageTextWidth,
+      {
+        color: "#f4f1eb",
+        size: 7,
       }
     );
   }
@@ -549,17 +561,10 @@ function StaticPreviewPanel({
               }
               value={
                 preview
-                  ? `rgb(${preview.rgb[0]}, ${preview.rgb[1]}, ${preview.rgb[2]})`
+                  ? formatRgbValue(preview.rgb)
                   : "Awaiting hover"
               }
-              subValue={
-                preview
-                  ? (() => {
-                      const hsl = rgbToHsl(preview.rgb[0], preview.rgb[1], preview.rgb[2]);
-                      return `hsl(${Math.round(hsl[0])}°, ${Math.round(hsl[1] * 100)}%, ${Math.round(hsl[2] * 100)}%)`;
-                    })()
-                  : undefined
-              }
+              subValue={preview ? formatHslValue(preview.rgb) : undefined}
             />
             <MetricRow
               label="Column average"
@@ -570,9 +575,10 @@ function StaticPreviewPanel({
               }
               value={
                 preview
-                  ? `rgb(${preview.avgRgb[0]}, ${preview.avgRgb[1]}, ${preview.avgRgb[2]})`
+                  ? formatRgbValue(preview.avgRgb)
                   : "Awaiting hover"
               }
+              subValue={preview ? formatHslValue(preview.avgRgb) : undefined}
             />
           </div>
         </div>
@@ -607,7 +613,7 @@ function MetricRow({
           {value}
         </div>
         {subValue && (
-          <div className="font-mono text-xs kalmus-text-muted mt-0.5 truncate">
+          <div className="font-mono text-xs kalmus-text-primary mt-0.5 truncate">
             {subValue}
           </div>
         )}
