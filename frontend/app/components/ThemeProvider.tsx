@@ -1,23 +1,15 @@
 'use client';
 
 import { createContext, useContext, useEffect, useSyncExternalStore } from 'react';
+import {
+  BG_CYCLE,
+  DARK_BG_LEVELS,
+  normalizeBgLevel,
+  type BgLevel,
+} from './theme';
 
-export type BgLevel = 'black' | 'white';
 const THEME_STORAGE_KEY = 'theme';
 const THEME_CHANGE_EVENT = 'kalmus-theme-change';
-
-export const BG_COLORS: Record<BgLevel, string> = {
-  black: '#000000',
-  white: '#ffffff',
-};
-
-const BG_CYCLE: BgLevel[] = ['black', 'white'];
-const LEGACY_BG_LEVELS: Record<string, BgLevel> = {
-  grey10: 'black',
-  grey40: 'black',
-  grey60: 'black',
-  grey90: 'white',
-};
 
 interface ThemeContextType {
   bgLevel: BgLevel;
@@ -26,21 +18,9 @@ interface ThemeContextType {
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
-function normalizeBgLevel(value: string | null): BgLevel {
-  if (value === 'black' || value === 'white') {
-    return value;
-  }
-
-  if (value && value in LEGACY_BG_LEVELS) {
-    return LEGACY_BG_LEVELS[value];
-  }
-
-  return 'black';
-}
-
 function getThemeSnapshot(): BgLevel {
   if (typeof window === 'undefined') {
-    return 'black';
+    return 'gray10';
   }
 
   const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
@@ -76,12 +56,12 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const bgLevel = useSyncExternalStore<BgLevel>(
     subscribeThemeChange,
     getThemeSnapshot,
-    (): BgLevel => 'black'
+    (): BgLevel => 'gray10'
   );
 
   useEffect(() => {
     const root = document.documentElement;
-    root.classList.toggle('dark', bgLevel === 'black');
+    root.classList.toggle('dark', DARK_BG_LEVELS.has(bgLevel));
     root.setAttribute('data-bg-level', bgLevel);
   }, [bgLevel]);
 
