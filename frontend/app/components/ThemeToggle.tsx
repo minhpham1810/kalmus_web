@@ -1,16 +1,7 @@
 'use client';
 
-import { useTheme, BG_COLORS } from './ThemeProvider';
-
-const BG_LABELS: Record<string, string> = {
-  black: 'BLACK',
-  white: 'WHITE',
-};
-
-const TEXT_COLORS: Record<string, string> = {
-  black: '#ffffff',
-  white: '#000000',
-};
+import { useTheme } from './ThemeProvider';
+import { BG_COLORS, THEME_LABELS, getReadableTextColor } from './theme';
 
 export function ThemeToggle() {
   const { bgLevel, cycleBg } = useTheme();
@@ -21,12 +12,12 @@ export function ThemeToggle() {
       className="fixed top-4 right-4 px-3 py-2 rounded-lg z-50 text-xs font-mono transition-all border border-white/20 shadow-sm hover:opacity-80"
       style={{
         background: BG_COLORS[bgLevel],
-        color: TEXT_COLORS[bgLevel],
+        color: getReadableTextColor(bgLevel),
         borderColor: 'var(--input-border)',
       }}
-      aria-label="Toggle color mode"
+      aria-label="Cycle grayscale theme"
     >
-      {BG_LABELS[bgLevel]}
+      {THEME_LABELS[bgLevel]}
     </button>
   );
 }

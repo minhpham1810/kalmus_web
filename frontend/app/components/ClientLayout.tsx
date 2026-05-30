@@ -1,6 +1,7 @@
 'use client';
 
-import { ThemeProvider, useTheme, BG_COLORS } from './ThemeProvider';
+import { ThemeProvider, useTheme } from './ThemeProvider';
+import { BG_COLORS } from './theme';
 import { ThemeToggle } from './ThemeToggle';
 
 function LayoutInner({ children }: { children: React.ReactNode }) {
