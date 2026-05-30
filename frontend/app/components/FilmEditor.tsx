@@ -81,6 +81,7 @@ function ConfirmDialog({
               padding: "5px 14px",
               background: "transparent",
               border: "1px solid var(--surface-border)",
+              color: "var(--text-primary)",
               cursor: "pointer",
             }}
           >
@@ -92,13 +93,9 @@ function ConfirmDialog({
             style={{
               padding: "5px 14px",
               cursor: "pointer",
-              border: "none",
-              // red for delete, yellow for non-destructive confirms
-              background: danger
-                ? "var(--accent-crimson)"
-                : "var(--accent-amber)",
-              color: "#000",
-              fontWeight: 600,
+              background: "transparent",
+              border: "1px solid var(--surface-border)",
+              color: "var(--text-primary)",
             }}
           >
             {/* text change based on action */}
@@ -134,9 +131,9 @@ function Toast({
         transform: "translateX(-50%)",
         padding: "7px 20px",
         zIndex: 10000,
-        background: type === "success" ? "var(--accent-amber)" : "var(--accent-crimson)",
-        color: "#000",
-        fontWeight: 600,
+        background: "var(--panel-gradient, #0d0d10)",
+        border: "1px solid var(--surface-border)",
+        color: "var(--text-primary)",
       }}
     >
       {msg}
@@ -144,7 +141,7 @@ function Toast({
   );
 }
 
-// Reusable Tailwind class string for all form labels
+// tailwind class
 const labelClass =
   "font-mono text-xs tracking-wider uppercase kalmus-text-muted";
 
@@ -305,7 +302,7 @@ export default function FilmEditor({
       )}
 
       { }
-      <div style = {{ flex: 1 }} onClick={onClose} />
+      <div style = {{ flex: 1 }} onClick = {onClose} />
 
       { }
       <div
@@ -340,7 +337,7 @@ export default function FilmEditor({
           >
             Edit Film
           </span>
-          { }
+          { /** close button */}
           <button
             onClick = {onClose}
             style = {{
@@ -505,7 +502,7 @@ export default function FilmEditor({
               style = {inputBaseStyle}
               value = {directors}
               onChange = {(e) => setDirectors(e.target.value)}
-              placeholder = "e.g. Christopher Nolan"
+              placeholder = "e.g. Alfred hITCHCOCK"
             />
           </div>
 
@@ -607,7 +604,7 @@ export default function FilmEditor({
             background: "var(--panel-gradient, #0d0d10)",
           }}
         >
-          { }
+          {/** delete button */ }
           <button
             onClick = {() => setConfirmDelete(true)}
             disabled = {deleting}
@@ -615,10 +612,18 @@ export default function FilmEditor({
             style = {{
               padding: "6px 14px",
               background: "transparent",
-              border: "1px solid var(--accent-crimson)",
-              color: "var(--accent-crimson)",
+              border: "1px solid var(--surface-border)",
+              color: "var(--text-primary)",
               cursor: "pointer",
               opacity: deleting ? 0.5 : 1,
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = "var(--text-secondary)";
+              e.currentTarget.style.borderColor = "var(--text-secondary)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = "var(--text-primary)";
+              e.currentTarget.style.borderColor = "var(--surface-border)";
             }}
           >
             Delete
@@ -627,37 +632,53 @@ export default function FilmEditor({
           { }
           <div style = {{ flex: 1 }} />
 
-          { }
+          {/** cancel button */ }
           <button
             onClick = {onClose}
-            className = "font-mono text-xs tracking-wider uppercase kalmus-text-muted"
+            className = "font-mono text-xs tracking-wider uppercase"
             style = {{
               padding: "6px 14px",
               background: "transparent",
               border: "1px solid var(--surface-border)",
+              color: "var(--text-primary)",
               cursor: "pointer",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = "var(--text-secondary)";
+              e.currentTarget.style.borderColor = "var(--text-secondary)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = "var(--text-primary)";
+              e.currentTarget.style.borderColor = "var(--surface-border)";
             }}
           >
             Cancel
           </button>
 
-          { }
+          { /** save button */ }
           <button
             onClick = {handleSave}
             disabled = {saving || !title.trim()} // disabled if title is empty
             className = "font-mono text-xs tracking-wider uppercase"
             style = {{
               padding: "6px 14px",
-              background: "var(--accent-amber)",
-              color: "#000",
-              border: "none",
-              fontWeight: 600,
+              background: "transparent",
+              color: "var(--text-primary)",
+              border: "1px solid var(--surface-border)",
               cursor: "pointer",
               opacity: saving || !title.trim() ? 0.5 : 1,
             }}
-          >
-            {saving ? "Saving…" : "Save"}  { }
-          </button>
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = "var(--text-secondary)";
+              e.currentTarget.style.borderColor = "var(--text-secondary)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = "var(--text-primary)";
+              e.currentTarget.style.borderColor = "var(--surface-border)";
+            }}
+            >
+              {saving ? "Saving…" : "Save"}
+            </button>
         </div>
       </div>
 

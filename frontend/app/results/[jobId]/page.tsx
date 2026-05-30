@@ -42,6 +42,7 @@ export default function ResultsPage() {
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const fromAdmin = searchParams.get("from") === "admin"; // checks if admin
   const jobId = params.jobId as string;
   const reusedFrom = searchParams.get("reusedFrom");
 
@@ -220,7 +221,7 @@ export default function ResultsPage() {
         <div className="max-w-6xl mx-auto">
           {/* Logo */}
           <div className="mb-8">
-            <Link href="/" className="inline-block">
+            <Link href= {fromAdmin ? "/admin" : "/"} className="inline-block">
               <Image
                 src="/kalmus-logo.png"
                 alt="KALMUS"
@@ -254,7 +255,7 @@ export default function ResultsPage() {
             </div> */}
             <div className="flex items-center gap-3">
               <button
-                onClick={() => router.push("/")}
+                onClick={() => router.push(fromAdmin ? "/admin" : "/")}
                 className="px-5 py-2 font-mono text-xs tracking-[0.18em] uppercase kalmus-text-secondary transition-all border border-[var(--surface-border)] hover:bg-[var(--surface-bg-strong)] hover:text-[var(--text-primary)] hover:border-[var(--accent-amber)] hover:shadow-sm flex items-center gap-2"
               >
                 <svg
