@@ -320,16 +320,16 @@ export default function AboutPage() {
                 package in 2021 (with accompanying article here).
               </p>
               <p>
-                In 2024, Bucknell students Laura Ozoria Minaya and Jackson
+                In 2024, Bucknell students Laura Ozoria and Jackson
                 Rubiano took over from Yida Chen (who graduated and is in
                 Harvard&apos;s Computer Science PhD program at the
-                university&apos;s Insight + Interaction Lab). Minaya and Rubiano
+                university&apos;s Insight + Interaction Lab). Ozoria and Rubiano
                 expanded Kalmus&apos; visualizations and migrated the code from
                 a Python application to a website. In 2025, undergraduate Minh
                 Pham joined the team to build the website&apos;s front end.
               </p>
               <p>
-                In summer 2026, Minaya rejoins the project focusing on
+                In summer 2026, Ozoria rejoins the project focusing on
                 Kalmus&apos; database as well as developing several new
                 visualizations and outputs.
               </p>
