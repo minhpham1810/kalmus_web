@@ -2,15 +2,20 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import {useSearchParams} from "next/navigation";
 import BarcodeGenerator from "../components/BarcodeGenerator";
 
 export default function UploadPage() {
+  const searchParams = useSearchParams();
+  const fromAdmin = searchParams.get("from") === "admin"; // checks if admin
+  const backHref = fromAdmin ? "/admin" : "/"
+
   return (
     <div className="min-h-screen">
       <main className="container mx-auto px-4 py-12">
         <div className="max-w-3xl mx-auto">
           <header className="mb-8">
-            <Link href="/" className="inline-block mb-3">
+            <Link href = {backHref} className="inline-block mb-3">
               <Image
                 src="/kalmus-logo.png"
                 alt="KALMUS"
@@ -24,7 +29,7 @@ export default function UploadPage() {
               Upload a new video for barcode generation
             </p>
             <Link
-              href="/"
+              href= {backHref}
               className="inline-flex items-center mt-3 font-mono text-xs tracking-[0.18em] uppercase kalmus-text-secondary hover:text-[var(--text-primary)] transition-colors"
             >
               <span aria-hidden="true">&larr;</span>
