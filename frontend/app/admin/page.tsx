@@ -86,6 +86,155 @@ function groupResults(results: FilmSearchResult[]): GroupedFilm[] {
   return Array.from(map.values());
 }
 
+function BarcodeImagePreview({ data }: { data: FilmOfDayBarcode }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const barcode = data.barcode;
+    if (!canvas || barcode.length === 0) return;
+
+    const height = barcode.length;
+    const width = barcode[0]?.length || 0;
+    if (width === 0) return;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    canvas.width = width;
+    canvas.height = height;
+
+    const imageData = ctx.createImageData(width, height);
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const pixel = barcode[y][x];
+        const idx = (y * width + x) * 4;
+
+        if (data.barcodeType === "Color" && Array.isArray(pixel)) {
+          imageData.data[idx] = pixel[0];
+          imageData.data[idx + 1] = pixel[1];
+          imageData.data[idx + 2] = pixel[2];
+        } else {
+          const gray = typeof pixel === "number" ? pixel : pixel[0] || 0;
+          imageData.data[idx] = gray;
+          imageData.data[idx + 1] = gray;
+          imageData.data[idx + 2] = gray;
+        }
+        imageData.data[idx + 3] = 255;
+      }
+    }
+
+    ctx.putImageData(imageData, 0, 0);
+  }, [data]);
+
+  return (
+    <div className="pt-5">
+      <canvas
+        ref={canvasRef}
+        aria-label="Film of the Day barcode preview"
+        className="block w-full h-auto"
+        style={{
+          border: "1px solid rgba(100,100,100,0.25)",
+          imageRendering: "auto",
+        }}
+      />
+    </div>
+  );
+}
+
+function FilmResultCard({ film }: { film: GroupedFilm }) {
+  const format = (val: string | null) =>
+    val ? val.split(",").join(" & ") : null;
+
+  const metadataParts = [
+    format(film.director),
+    film.released && new Date(film.released).getFullYear(),
+    film.runtime_minutes &&
+      `${Math.floor(Number(film.runtime_minutes) / 60)}h${Number(film.runtime_minutes) % 60}m`,
+    format(film.country),
+  ].filter(Boolean);
+
+  return (
+    <div
+      className="py-5 flex gap-5 group"
+      style={{
+        borderBottomWidth: 1,
+        borderBottomColor: "rgba(100,100,100,0.25)",
+      }}
+    >
+      <div className="w-[80px] aspect-[2/3] shrink-0">
+        {film.poster ? (
+          <img
+            src={film.poster}
+            alt={film.title}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="w-full h-full kalmus-help flex items-center justify-center">
+            No poster
+          </div>
+        )}
+      </div>
+
+      <div className="flex flex-col justify-between flex-1 min-w-0">
+        <div>
+          <h3 className="text-lg tracking-tight kalmus-text-primary leading-snug font-display">
+            {film.imdb_id ? (
+              <a
+                href={`https://www.imdb.com/title/${film.imdb_id}/`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:underline"
+              >
+                {film.title}
+              </a>
+            ) : (
+              <span>{film.title}</span>
+            )}
+          </h3>
+          <div className="font-mono text-xs kalmus-text-secondary mt-1">
+            {metadataParts.length > 0 && (
+              <span>({metadataParts.join(", ")})</span>
+            )}
+          </div>
+        </div>
+
+        <div>
+          {film.analyses.map((a) => (
+            <Link
+              key={a.job_id}
+              href={`/results/${a.job_id}`}
+              aria-label={`View result for ${film.title}`}
+              className="grid grid-cols-1 sm:grid-cols-[1fr_2fr_auto] items-start sm:items-center gap-2 sm:gap-4 border-b-2 border-transparent py-2 sm:py-1 hover:border-blue-500"
+            >
+              <div className="flex items-center gap-1 font-mono text-xs kalmus-text-secondary capitalize">
+                <span>{a.barcode_type}</span>
+                <span style={{ color: "var(--accent-crimson)" }}>|</span>
+                <span>{a.frame_type.replace(/_/g, " ")}</span>
+                <span style={{ color: "var(--accent-crimson)" }}>|</span>
+                <span>{a.metric}</span>
+              </div>
+              <div className="flex items-center gap-1 font-mono text-xs kalmus-text-secondary">
+                <span>Source File:</span>
+                <span>
+                  {a.source_width} x {a.source_height},
+                </span>
+                <span>{Number(a.source_fps).toFixed(3)} fps,</span>
+                <span>{a.source_frame_count} frames</span>
+              </div>
+              <div
+                className="justify-self-start sm:justify-self-end font-mono text-xs tracking-wider uppercase px-3 py-1.5 transition-colors kalmus-button-filled"
+              >
+                <span>View →</span>
+              </div>
+            </Link>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminPage() {
   const helpRef = useRef<HTMLDivElement>(null);
 
@@ -96,8 +245,15 @@ export default function AdminPage() {
   const [searched, setSearched] = useState(false);
   const [loading, setLoading] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
+const [filmOfDayResults, setFilmOfDayResults] = useState<FilmSearchResult[]>(
+    [],
+  );
+  const [filmOfDayBarcode, setFilmOfDayBarcode] =
+    useState<FilmOfDayBarcode | null>(null);
+  const [filmOfDayLoading, setFilmOfDayLoading] = useState(true);
+  const [filmOfDayBarcodeLoading, setFilmOfDayBarcodeLoading] = useState(false);
   // admin state
+
   const [editingFilm, setEditingFilm] = useState<FilmRecord | null>(null);
   const [editLoading, setEditLoading] = useState<string | null>(null);
 
@@ -116,6 +272,82 @@ export default function AdminPage() {
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
+
+  //film of the day effects
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadFilmOfDay() {
+      try {
+        const res = await fetch("/api/film-of-day");
+        const data = await res.json();
+        if (!cancelled) {
+          setFilmOfDayResults(data.results || []);
+        }
+      } catch {
+        if (!cancelled) {
+          setFilmOfDayResults([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setFilmOfDayLoading(false);
+        }
+      }
+    }
+
+    loadFilmOfDay();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    const jobId = filmOfDayResults[0]?.job_id;
+    if (!jobId) {
+      setFilmOfDayBarcode(null);
+      return;
+    }
+
+    let cancelled = false;
+    setFilmOfDayBarcodeLoading(true);
+
+    async function loadFilmOfDayBarcode() {
+      try {
+        const res = await fetch(`/api/job-result/${jobId}`);
+        const data = await res.json();
+        const barcode = data?.barcode?.barcode;
+        const barcodeType = data?.barcode?.barcode_type || "Color";
+
+        if (
+          !cancelled &&
+          Array.isArray(barcode) &&
+          (barcodeType === "Color" || barcodeType === "Brightness")
+        ) {
+          setFilmOfDayBarcode({
+            barcode: barcode as BarcodePixel[][],
+            barcodeType,
+          });
+        } else if (!cancelled) {
+          setFilmOfDayBarcode(null);
+        }
+      } catch {
+        if (!cancelled) {
+          setFilmOfDayBarcode(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setFilmOfDayBarcodeLoading(false);
+        }
+      }
+    }
+
+    loadFilmOfDayBarcode();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [filmOfDayResults]);
 
   useEffect(() => {
     // Currently, searching does nothing when a selction button is active
@@ -219,6 +451,14 @@ export default function AdminPage() {
   };
 
   const grouped = groupResults(results);
+  const filmOfDay = groupResults(filmOfDayResults)[0] || null;
+  const showFilmOfDay =
+    !filmOfDayLoading &&
+    !!filmOfDay &&
+    !searched &&
+    !loading &&
+    !query.trim() &&
+    !activeSelection;
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -235,7 +475,7 @@ export default function AdminPage() {
       {/* Top-right nav links */}
       <div className="fixed top-5 right-24 z-50">
         <Link
-          href="/about"
+          href="/about?from=admin"
           className="font-mono text-xs tracking-[0.22em] uppercase kalmus-text-secondary hover:text-[var(--text-primary)] transition-colors"
         >
           About
@@ -457,6 +697,59 @@ export default function AdminPage() {
             </button>
           </div>
 
+          {/* Upload CTA */}
+          <div className="text-center mb-14">
+            <Link
+              href="/upload?from=admin"
+              className="inline-flex items-center gap-2 px-5 py-2 font-mono text-xs tracking-[0.22em] uppercase transition-all"
+              style={{
+                color: "var(--accent-amber)",
+                border: "1px solid var(--accent-amber)",
+                borderRadius: 0,
+                opacity: 0.85,
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
+              onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.85")}
+            >
+              <svg
+                className="w-3 h-3"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 4v16m8-8H4"
+                />
+              </svg>
+              Upload New Video
+            </Link>
+          </div>
+
+          {showFilmOfDay && (
+            <section className="mb-14 kalmus-surface px-4 py-5 sm:px-6 sm:py-6">
+              <p className="text-center font-mono text-xs tracking-[0.35em] uppercase kalmus-text-secondary mb-4">
+                KALMUS Film of the Day
+              </p>
+
+              <div
+                className="divide-y"
+                style={{
+                  borderColor: "var(--accent-crimson)",
+                  borderTopWidth: 1,
+                  opacity: 1,
+                }}
+              >
+                <FilmResultCard film={filmOfDay} />
+              </div>
+              {!filmOfDayBarcodeLoading && filmOfDayBarcode && (
+                <BarcodeImagePreview data={filmOfDayBarcode} />
+              )}
+            </section>
+          )}
+
           {/* Results */}
           {searched && !loading && (
             <>
@@ -625,9 +918,35 @@ export default function AdminPage() {
                   <p className="font-mono text-xs tracking-[0.35em] uppercase kalmus-text-secondary mb-2">
                     ▸ No records found
                   </p>
-                  <p className="text-sm font-light kalmus-text-secondary mb-8 font-mono">
-                    &ldquo;{query.trim()}&rdquo; hasn&apos;t been analyzed yet.
-                  </p>
+                  <Link
+                    href="/upload?from=admin"
+                    className="inline-flex items-center gap-2 px-5 py-2 font-mono text-xs tracking-[0.22em] uppercase transition-all"
+                    style={{
+                      color: "var(--accent-amber)",
+                      border: "1px solid var(--accent-amber)",
+                      borderRadius: 0,
+                      opacity: 0.85,
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
+                    onMouseLeave={(e) =>
+                      (e.currentTarget.style.opacity = "0.85")
+                    }
+                  >
+                    <svg
+                      className="w-3 h-3"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 4v16m8-8H4"
+                      />
+                    </svg>
+                    Upload &amp; Analyze
+                  </Link>
                 </div>
               )}
             </>
