@@ -155,6 +155,8 @@ const inputBaseStyle: React.CSSProperties = {
   boxSizing: "border-box",
 };
 
+// IMDB ID
+const IMDB_ID_RE = /^tt\d{7,8}$/i;
 
 /* ################################################################
    Opens from the right side of the screen when an admin clicks
@@ -199,9 +201,7 @@ export default function FilmEditor({
 
   /**
    * ends the edited form data to PUT /api/edit-film/[jobId].
-   * The API route will update the `films` table and re-sync all junction tables.
-   * On success: shows a toast and calls onSaved() after a short delay.
-   * On failure: shows an error toast.
+   * The API route will update the `films` table and re-sync all junction tables
    */
   const handleSave = async () => {
     setSaving(true); // disables the Save button and shows "Saving…"
@@ -246,6 +246,55 @@ export default function FilmEditor({
       setSaving(false); // re-enable the Save button regardless of outcome
     }
   };
+
+  const [fetchingImdb, setFetchingImdb] = useState(false);
+
+  const handleFetchImdb = async () => {
+    const id = imdbId.trim();
+    if (!id) return;
+
+    setFetchingImdb(true);
+    try {
+      const res = await fetch(`/api/omdb/get?id=${encodeURIComponent(id)}`);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "IMDb data lookup failed");
+      }
+      const data = await res.json();
+
+      // Update metadata from OMDb
+      setTitle(data.title || title);
+      if (data.raw?.Released && data.raw.Released !== "N/A") {
+        try {
+          const d = new Date(data.raw.Released);
+          if (!isNaN(d.getTime())) {
+            setReleased(d.toISOString().split("T")[0]);
+          }
+        } catch {}
+      }
+      setType(data.raw?.Type || type);
+      if (data.raw?.Runtime) {
+        const mins = data.raw.Runtime.replace(/[^\d]/g, "");
+        if (mins) setRuntimeMinutes(mins);
+      }
+      if (data.director) setDirectors(data.director);
+      if (data.genre) setGenres(data.genre);
+      if (data.raw?.Actors && data.raw.Actors !== "N/A") setActors(data.raw.Actors);
+      if (data.raw?.Writer && data.raw.Writer !== "N/A") setWriters(data.raw.Writer);
+      if (data.raw?.Language && data.raw.Language !== "N/A") setLanguages(data.raw.Language);
+      if (data.raw?.Country && data.raw.Country !== "N/A") setCountries(data.raw.Country);
+
+      setToast({ msg: `Loaded from IMDb — ${data.title}`, type: "success" });
+    } catch (e) {
+      setToast({
+        msg: (e as Error).message || "IMDb lookup failed",
+        type: "error",
+      });
+    } finally {
+      setFetchingImdb(false);
+    }
+  };
+
 
   /* handleDelete() — sends DELETE /api/edit-film/[jobId]. */
   const handleDelete = async () => {
@@ -408,14 +457,48 @@ export default function FilmEditor({
               >
                 IMDb ID
               </label>
+              <div style={{ position: "relative" }}>
               <input
                 className = "kalmus-input"
-                style = {inputBaseStyle}
+                style = {{
+                  ...inputBaseStyle,
+                  paddingRight: IMDB_ID_RE.test(imdbId.trim()) ? 90:12,
+                }}
                 value = {imdbId}
                 onChange = {(e) => setImdbId(e.target.value)}
                 placeholder = "tt0000000"
               />
+              {IMDB_ID_RE.test(imdbId.trim()) && (
+                <button
+                  onClick={handleFetchImdb}
+                  disabled={fetchingImdb}
+                  className="font-mono text-xs tracking-wider uppercase"
+                  style={{
+                    position: "absolute",
+                    right: 4,
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    padding: "4px 10px",
+                    background: "transparent",
+                    border: "1px solid var(--surface-border)",
+                    color: "var(--text-primary)",
+                    cursor: "pointer",
+                    opacity: fetchingImdb ? 0.5 : 1,
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.color = "var(--text-secondary)";
+                    e.currentTarget.style.borderColor = "var(--text-secondary)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.color = "var(--text-primary)";
+                    e.currentTarget.style.borderColor = "var(--surface-border)";
+                  }}
+                >
+                  {fetchingImdb ? "…" : "Fetch"}
+                </button>
+              )}
             </div>
+          </div>
             { }
             <div>
               <label
@@ -465,7 +548,6 @@ export default function FilmEditor({
               <input
                 className = "kalmus-input"
                 style = {inputBaseStyle}
-                type = "number"
                 value = {runtimeMinutes}
                 onChange = {(e) => setRuntimeMinutes(e.target.value)}
               />

@@ -86,7 +86,7 @@ function groupResults(results: FilmSearchResult[]): GroupedFilm[] {
   return Array.from(map.values());
 }
 
-function BarcodeImagePreview({ data }: { data: FilmOfDayBarcode }) {
+function BarcodeImagePreview({data, fixed }: { data: FilmOfDayBarcode; fixed?: boolean }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -132,8 +132,10 @@ function BarcodeImagePreview({ data }: { data: FilmOfDayBarcode }) {
       <canvas
         ref={canvasRef}
         aria-label="Film of the Day barcode preview"
-        className="block w-full h-auto"
+        // film of the day barcode test
+        className = {fixed ? "block" : "block w-full h-auto"}
         style={{
+          ...(fixed ? {width: "100%", height: "100%"}: {}),
           border: "1px solid rgba(100,100,100,0.25)",
           imageRendering: "auto",
         }}
@@ -234,6 +236,55 @@ function FilmResultCard({ film }: { film: GroupedFilm }) {
     </div>
   );
 }
+
+// barcode mini preview feature ####################################
+function FilmCardBarcode({ jobId }: { jobId: string }) {
+  const [data, setData] = useState<FilmOfDayBarcode | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      try {
+        const res = await fetch(`/api/job-result/${jobId}`);
+        const json = await res.json();
+        const barcode = json?.barcode?.barcode;
+        const barcodeType = json?.barcode?.barcode_type || "Color";
+
+        if (
+          !cancelled &&
+          Array.isArray(barcode) &&
+          (barcodeType === "Color" || barcodeType === "Brightness")
+        ) {
+          setData({ barcode: barcode as BarcodePixel[][], barcodeType });
+        }
+      } catch {
+
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [jobId]);
+
+  if (loading || !data) return null;
+
+  return (
+    <div style = {{ marginTop: 8,
+      width: "100%",
+      maxWidth: 200,
+      height: 60, // ask prof Faden what he generally thinks about this height
+      overflow: "hidden" }}>
+      <BarcodeImagePreview data={data} fixed />
+    </div>
+  );
+}
+
 
 export default function AdminPage() {
   const helpRef = useRef<HTMLDivElement>(null);
@@ -745,7 +796,7 @@ const [filmOfDayResults, setFilmOfDayResults] = useState<FilmSearchResult[]>(
                 <FilmResultCard film={filmOfDay} />
               </div>
               {!filmOfDayBarcodeLoading && filmOfDayBarcode && (
-                <BarcodeImagePreview data={filmOfDayBarcode} />
+                <BarcodeImagePreview data = {filmOfDayBarcode} />
               )}
             </section>
           )}
@@ -777,7 +828,7 @@ const [filmOfDayResults, setFilmOfDayResults] = useState<FilmSearchResult[]>(
                         }}
                       >
                         {/* Poster */}
-                        <div className="w-[80px] aspect-[2/3] shrink-0">
+                        <div className="w-[80px] aspect-[2/3] shrink-0 self-start">
                           {film.poster ? (
                             <img
                               src={film.poster}
@@ -792,7 +843,7 @@ const [filmOfDayResults, setFilmOfDayResults] = useState<FilmSearchResult[]>(
                         </div>
 
                         {/* Content */}
-                        <div className="flex flex-col justify-between flex-1 min-w-0">
+                        <div className="flex flex-col justify-between flex-1 min-w-0 overflow-hidden">
                           {/* Title and metadata */}
                           <div>
                             <h3 className="text-lg tracking-tight kalmus-text-primary leading-snug font-display">
@@ -831,6 +882,9 @@ const [filmOfDayResults, setFilmOfDayResults] = useState<FilmSearchResult[]>(
                               })()}
                             </div>
                           </div>
+
+                          {/* Mini barcode preview */}
+                          <FilmCardBarcode jobId={film.analyses[0].job_id} />
 
                           {/* Analyses summary */}
                           <div>
