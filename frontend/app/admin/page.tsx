@@ -239,52 +239,34 @@ function FilmResultCard({ film }: { film: GroupedFilm }) {
 
 // barcode mini preview feature ####################################
 function FilmCardBarcode({ jobId }: { jobId: string }) {
-  const [data, setData] = useState<FilmOfDayBarcode | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function load() {
-      try {
-        const res = await fetch(`/api/job-result/${jobId}`);
-        const json = await res.json();
-        const barcode = json?.barcode?.barcode;
-        const barcodeType = json?.barcode?.barcode_type || "Color";
-
-        if (
-          !cancelled &&
-          Array.isArray(barcode) &&
-          (barcodeType === "Color" || barcodeType === "Brightness")
-        ) {
-          setData({ barcode: barcode as BarcodePixel[][], barcodeType });
-        }
-      } catch {
-
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
-
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, [jobId]);
-
-  if (loading || !data) return null;
-
   return (
-    <div style = {{ marginTop: 8,
-      width: "100%",
+    <div
+      style = {{
+        marginTop: 8,
+        width: "100%",
       maxWidth: 200,
-      height: 60, // ask prof Faden what he generally thinks about this height
-      overflow: "hidden" }}>
-      <BarcodeImagePreview data={data} fixed />
-    </div>
+      height: 40,
+      overflow: "hidden",
+    }}
+    >
+      <img
+        src = {`api/barcode-image/${jobId}`}
+        alt = "Barcode preview"
+        style = {{
+          width: "100%",
+          height: "100%",
+          objectFit: "fill",
+          border: "1px solid rgba(100,100,100,0.25)",
+          display: "block"
+        }}
+        onError = {(e) => {
+          // hide barcode preview
+          e.currentTarget.style.display = "none";
+      }}
+    />
+  </div>
   );
 }
-
 
 export default function AdminPage() {
   const helpRef = useRef<HTMLDivElement>(null);
