@@ -3,9 +3,10 @@
 import Link from "next/link";
 import Image from "next/image";
 import {useSearchParams} from "next/navigation";
+import {Suspense} from "react";
 import BarcodeGenerator from "../components/BarcodeGenerator";
 
-export default function UploadPage() {
+function UploadPageContent() {
   const searchParams = useSearchParams();
   const fromAdmin = searchParams.get("from") === "admin"; // checks if admin
   const backHref = fromAdmin ? "/admin" : "/"
@@ -56,4 +57,12 @@ export default function UploadPage() {
       </footer>
     </div>
   );
+}
+
+export default function UploadPage() {
+  return (
+    <Suspense fallback = {null}>
+      <UploadPageContent/>
+    </Suspense>
+  )
 }
