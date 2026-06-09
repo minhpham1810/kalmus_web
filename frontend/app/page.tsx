@@ -140,7 +140,37 @@ function BarcodeImagePreview({ data }: { data: FilmOfDayBarcode }) {
   );
 }
 
-function FilmResultCard({ film }: { film: GroupedFilm }) {
+function FilmCardBarcode({ jobId }: { jobId: string }) {
+  return (
+    <div
+      style = {{
+        marginTop: 8,
+        width: "100%",
+      maxWidth: 200,
+      height: 40,
+      overflow: "hidden",
+    }}
+    >
+      <img
+        src = {`api/barcode-image/${jobId}`}
+        alt = "Barcode preview"
+        style = {{
+          width: "100%",
+          height: "100%",
+          objectFit: "fill",
+          border: "1px solid rgba(100,100,100,0.25)",
+          display: "block"
+        }}
+        onError = {(e) => {
+          // hide barcode preview
+          e.currentTarget.style.display = "none";
+      }}
+    />
+  </div>
+  );
+}
+
+function FilmResultCard({ film, hideBarcode }: { film: GroupedFilm; hideBarcode?: boolean }) {
   const format = (val: string | null) =>
     val ? val.split(",").join(" & ") : null;
 
@@ -160,7 +190,7 @@ function FilmResultCard({ film }: { film: GroupedFilm }) {
         borderBottomColor: "rgba(100,100,100,0.25)",
       }}
     >
-      <div className="w-[80px] aspect-[2/3] shrink-0">
+      <div className="w-[80px] aspect-[2/3] shrink-0 self-start">
         {film.poster ? (
           <img
             src={film.poster}
@@ -196,6 +226,7 @@ function FilmResultCard({ film }: { film: GroupedFilm }) {
             )}
           </div>
         </div>
+        {!hideBarcode && <FilmCardBarcode jobId = {film.analyses[0].job_id}/>}
 
         <div>
           {film.analyses.map((a) => (
@@ -703,7 +734,7 @@ export default function Home() {
                   opacity: 1,
                 }}
               >
-                <FilmResultCard film={filmOfDay} />
+                <FilmResultCard film={filmOfDay} hideBarcode />
               </div>
               {!filmOfDayBarcodeLoading && filmOfDayBarcode && (
                 <BarcodeImagePreview data={filmOfDayBarcode} />
