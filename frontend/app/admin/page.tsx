@@ -153,7 +153,7 @@ function FilmResultCard({ film }: { film: GroupedFilm }) {
     film.released && new Date(film.released).getFullYear(),
     film.runtime_minutes &&
       `${Math.floor(Number(film.runtime_minutes) / 60)}h${Number(film.runtime_minutes) % 60}m`,
-    format(film.country),
+    format(film.country)
   ].filter(Boolean);
 
   return (
@@ -180,7 +180,7 @@ function FilmResultCard({ film }: { film: GroupedFilm }) {
 
       <div className="flex flex-col justify-between flex-1 min-w-0">
         <div>
-          <h3 className="text-lg tracking-tight kalmus-text-primary leading-snug font-display">
+          <h3 className="text-lg tracking-tight kalmus-text-primary leading-snug font-mono">
             {film.imdb_id ? (
               <a
                 href={`https://www.imdb.com/title/${film.imdb_id}/`}
@@ -194,7 +194,7 @@ function FilmResultCard({ film }: { film: GroupedFilm }) {
               <span>{film.title}</span>
             )}
           </h3>
-          <div className="font-mono text-xs kalmus-text-secondary mt-1">
+          <div className="font-mono text-base kalmus-text-secondary mt-1">
             {metadataParts.length > 0 && (
               <span>({metadataParts.join(", ")})</span>
             )}
@@ -541,7 +541,7 @@ const [filmOfDayResults, setFilmOfDayResults] = useState<FilmSearchResult[]>(
             </div>
 
             <p className="font-mono text-xs tracking-[0.28em] uppercase kalmus-text-secondary">
-              Edit film metadata and manage records
+              An archive and toolkit for analyzing film color
             </p>
           </header>
 
@@ -828,7 +828,7 @@ const [filmOfDayResults, setFilmOfDayResults] = useState<FilmSearchResult[]>(
                         <div className="flex flex-col justify-between flex-1 min-w-0 overflow-hidden">
                           {/* Title and metadata */}
                           <div>
-                            <h3 className="text-lg tracking-tight kalmus-text-primary leading-snug font-display">
+                            <h3 className="text-lg tracking-tight kalmus-text-primary leading-snug font-mono">
                               {film.imdb_id ? (
                                 <a
                                   href={`https://www.imdb.com/title/${film.imdb_id}/`}
@@ -842,7 +842,7 @@ const [filmOfDayResults, setFilmOfDayResults] = useState<FilmSearchResult[]>(
                                 <span>{film.title}</span>
                               )}
                             </h3>
-                            <div className="font-mono text-xs kalmus-text-secondary mt-1">
+                            <div className="font-mono text-base kalmus-text-secondary mt-1">
                               {(() => {
                                 const format = (val: string | null) =>
                                   val ? val.split(",").join(" & ") : null;
@@ -854,6 +854,7 @@ const [filmOfDayResults, setFilmOfDayResults] = useState<FilmSearchResult[]>(
                                   film.runtime_minutes &&
                                     `${Math.floor(Number(film.runtime_minutes) / 60)}h${Number(film.runtime_minutes) % 60}m`,
                                   format(film.country),
+                                  // try imdb link
                                 ].filter(Boolean);
 
                                 return (
@@ -873,14 +874,14 @@ const [filmOfDayResults, setFilmOfDayResults] = useState<FilmSearchResult[]>(
                             {film.analyses.map((a) => (
                               <div
                                 key={a.job_id}
-                                className="flex items-center gap-2"
+                                className="flex items-center gap-0"
                               >
                                 <Link
                                   href={`/results/${a.job_id}?from=admin`}
                                   className="grid grid-cols-1 sm:grid-cols-[1fr_2fr_auto] items-start sm:items-center gap-2 sm:gap-4 border-b-2 border-transparent py-2 sm:py-1 hover:border-blue-500 flex-1"
                                   style={{ color: "var(--accent-amber)" }}
                                 >
-                                  <div className="flex items-center gap-1 font-mono text-xs kalmus-text-secondary capitalize">
+                                  <div className="flex items-center gap-2 font-mono text-sm almus-text-secondary capitalize">
                                     <span>{a.barcode_type}</span>
                                     <span
                                       style={{ color: "var(--accent-crimson)" }}
@@ -895,7 +896,7 @@ const [filmOfDayResults, setFilmOfDayResults] = useState<FilmSearchResult[]>(
                                     </span>
                                     <span>{a.metric}</span>
                                   </div>
-                                  <div className="flex items-center gap-1 font-mono text-xs kalmus-text-secondary">
+                                  <div className="flex items-center gap-1 font-mono text-sm kalmus-text-secondary">
                                     <span>Source File:</span>
                                     <span>
                                       {a.source_width} x {a.source_height},
@@ -903,7 +904,7 @@ const [filmOfDayResults, setFilmOfDayResults] = useState<FilmSearchResult[]>(
                                     <span>{Number(a.source_fps).toFixed(3)} fps,</span>
                                     <span>{a.source_frame_count} frames</span>
                                   </div>
-                                  <div className="justify-self-start sm:justify-self-end font-mono text-xs tracking-wider uppercase px-3 py-1.5 transition-colors kalmus-button-filled">
+                                  <div className = "justify-self-start sm:justify-self-end font-mono text-xs tracking-wider uppercase px-3 py-1.5 transition-colors text-[var(--text-muted)] hover:text-[var(--accent-amber)]">
                                     <span>View →</span>
                                   </div>
                                 </Link>
