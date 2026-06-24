@@ -207,22 +207,27 @@ function FilmResultCard({ film, hideBarcode }: { film: GroupedFilm; hideBarcode?
       <div className="flex flex-col justify-between flex-1 min-w-0">
         <div>
           <h3 className="text-lg tracking-tight kalmus-text-primary leading-snug font-display">
-            {film.imdb_id ? (
-              <a
-                href={`https://www.imdb.com/title/${film.imdb_id}/`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hover:underline"
-              >
                 {film.title}
-              </a>
-            ) : (
-              <span>{film.title}</span>
-            )}
           </h3>
-          <div className="font-mono text-sm kalmus-text-secondary mt-1">
+          <div className="font-mono text-base kalmus-text-secondary mt-1">
             {metadataParts.length > 0 && (
-              <span>({metadataParts.join(", ")})</span>
+              <span>
+                ({metadataParts.join(", ")}
+                {film.imdb_id && (
+                  <>
+                    ,
+                  <a
+                  href = {`https://www.imdb.com/title/${film.imdb_id}/`}
+                  target = "_blank"
+                  rel="noopener noreferrer"
+                  className = "hover:underline"
+                  >
+                    {" "}IMDb
+                  </a>
+                  </>
+                )}
+                )
+            </span>
             )}
           </div>
         </div>
