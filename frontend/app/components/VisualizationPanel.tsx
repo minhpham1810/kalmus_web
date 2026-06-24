@@ -73,7 +73,10 @@ function formatRuntime(runtime: string | number | null | undefined): string | nu
 function normalizeAnalysisLabel(value: string | null | undefined): string | null {
   const normalized = value?.trim();
   if (!normalized) return null;
-  return normalized.replace(/_/g, " ").toLowerCase();
+  return normalized
+    .replace(/_/g, " ")
+    .toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 function formatMovieDetailLine(
