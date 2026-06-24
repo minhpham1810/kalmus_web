@@ -460,7 +460,7 @@ export default function BarcodePreview({
                 />
               ) : null}
               <div className="min-w-0 flex-1">
-                <p className="font-mono text-xs kalmus-text-primary truncate">
+                <p className="font-mono text-base kalmus-text-primary truncate">
                   {movie.title}{" "}
                   {movie.year ? (
                     <span style={{ color: "var(--accent-amber)" }}>
@@ -476,7 +476,7 @@ export default function BarcodePreview({
                 {detailLines.map((line) => (
                   <p
                     key={line}
-                    className="font-mono text-xs kalmus-text-secondary truncate mt-0.5"
+                    className="font-mono text-sm kalmus-text-secondary truncate mt-0.5"
                   >
                     {line}
                   </p>
