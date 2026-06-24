@@ -1,6 +1,6 @@
 import { promises as fs } from "fs";
 import { NextResponse } from "next/server";
-import { getDailyFilmOffset, getUtcDayIndex } from "@/lib/film-of-day";
+import { getDailyFilmOffset, getEasternDayIndex } from "@/lib/film-of-day";
 import { FilmSearchResult, withDb } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
@@ -33,7 +33,7 @@ export async function GET() {
     });
 
     const offset = getDailyFilmOffset(filmCount);
-    const dayIndex = getUtcDayIndex();
+    const dayIndex = getEasternDayIndex();
 
     if (offset === null) {
       return NextResponse.json({ results: [], dayIndex });
