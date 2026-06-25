@@ -209,7 +209,16 @@ export default function BarcodePreview({
   const overlayRef = useRef<HTMLDivElement>(null);
   const rulerContainerRef = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState(1);
-  const [dragging, setDragging] = useState<"start" | "end" | null>(null);
+  const [dragging, setDragging] = useState<"start" | "end" | "window" | null>(null);
+  // save shift-hold state
+  const windowDragRef = useRef<{
+    grabFrac: number;
+    startIdx: number;
+    endIdx: number;
+  } | null>(null);
+
+  const [shiftHeld, setShiftHeld] = useState(false);
+
   const getZoomButtonStyle = (isActive: boolean) => ({
     background: isActive ? "var(--foreground)" : "var(--surface-bg-strong)",
     color: isActive ? "var(--background)" : "var(--text-primary)",
@@ -305,34 +314,87 @@ export default function BarcodePreview({
   const handleMouseDown = (e: React.MouseEvent, handle: "start" | "end") => {
     e.preventDefault();
     e.stopPropagation();
-    setDragging(handle);
+
+    if (e.shiftKey && frameRange && overlayRef.current) {
+      // remmebrs drga window
+      const rect = overlayRef.current.getBoundingClientRect();
+      const grabFrac = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
+      windowDragRef.current = {
+        grabFrac,
+        startIdx: frameRange[0],
+        endIdx: frameRange[1],
+      };
+      setDragging("window");
+    } else {
+      setDragging(handle);
+    }
   };
 
   useEffect(() => {
-    if (!dragging || !onFrameRangeChange || !frameRange) return;
+  const onKeyDown = (e: KeyboardEvent) => {
+    if (e.key === "Shift") setShiftHeld(true);
+  };
+  const onKeyUp = (e: KeyboardEvent) => {
+    if (e.key === "Shift") setShiftHeld(false);
+  };
+  window.addEventListener("keydown", onKeyDown);
+  window.addEventListener("keyup", onKeyUp);
+  return () => {
+    window.removeEventListener("keydown", onKeyDown);
+    window.removeEventListener("keyup", onKeyUp);
+  };
+}, []);
 
-    const onMove = (e: MouseEvent) => {
-      const overlay = overlayRef.current;
-      if (!overlay) return;
-      const rect = overlay.getBoundingClientRect();
-      const f = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-      const idx = fractionToIndex(f);
-      if (dragging === "start") {
-        onFrameRangeChange([Math.min(idx, frameRange[1]), frameRange[1]]);
-      } else {
-        onFrameRangeChange([frameRange[0], Math.max(idx, frameRange[0])]);
-      }
-    };
+  useEffect(() => {
+  if (!dragging || !onFrameRangeChange || !frameRange) return;
 
-    const onUp = () => setDragging(null);
+  const onMove = (e: MouseEvent) => {
+    const overlay = overlayRef.current;
+    if (!overlay) return;
+    const rect = overlay.getBoundingClientRect();
+    const f = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
 
-    document.addEventListener("mousemove", onMove);
-    document.addEventListener("mouseup", onUp);
-    return () => {
-      document.removeEventListener("mousemove", onMove);
-      document.removeEventListener("mouseup", onUp);
-    };
-  }, [dragging, frameRange, onFrameRangeChange, fractionToIndex]);
+    if (dragging === "window" && windowDragRef.current) {
+      // Move both bounds together, preserving the window width
+      const { grabFrac, startIdx, endIdx } = windowDragRef.current;
+      const currentIdx = fractionToIndex(f);
+      const grabIdx = fractionToIndex(grabFrac);
+      const width = endIdx - startIdx;
+      const maxIdx = (totalColorFrames ?? 1) - 1;
+
+      let delta = currentIdx - grabIdx;
+
+      // locks window
+      const newStart = startIdx + delta;
+      if (newStart < 0) delta = -startIdx;
+      const newEnd = endIdx + delta;
+      if (newEnd > maxIdx) delta = maxIdx - endIdx;
+
+      const finalStart = startIdx + delta;
+      onFrameRangeChange([finalStart, finalStart + width]);
+      return;
+    }
+
+    const idx = fractionToIndex(f);
+    if (dragging === "start") {
+      onFrameRangeChange([Math.min(idx, frameRange[1]), frameRange[1]]);
+    } else {
+      onFrameRangeChange([frameRange[0], Math.max(idx, frameRange[0])]);
+    }
+  };
+
+  const onUp = () => {
+    setDragging(null);
+    windowDragRef.current = null;
+  };
+
+  document.addEventListener("mousemove", onMove);
+  document.addEventListener("mouseup", onUp);
+  return () => {
+    document.removeEventListener("mousemove", onMove);
+    document.removeEventListener("mouseup", onUp);
+  };
+}, [dragging, frameRange, onFrameRangeChange, fractionToIndex, totalColorFrames]);
 
   const handleDownload = () => {
     if (!canvasRef.current) return;
@@ -558,7 +620,7 @@ export default function BarcodePreview({
           style={{
             position: "relative",
             display: "inline-block",
-            cursor: dragging ? "ew-resize" : "default",
+            cursor: dragging === "window" ? "grabbing" : dragging ? "ew-resize" : "default",
           }}
         >
           <div
@@ -606,6 +668,35 @@ export default function BarcodePreview({
                 height: "100%",
                 background: "rgba(0,0,0,0.48)",
                 pointerEvents: "none",
+              }}
+            />
+          )}
+
+          {/* draggable range*/}
+          {showRange && (
+            <div
+              onMouseDown={(e) => {
+                if (!e.shiftKey || !frameRange || !overlayRef.current) return;
+                e.preventDefault();
+                e.stopPropagation();
+                const rect = overlayRef.current.getBoundingClientRect();
+                const grabFrac = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+                windowDragRef.current = {
+                  grabFrac,
+                  startIdx: frameRange[0],
+                  endIdx: frameRange[1],
+                };
+                setDragging("window");
+              }}
+              title="Shift+drag to move the selected range"
+              style={{
+                position: "absolute",
+                top: 0,
+                left: `${startFrac * 100}%`,
+                width: `${(endFrac - startFrac) * 100}%`,
+                height: "100%",
+                cursor: shiftHeld ? "grab" : "default",
+                zIndex: 1,
               }}
             />
           )}
