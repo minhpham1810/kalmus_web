@@ -696,6 +696,7 @@ export default function BarcodePreview({
                 width: `${(endFrac - startFrac) * 100}%`,
                 height: "100%",
                 cursor: shiftHeld ? "grab" : "default",
+                pointerEvents: shiftHeld ? "auto" : "none",
                 zIndex: 1,
               }}
             />
