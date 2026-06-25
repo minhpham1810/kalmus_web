@@ -906,7 +906,7 @@ const [filmOfDayResults, setFilmOfDayResults] = useState<FilmSearchResult[]>(
                                     </span>
                                     <span>{a.metric}</span>
                                   </div>
-                                  <div className="flex items-center gap-1 font-mono text-sm kalmus-text-secondary">
+                                  <div className="flex items-center gap-2 font-mono text-sm kalmus-text-secondary">
                                     <span>Source File:</span>
                                     <span>
                                       {a.source_width} x {a.source_height},

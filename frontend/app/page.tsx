@@ -241,14 +241,14 @@ function FilmResultCard({ film, hideBarcode }: { film: GroupedFilm; hideBarcode?
               aria-label={`View result for ${film.title}`}
               className="grid grid-cols-1 sm:grid-cols-[1fr_2fr_auto] items-start sm:items-center gap-2 sm:gap-4 border-b-2 border-transparent py-2 sm:py-1 hover:border-blue-500"
             >
-              <div className="flex items-center gap-1 font-mono text-sm kalmus-text-secondary capitalize">
+              <div className="flex items-center gap-2 font-mono text-sm kalmus-text-secondary capitalize">
                 <span>{a.barcode_type}</span>
                 <span style={{ color: "var(--accent-crimson)" }}>|</span>
                 <span>{a.frame_type.replace(/_/g, " ")}</span>
                 <span style={{ color: "var(--accent-crimson)" }}>|</span>
                 <span>{a.metric}</span>
               </div>
-              <div className="flex items-center gap-1 font-mono text-sm kalmus-text-secondary">
+              <div className="flex items-center gap-2 font-mono text-sm kalmus-text-secondary">
                 <span>Source File:</span>
                 <span>
                   {a.source_width} x {a.source_height},
