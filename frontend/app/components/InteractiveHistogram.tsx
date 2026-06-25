@@ -42,6 +42,8 @@ export default function InteractiveHistogram({
   const [satThreshold, setSatThreshold] = useState(0);
   const [hueMode, setHueMode] = useState<HueHistogramMode>("perceptual");
 
+  const [yMax, setYMax] = useState<string>(""); // empty = auto
+
   const histogramData = useMemo(() => {
     if (barcodeType === "Color" && colors) {
       const preparedHueSamples = prepareHueHistogramSamples(colors, {
@@ -68,6 +70,7 @@ export default function InteractiveHistogram({
 
       // Generate colors for each bin based on hue
       const barColors = binCenters.map((h) => getHueColor(h));
+
 
       return {
         x: binCenters,
@@ -127,7 +130,7 @@ export default function InteractiveHistogram({
     return null;
   }, [colors, brightness, barcodeType, binStep, satThreshold, hueMode]);
 
-  const plotUiRevision = `${barcodeType}-${binStep}-${satThreshold}-${hueMode}`;
+  const plotUiRevision = `${barcodeType}-${binStep}-${satThreshold}-${hueMode}-${yMax}`;
 
   if (!histogramData) {
     return (
@@ -177,6 +180,9 @@ export default function InteractiveHistogram({
             yaxis: {
               title: { text: histogramData.yLabel },
               gridcolor: "rgba(128,128,128,0.2)",
+              ...(yMax && Number(yMax) > 0
+                ? { range: [0, Number(yMax)], autorange: false }
+                : { autorange: true }),
             },
             bargap: 0.05,
             margin: { l: 60, r: 30, t: 50, b: 50 },
@@ -274,6 +280,26 @@ export default function InteractiveHistogram({
             </select>
           </div>
         )}
+        <div className="flex items-center gap-2">
+          <label className="text-xs text-neutral-600 dark:text-neutral-400">
+            Y-axis Max:
+          </label>
+          <input
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            value={yMax}
+            onChange={(e) => {
+              const v = e.target.value;
+              // allow only digits or empty
+              if (v === "" || /^\d+$/.test(v)) setYMax(v);
+            }}
+            placeholder="Auto"
+            className="kalmus-input px-2 py-1 text-xs"
+            style={{ width: "5rem" }}
+            title="Set a fixed maximum for the Y-axis to compare histograms across films. Leave blank for auto-scale."
+          />
+        </div>
         <span className="text-xs text-neutral-500 dark:text-neutral-400">
           Chart samples: {histogramData.hueSampleCount.toLocaleString()}
         </span>
