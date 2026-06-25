@@ -27,6 +27,12 @@ interface CameraState {
 }
 
 const HUE_RESOLUTIONS = [5, 10, 15, 30];
+const VISIBLE_CAMERA_PRESETS: CameraPreset[] = [
+  "Top View",
+  "Diag View 2",
+  "Hue View 2",
+  "Light View 2",
+];
 const LIGHT_RESOLUTIONS = [0.01, 0.02, 0.05, 0.1];
 const SATURATION_THRESHOLDS = [0, 0.05, 0.10, 0.15, 0.20, 0.30];
 const DEFAULT_CAMERA: CameraState = {
@@ -312,7 +318,7 @@ export default function InteractiveHueLight3DBar({
               Camera Views:
             </div>
             <div className="grid grid-cols-2 gap-1">
-              {(Object.keys(CAMERA_PRESETS) as CameraPreset[]).map((preset) => (
+              {VISIBLE_CAMERA_PRESETS.map((preset) => (
                 <button
                   key={preset}
                   onClick={() => handlePresetChange(preset)}
