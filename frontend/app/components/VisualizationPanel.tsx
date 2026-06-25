@@ -18,6 +18,7 @@ import {
   formatTimestamp,
   rgbToHsl,
 } from "@/lib/barcode-utils";
+// import { clearTimeout } from "node:timers";
 
 interface FilmSearchResult {
   job_id: string;
@@ -856,6 +857,16 @@ export default function VisualizationPanel({
     [barcodeData?.barcode_type, barcodeData?.color_metric, barcodeData?.fps, barcodeData?.frame_type, barcodeData?.source_height, barcodeData?.source_width, barcodeData?.total_frames, movie]
   );
 
+  const [debouncedFrameRange, setDebouncedFrameRange] = useState<[number, number] | null>(frameRange);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedFrameRange(frameRange);
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [frameRange]);
+
+
   const loadBarcodeData = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -987,6 +998,12 @@ export default function VisualizationPanel({
     if (!frameRange) return barcodeData.colors;
     return barcodeData.colors.slice(frameRange[0], frameRange[1] + 1);
   }, [barcodeData?.colors, frameRange]);
+
+  const debouncedSlicedColors = useMemo(() => {
+    if (!barcodeData?.colors) return undefined;
+    if (!debouncedFrameRange) return barcodeData.colors;
+    return barcodeData.colors.slice(debouncedFrameRange[0], debouncedFrameRange[1] + 1);
+  }, [barcodeData?.colors, debouncedFrameRange]);
 
   const slicedBrightness = useMemo(() => {
     if (!barcodeData?.brightness) return undefined;
@@ -1253,7 +1270,7 @@ export default function VisualizationPanel({
             <ColorStatsDashboard
               jobId={jobId}
               title={`Statistics for ${videoFilename}`}
-              colors={slicedColors}
+              colors={debouncedSlicedColors}
             />
           )}
 
