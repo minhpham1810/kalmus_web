@@ -215,14 +215,14 @@ function FilmResultCard({ film, hideBarcode }: { film: GroupedFilm; hideBarcode?
                 ({metadataParts.join(", ")}
                 {film.imdb_id && (
                   <>
-                    ,
+                    ,{" "}
                   <a
                   href = {`https://www.imdb.com/title/${film.imdb_id}/`}
                   target = "_blank"
                   rel="noopener noreferrer"
-                  className = "hover:underline"
+                  className = "underline underline-offset-2 hover:opacity-50"
                   >
-                    {" "}IMDb
+                    IMDb
                   </a>
                   </>
                 )}
@@ -500,6 +500,7 @@ export default function Home() {
                 width={300}
                 height={100}
                 className="dark:invert"
+                style={{ height: "auto"}}
                 priority
               />
             </div>
