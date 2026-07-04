@@ -775,13 +775,10 @@ export function getHueColor(hue: number): string {
  * Camera presets for 3D plots (matching KALMUS Tkinter)
  */
 export const CAMERA_PRESETS = {
-  "Diag View 1": { eye: { x: 2.0, y: 2.0, z: 1.3 } },
   "Diag View 2": { eye: { x: -2.0, y: -2.0, z: 1.3 } },
-  "Hue View 1": { eye: { x: 0, y: 2.5, z: 0.1 } },
   "Hue View 2": { eye: { x: 0, y: -2.5, z: 0.1 } },
-  "Light View 1": { eye: { x: 2.5, y: 0, z: 0.1 } },
   "Light View 2": { eye: { x: -2.5, y: 0, z: 0.1 } },
-  "Top View": { eye: { x: 0, y: 0, z: 2.5 } },
+  "Top View": { eye: { x: 0, y: 0.2, z: -2.5 } },
 } as const;
 
 export type CameraPreset = keyof typeof CAMERA_PRESETS;
