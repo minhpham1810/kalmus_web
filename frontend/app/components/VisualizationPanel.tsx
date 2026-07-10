@@ -5,6 +5,7 @@ import InteractiveHistogram from "./InteractiveHistogram";
 import InteractiveRGBCube from "./InteractiveRGBCube";
 import InteractiveHueLightScatter from "./InteractiveHueLightScatter";
 import InteractiveHueLight3DBar from "./InteractiveHueLight3DBar";
+import FramesScatter from "./FramesScatter";
 import BarcodeComparison from "./BarcodeComparison";
 import ColorStatsDashboard from "./ColorStatsDashboard";
 import CSVExportButton from "./CSVExportButton";
@@ -638,6 +639,7 @@ type VisualizationTab =
   | "colorcube"
   | "huelightscatter"
   | "huelight3d"
+  |  "framesscatter"
   | "stats"
   | "comparison";
 
@@ -1013,9 +1015,10 @@ export default function VisualizationPanel({
 
   const tabs: Array<{ id: VisualizationTab; label: string; icon: string; colorOnly?: boolean }> = [
     { id: "histogram", label: isColorBarcode ? "Hue Histogram" : "Brightness Histogram", icon: "M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" },
-    { id: "colorcube", label: "RGB Cube", icon: "M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4", colorOnly: true },
+    // { id: "colorcube", label: "RGB Cube", icon: "M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4", colorOnly: true },
     { id: "huelightscatter", label: "Hue/Light Scatter", icon: "M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01", colorOnly: true },
     { id: "huelight3d", label: "Hue/Light 3D", icon: "M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5", colorOnly: true },
+    { id: "framesscatter", label: "Frames Scatter", icon: "M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4z", colorOnly: true },  // ← new
     { id: "stats", label: "Statistics", icon: "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" },
     { id: "comparison", label: "Compare", icon: "M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18" },
   ];
@@ -1234,16 +1237,16 @@ export default function VisualizationPanel({
             />
           )}
 
-          {activeTab === "colorcube" && slicedColors && (
-            <InteractiveRGBCube
-              colors={slicedColors}
-              title={`RGB Color Cube - ${videoFilename}`}
-              maxSamples={20000}
-              frameIndexOffset={frameRange?.[0] ?? 0}
-              onPreviewFrameChange={handlePreviewFrameChange}
-              onPreviewFramePin={handlePreviewFramePin}
-            />
-          )}
+          {/*{activeTab === "colorcube" && slicedColors && (*/}
+          {/*  <InteractiveRGBCube*/}
+          {/*    colors={slicedColors}*/}
+          {/*    title={`RGB Color Cube - ${videoFilename}`}*/}
+          {/*    maxSamples={20000}*/}
+          {/*    frameIndexOffset={frameRange?.[0] ?? 0}*/}
+          {/*    onPreviewFrameChange={handlePreviewFrameChange}*/}
+          {/*    onPreviewFramePin={handlePreviewFramePin}*/}
+          {/*  />*/}
+          {/*)}*/}
 
           {activeTab === "huelightscatter" && slicedColors && (
             <InteractiveHueLightScatter
@@ -1263,6 +1266,17 @@ export default function VisualizationPanel({
               frameIndexOffset={frameRange?.[0] ?? 0}
               onPreviewFrameChange={handlePreviewFrameChange}
               onPreviewFramePin={handlePreviewFramePin}
+            />
+          )}
+
+          {activeTab === "framesscatter" && barcodeData && slicedColors && (
+            <FramesScatter
+              colors={slicedColors}
+              thumbnails={barcodeData.thumbnails}
+              title={`Frames Scatter - ${videoFilename}`}
+              frameIndexOffset={frameRange?.[0] ?? 0}
+              sampledFrameRate={barcodeData.sampled_frame_rate}
+              skipOver={barcodeData.skip_over}
             />
           )}
 
