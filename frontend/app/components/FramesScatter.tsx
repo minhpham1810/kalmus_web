@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useRef, useCallback, useEffect } from "react";
+import React, { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { toPng } from "html-to-image";
 import {
   RGB,
@@ -17,16 +17,18 @@ interface FramesScatterProps {
   sampledFrameRate?: number;
   skipOver?: number;
 }
+
 const SATURATION_THRESHOLD = 0.3;
 
-// frame limit
-const MAX_FRAMES = 6600;
+// Hue bucket (degees)
+const HUE_BIN_DEGREES = 10;
+
+// Max frames per ligthness*hue
+const MAX_PER_CELL = 3;
 
 const FRAME_W = 52;
 const FRAME_H = 30;
-
 const HOVER_SCALE = 10;
-
 const JITTER_PCT = 2.2;
 
 const PAD_LEFT = 64;
@@ -50,7 +52,7 @@ interface PlottedFrame {
   sh: number;
 }
 
-// determine random seed
+// random seed
 function seededRandom(seed: number): number {
   let h = (seed + 0x9e3779b9) | 0;
   h = Math.imul(h ^ (h >>> 16), 0x45d9f3b);
@@ -72,6 +74,7 @@ export default function FramesScatter({
   colors,
   thumbnails = null,
   title = "Frames Scatter",
+  frameIndexOffset = 0,
   sampledFrameRate,
   skipOver = 0,
 }: FramesScatterProps) {
@@ -82,36 +85,38 @@ export default function FramesScatter({
   const plotRef = useRef<HTMLDivElement>(null);
   const exportRef = useRef<HTMLDivElement>(null);
 
+  // randomized seed
+  const [randomSeed, setRandomSeed] = useState(() => Math.floor(Math.random() * 1_000_000));
+
   const frames = useMemo<PlottedFrame[]>(() => {
     if (!thumbnails?.enabled || thumbnails.count === 0) return [];
 
+    // saturaation filnter
     const survivors: number[] = [];
     colors.forEach((rgb, index) => {
       const [, s] = rgbToHsv(rgb[0], rgb[1], rgb[2]);
       if (s >= SATURATION_THRESHOLD) survivors.push(index);
     });
 
-    // color cells aftter .4 filter
     const cells = new Map<string, number[]>();
     for (const index of survivors) {
       const rgb = colors[index];
       const [h, , v] = rgbToHsv(rgb[0], rgb[1], rgb[2]);
-      const hueGrade = Math.round(h / 10 ); // / amount of degrees // show professor faden this thingie
+      const hueGrade = Math.round(h / HUE_BIN_DEGREES);
       const lightBand = Math.floor(v * 10);
       const key = `${hueGrade}:${lightBand}`;
       if (!cells.has(key)) cells.set(key, []);
       cells.get(key)!.push(index);
     }
 
-    // random cells ## (change any time)
     const capped: number[] = [];
     for (const indices of cells.values()) {
-      if (indices.length <= 10) {
+      if (indices.length <= MAX_PER_CELL) {
         capped.push(...indices);
       } else {
         const pool = [...indices];
-        const seedBase = indices[0];
-        for (let k = 0; k < 3; k++) {
+        const seedBase = indices[0] + randomSeed;
+        for (let k = 0; k < MAX_PER_CELL; k++) {
           const r = Math.floor(seededRandom(seedBase + k) * pool.length);
           capped.push(pool[r]);
           pool.splice(r, 1);
@@ -119,30 +124,32 @@ export default function FramesScatter({
       }
     }
 
+    // plot thumbnail
     const result: PlottedFrame[] = [];
     for (const index of capped) {
       const rgb = colors[index];
       const [h, , v] = rgbToHsv(rgb[0], rgb[1], rgb[2]);
 
+      const absoluteIndex = index + frameIndexOffset;
       const sourceFrameIndex =
         sampledFrameRate !== undefined
-          ? skipOver + index * sampledFrameRate
-          : index;
+          ? skipOver + absoluteIndex * sampledFrameRate
+          : absoluteIndex;
 
       const thumb = findClosestThumbnail(thumbnails, sourceFrameIndex);
       if (!thumb) continue;
       const sheet = thumbnails.sheets.find((s) => s.index === thumb.sheet_index);
       if (!sheet?.url) continue;
 
-      const { jx, jy } = seededJitter(index);
+      const { jx, jy } = seededJitter(absoluteIndex);
 
       result.push({
-        key: `${index}`,
+        key: `${absoluteIndex}`,
         hue: h,
         light: v,
         jitterX: jx,
         jitterY: jy,
-        frameIndex: index,
+        frameIndex: absoluteIndex,
         sheetUrl: sheet.url,
         sheetW: sheet.width,
         sheetH: sheet.height,
@@ -154,7 +161,7 @@ export default function FramesScatter({
     }
 
     return result;
-  }, [colors, thumbnails, sampledFrameRate, skipOver]);
+  }, [colors, thumbnails, sampledFrameRate, skipOver, frameIndexOffset, randomSeed]);
 
   // Measure the plot area
   useEffect(() => {
@@ -183,6 +190,12 @@ export default function FramesScatter({
     document.addEventListener("fullscreenchange", onChange);
     return () => document.removeEventListener("fullscreenchange", onChange);
   }, []);
+
+  //re-randomized frame picks --> come back to it after talking to Faden
+  // useEffect(() => {
+  //   setRandomSeed(Math.floor(Math.random() * 1_000_000));
+  // }, [frameIndexOffset, colors.length]);
+
 
   // PNG export
   const handleExport = useCallback(async () => {
@@ -238,10 +251,7 @@ export default function FramesScatter({
       >
         {/* Header */}
         <div className="relative flex items-center justify-center mb-3">
-          <p
-            className="text-sm font-medium"
-            style={{ color: "#444" }}
-          >
+          <p className="text-sm font-medium" style={{ color: "#444" }}>
             {title}
           </p>
           <div className="absolute right-0 flex items-center gap-2">
@@ -415,7 +425,7 @@ export default function FramesScatter({
               })}
             </div>
 
-            {/* Axis */}
+            {/* Axis labels */}
             <div
               style={{
                 position: "absolute",
