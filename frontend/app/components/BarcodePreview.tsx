@@ -217,6 +217,8 @@ export default function BarcodePreview({
     endIdx: number;
   } | null>(null);
 
+  const [lastHandle, setLastHandle] = useState<"start" | "end">("start");
+
   const [shiftHeld, setShiftHeld] = useState(false);
 
   const getZoomButtonStyle = (isActive: boolean) => ({
@@ -315,6 +317,8 @@ export default function BarcodePreview({
     e.preventDefault();
     e.stopPropagation();
 
+    setLastHandle(handle);
+
     if (e.shiftKey && frameRange && overlayRef.current) {
       // remmebrs drga window
       const rect = overlayRef.current.getBoundingClientRect();
@@ -329,6 +333,48 @@ export default function BarcodePreview({
       setDragging(handle);
     }
   };
+
+  // wf
+const keyStateRef = useRef({ frameRange, totalColorFrames, lastHandle, onFrameRangeChange });
+useEffect(() => {
+  keyStateRef.current = { frameRange, totalColorFrames, lastHandle, onFrameRangeChange };
+}, [frameRange, totalColorFrames, lastHandle, onFrameRangeChange]);
+
+useEffect(() => {
+  const onKeyDown = (e: KeyboardEvent) => {
+    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+
+    const { frameRange, totalColorFrames, lastHandle, onFrameRangeChange } = keyStateRef.current;
+    if (!onFrameRangeChange || !frameRange || !totalColorFrames) return;
+
+    const maxIdx = totalColorFrames - 1;
+    const STEP = 960;
+    const dir = e.key === "ArrowRight" ? STEP : -STEP;
+    const [start, end] = frameRange;
+
+    e.preventDefault();
+
+    if (e.shiftKey) {
+      const width = end - start;
+      let newStart = start + dir;
+      newStart = Math.max(0, Math.min(newStart, maxIdx - width));
+      onFrameRangeChange([newStart, newStart + width]);
+    } else {
+      if (lastHandle === "start") {
+        const newStart = Math.max(0, Math.min(start + dir, end));
+        onFrameRangeChange([newStart, end]);
+      } else {
+        const newEnd = Math.max(start, Math.min(end + dir, maxIdx));
+        onFrameRangeChange([start, newEnd]);
+      }
+    }
+  };
+
+  const el = containerRef.current;
+  if (!el) return;
+  el.addEventListener("keydown", onKeyDown);
+  return () => el.removeEventListener("keydown", onKeyDown);
+}, []);
 
   useEffect(() => {
   const onKeyDown = (e: KeyboardEvent) => {
@@ -345,47 +391,57 @@ export default function BarcodePreview({
   };
 }, []);
 
-  useEffect(() => {
+  const rafRef = useRef<number | null>(null);
+
+useEffect(() => {
   if (!dragging || !onFrameRangeChange || !frameRange) return;
 
   const onMove = (e: MouseEvent) => {
-    const overlay = overlayRef.current;
-    if (!overlay) return;
-    const rect = overlay.getBoundingClientRect();
-    const f = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    if (rafRef.current !== null) return;
+    const clientX = e.clientX;
 
-    if (dragging === "window" && windowDragRef.current) {
-      // Move both bounds together, preserving the window width
-      const { grabFrac, startIdx, endIdx } = windowDragRef.current;
-      const currentIdx = fractionToIndex(f);
-      const grabIdx = fractionToIndex(grabFrac);
-      const width = endIdx - startIdx;
-      const maxIdx = (totalColorFrames ?? 1) - 1;
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = null;
 
-      let delta = currentIdx - grabIdx;
+      const overlay = overlayRef.current;
+      if (!overlay) return;
+      const rect = overlay.getBoundingClientRect();
+      const f = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
 
-      // locks window
-      const newStart = startIdx + delta;
-      if (newStart < 0) delta = -startIdx;
-      const newEnd = endIdx + delta;
-      if (newEnd > maxIdx) delta = maxIdx - endIdx;
+      if (dragging === "window" && windowDragRef.current) {
+        const { grabFrac, startIdx, endIdx } = windowDragRef.current;
+        const currentIdx = fractionToIndex(f);
+        const grabIdx = fractionToIndex(grabFrac);
+        const width = endIdx - startIdx;
+        const maxIdx = (totalColorFrames ?? 1) - 1;
 
-      const finalStart = startIdx + delta;
-      onFrameRangeChange([finalStart, finalStart + width]);
-      return;
-    }
+        let delta = currentIdx - grabIdx;
+        const newStart = startIdx + delta;
+        if (newStart < 0) delta = -startIdx;
+        const newEnd = endIdx + delta;
+        if (newEnd > maxIdx) delta = maxIdx - endIdx;
 
-    const idx = fractionToIndex(f);
-    if (dragging === "start") {
-      onFrameRangeChange([Math.min(idx, frameRange[1]), frameRange[1]]);
-    } else {
-      onFrameRangeChange([frameRange[0], Math.max(idx, frameRange[0])]);
-    }
+        const finalStart = startIdx + delta;
+        onFrameRangeChange([finalStart, finalStart + width]);
+        return;
+      }
+
+      const idx = fractionToIndex(f);
+      if (dragging === "start") {
+        onFrameRangeChange([Math.min(idx, frameRange[1]), frameRange[1]]);
+      } else {
+        onFrameRangeChange([frameRange[0], Math.max(idx, frameRange[0])]);
+      }
+    });
   };
 
   const onUp = () => {
     setDragging(null);
     windowDragRef.current = null;
+    if (rafRef.current !== null) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
   };
 
   document.addEventListener("mousemove", onMove);
@@ -393,6 +449,10 @@ export default function BarcodePreview({
   return () => {
     document.removeEventListener("mousemove", onMove);
     document.removeEventListener("mouseup", onUp);
+    if (rafRef.current !== null) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
   };
 }, [dragging, frameRange, onFrameRangeChange, fractionToIndex, totalColorFrames]);
 
@@ -610,14 +670,15 @@ export default function BarcodePreview({
       {/* Canvas Container */}
       <div
         ref={containerRef}
+        tabIndex = {0}
         className="overflow-x-auto overflow-y-hidden bg-neutral-100 dark:bg-neutral-900 p-4"
-        style={{ maxHeight: "400px" }}
+        style={{ maxHeight: "400px", outline: "none"}}
         onScroll={handleCanvasScroll}
       >
         {/* Overlay wrapper: positions dim overlays and drag handles relative to the canvas */}
         <div
           ref={overlayRef}
-          style={{
+          style ={{
             position: "relative",
             display: "inline-block",
             cursor: dragging === "window" ? "grabbing" : dragging ? "ew-resize" : "default",

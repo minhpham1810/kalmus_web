@@ -24,19 +24,25 @@ interface CameraState {
     y: number;
     z: number;
   };
+  up?: {
+    x: number;
+    y: number;
+    z: number;
+  };
 }
 
 const HUE_RESOLUTIONS = [5, 10, 15, 30];
 const VISIBLE_CAMERA_PRESETS: CameraPreset[] = [
   "Top View",
-  "Diag View 2",
-  "Hue View 2",
-  "Light View 2",
+  "Diagonal View",
+  "Hue View",
+  "Light View",
 ];
 const LIGHT_RESOLUTIONS = [0.01, 0.02, 0.05, 0.1];
 const SATURATION_THRESHOLDS = [0, 0.05, 0.10, 0.15, 0.20, 0.30];
 const DEFAULT_CAMERA: CameraState = {
-  eye: { ...CAMERA_PRESETS["Diag View 2"].eye },
+  eye: { ...CAMERA_PRESETS["Diagonal View"].eye },
+  up: { x: 0, y: 0, z: 1 },
 };
 
 export default function InteractiveHueLight3DBar({
@@ -51,9 +57,10 @@ export default function InteractiveHueLight3DBar({
   const [saturationThreshold, setSaturationThreshold] = useState(0);
   const [showGrid, setShowGrid] = useState(false);
   const [showAxis, setShowAxis] = useState(true);
-  const [cameraPreset, setCameraPreset] = useState<CameraPreset>("Diag View 2");
+  const [cameraPreset, setCameraPreset] = useState<CameraPreset>("Diagonal View");
   const [rotationSpeed, setRotationSpeed] = useState(5);
   const [camera, setCamera] = useState(DEFAULT_CAMERA);
+  const [cameraRevision, setCameraRevision] = useState(0);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const getPresetButtonStyle = (isActive: boolean) => ({
@@ -74,10 +81,18 @@ export default function InteractiveHueLight3DBar({
 
   // Handle camera preset change
   const handlePresetChange = useCallback((preset: CameraPreset) => {
-    setCameraPreset(preset);
-    const presetCamera = CAMERA_PRESETS[preset];
-    setCamera({ eye: { ...presetCamera.eye } });
-  }, []);
+  setCameraPreset(preset);
+  const presetCamera = CAMERA_PRESETS[preset];
+  setCameraRevision((n) => n + 1);
+  const presetUp =
+    "up" in presetCamera
+      ? (presetCamera as { up: { x: number; y: number; z: number } }).up
+      : { x: 0, y: 0, z: 1 };
+  setCamera({
+    eye: { ...presetCamera.eye },
+    up: { ...presetUp },
+  });
+}, []);
 
   // Handle keyboard rotation
   useEffect(() => {
@@ -111,8 +126,7 @@ export default function InteractiveHueLight3DBar({
 
       e.preventDefault();
       const newEye = rotateCamera(camera.eye, azimuthDelta, elevationDelta);
-      setCamera({ eye: newEye });
-      setCameraPreset("Diag View 1"); // Reset preset indicator when manually rotating
+      setCamera((prev) => ({ eye: newEye, up: prev.up }));
     };
 
     window.addEventListener("keydown", handleKeyDown);
@@ -130,6 +144,7 @@ export default function InteractiveHueLight3DBar({
       {/* 3D Chart */}
       <div className="panel-bg rounded border border-neutral-200 dark:border-neutral-700">
         <PlotlyWrapper
+          revision = {cameraRevision}
           data={[
             {
               type: "scatter3d",
@@ -190,12 +205,13 @@ export default function InteractiveHueLight3DBar({
               color: "#666",
             },
             autosize: true,
-            uirevision: "hue-light-3d-camera",
+            uirevision: `hue-light-3d`,
+
           }}
           config={{
             displayModeBar: true,
             displaylogo: false,
-            modeBarButtonsToRemove: ["lasso2d", "select2d"],
+            modeBarButtonsToRemove: ["lasso2d", "select2d", "resetCameraDefault3d", "resetCameraLastSave3d"],
             toImageButtonOptions: {
               format: "png",
               filename: title.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, ""),
@@ -210,6 +226,28 @@ export default function InteractiveHueLight3DBar({
             onPreviewFrameChange?.(
               typeof frameIndex === "number" ? frameIndex + frameIndexOffset : null
             );
+          }}
+          //debug print check
+          onRelayout={(event: Record<string, unknown>) => {
+            const cam = event["scene.camera"] as
+              | {
+                  eye?: {x: number; y: number; z: number};
+                  up?: { x: number; y: number; z: number };
+                }
+
+              | undefined;
+            if (cam?.eye) {
+              setCamera({
+                eye: {...cam.eye},
+                up: cam.up ? {...cam.up} : undefined,
+              })
+              // const e = cam.eye;
+              // const u = cam.up;
+              // console.log(
+              //   `eye: x=${cam.eye.x.toFixed(2)}, y=${cam.eye.y.toFixed(2)}, z=${cam.eye.z.toFixed(2)}` +
+              //   (u ? ` up: {x:${u.x.toFixed(2)}, y:${u.y.toFixed(2)}, z:${u.z.toFixed(2)}}` : " up: (not reported)")
+              // );
+            }
           }}
           onUnhover={() => onPreviewFrameChange?.(null)}
           onClick={(event) => {
