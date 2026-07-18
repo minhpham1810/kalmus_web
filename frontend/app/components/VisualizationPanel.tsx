@@ -1223,7 +1223,7 @@ export default function VisualizationPanel({
 
           {activeTab === "histogram" && barcodeData && (
             <InteractiveHistogram
-              colors={slicedColors}
+              colors={debouncedSlicedColors}
               brightness={slicedBrightness}
               barcodeType={barcodeData.barcode_type}
               frameIndexOffset={frameRange?.[0] ?? 0}
@@ -1248,9 +1248,9 @@ export default function VisualizationPanel({
           {/*  />*/}
           {/*)}*/}
 
-          {activeTab === "huelightscatter" && slicedColors && (
+          {activeTab === "huelightscatter" && debouncedSlicedColors && (
             <InteractiveHueLightScatter
-              colors={slicedColors}
+              colors={debouncedSlicedColors}
               title={`Hue vs Lightness - ${videoFilename}`}
               maxSamples={20000}
               frameIndexOffset={frameRange?.[0] ?? 0}
@@ -1259,9 +1259,9 @@ export default function VisualizationPanel({
             />
           )}
 
-          {activeTab === "huelight3d" && slicedColors && (
+          {activeTab === "huelight3d" && debouncedSlicedColors && (
             <InteractiveHueLight3DBar
-              colors={slicedColors}
+              colors={debouncedSlicedColors}
               title={`Hue/Light 3D Distribution - ${videoFilename}`}
               frameIndexOffset={frameRange?.[0] ?? 0}
               onPreviewFrameChange={handlePreviewFrameChange}
@@ -1269,9 +1269,9 @@ export default function VisualizationPanel({
             />
           )}
 
-          {activeTab === "framesscatter" && barcodeData && slicedColors && (
+          {activeTab === "framesscatter" && barcodeData && debouncedSlicedColors && (
             <FramesScatter
-              colors={slicedColors}
+              colors={debouncedSlicedColors}
               thumbnails={barcodeData.thumbnails}
               title={`Frames Scatter - ${videoFilename}`}
               frameIndexOffset={frameRange?.[0] ?? 0}
