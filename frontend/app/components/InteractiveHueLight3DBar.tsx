@@ -230,24 +230,21 @@ export default function InteractiveHueLight3DBar({
           //debug print check
           onRelayout={(event: Record<string, unknown>) => {
             const cam = event["scene.camera"] as
-              | {
-                  eye?: {x: number; y: number; z: number};
-                  up?: { x: number; y: number; z: number };
-                }
-
+              | { eye?: { x: number; y: number; z: number }; up?: { x: number; y: number; z: number } }
               | undefined;
-            if (cam?.eye) {
-              setCamera({
-                eye: {...cam.eye},
-                up: cam.up ? {...cam.up} : undefined,
-              })
-              // const e = cam.eye;
-              // const u = cam.up;
-              // console.log(
-              //   `eye: x=${cam.eye.x.toFixed(2)}, y=${cam.eye.y.toFixed(2)}, z=${cam.eye.z.toFixed(2)}` +
-              //   (u ? ` up: {x:${u.x.toFixed(2)}, y:${u.y.toFixed(2)}, z:${u.z.toFixed(2)}}` : " up: (not reported)")
-              // );
-            }
+            if (!cam?.eye) return;
+
+            setCamera((prev) => {
+              const e = cam.eye!;
+              const u = cam.up;
+              if (
+                prev.eye.x === e.x && prev.eye.y === e.y && prev.eye.z === e.z &&
+                prev.up?.x === u?.x && prev.up?.y === u?.y && prev.up?.z === u?.z
+              ) {
+                return prev;                                   // identical → no re-render, loop ends
+              }
+              return { eye: { ...e }, up: u ? { ...u } : prev.up };
+            });
           }}
           onUnhover={() => onPreviewFrameChange?.(null)}
           onClick={(event) => {
