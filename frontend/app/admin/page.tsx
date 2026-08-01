@@ -13,7 +13,7 @@ import BarcodeImagePreview, {
 
 /**
  * admin page
- * all film-card markup lives in AdminFilmCard
+ * all film-card structure lives in AdminFilmCard
  */
 export default function AdminPage() {
 
@@ -178,7 +178,7 @@ export default function AdminPage() {
     }, 300);
   }, [activeSelection]);
 
-  /** Fetch a film's full metadata and open the editor drawer. */
+  /** Fetch a film's full metadata and open the editor menu. */
   const handleEditClick = async (jobId: string) => {
     try {
       const res = await fetch(`/api/edit-film/${jobId}`);
@@ -230,18 +230,12 @@ export default function AdminPage() {
 
       {/* top-right nav links */}
       <div className="fixed top-5 right-24 z-50 flex items-center gap-5">
-        <Link
-          href="/admin/dashboard"
-          className="font-mono text-xs tracking-[0.22em] uppercase kalmus-text-secondary hover:text-[var(--text-primary)] transition-colors"
-        >
-          Dashboard
-        </Link>
-        <Link
-          href="/about?from=admin"
-          className="font-mono text-xs tracking-[0.22em] uppercase kalmus-text-secondary hover:text-[var(--text-primary)] transition-colors"
-        >
-          About
-        </Link>
+        <Link href="/admin/dashboard" className="font-mono text-xs tracking-[0.22em] uppercase kalmus-text-secondary hover:text-[var(--text-primary)] transition-colors">
+          Dashboard</Link>
+        <Link href="/tutorials?from=admin" className="font-mono text-xs tracking-[0.22em] uppercase kalmus-text-secondary hover:text-[var(--text-primary)] transition-colors">
+          Tutorials</Link>
+        <Link href="/about?from=admin" className="font-mono text-xs tracking-[0.22em] uppercase kalmus-text-secondary hover:text-[var(--text-primary)] transition-colors">
+          About</Link>
       </div>
 
       <main className="flex-1 flex flex-col items-center px-4 py-16">
@@ -331,6 +325,8 @@ export default function AdminPage() {
                           "genre",
                           "country",
                           "language",
+                          "year", //test
+
                         ].map((col) => (
                           <code
                             key={col}
