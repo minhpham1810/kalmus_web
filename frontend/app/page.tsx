@@ -215,14 +215,14 @@ function FilmResultCard({ film, hideBarcode }: { film: GroupedFilm; hideBarcode?
                 ({metadataParts.join(", ")}
                 {film.imdb_id && (
                   <>
-                    ,{" "}
+                    ,
                   <a
                   href = {`https://www.imdb.com/title/${film.imdb_id}/`}
                   target = "_blank"
                   rel="noopener noreferrer"
-                  className = "underline underline-offset-2 hover:opacity-50"
+                  className = "underline underline-offset-2 hover:opacity-80"
                   >
-                    IMDb
+                    {" "}IMDb
                   </a>
                   </>
                 )}
@@ -466,9 +466,15 @@ export default function Home() {
     !activeSelection;
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col gap-5">
       {/* About link */}
-      <div className="fixed top-5 right-24 z-50">
+      <div className="fixed top-6.5 right-24 z-50 flex items-center gap-5">
+        <Link
+          href="/tutorials"
+          className="font-mono text-xs tracking-[0.22em] uppercase kalmus-text-secondary hover:text-[var(--text-primary)] transition-colors"
+        >
+          Tutorials
+        </Link>
         <Link
           href="/about"
           className="font-mono text-xs tracking-[0.22em] uppercase kalmus-text-secondary hover:text-[var(--text-primary)] transition-colors"

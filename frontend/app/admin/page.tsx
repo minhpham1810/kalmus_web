@@ -229,7 +229,7 @@ export default function AdminPage() {
       )}
 
       {/* top-right nav links */}
-      <div className="fixed top-5 right-24 z-50 flex items-center gap-5">
+      <div className="fixed top-6.5 right-24 z-50 flex items-center gap-5">
         <Link href="/admin/dashboard" className="font-mono text-xs tracking-[0.22em] uppercase kalmus-text-secondary hover:text-[var(--text-primary)] transition-colors">
           Dashboard</Link>
         <Link href="/tutorials?from=admin" className="font-mono text-xs tracking-[0.22em] uppercase kalmus-text-secondary hover:text-[var(--text-primary)] transition-colors">
