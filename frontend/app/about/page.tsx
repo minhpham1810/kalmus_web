@@ -17,7 +17,7 @@ export default async function AboutPage({
               href={backHref}
               className="text-base kalmus-text-secondary hover:text-[var(--text-primary)] transition-colors"
             >
-              ← Back{from === "admin" ? " to Admin" : ""}
+              ← Back
             </Link>
           </div>
           <div className="flex justify-center mb-8">
@@ -104,7 +104,7 @@ export default async function AboutPage({
               <p>
                 First, many programs simply reduce a film frame to a single
                 pixel which produces inconsistent colors (see{" "}
-                <em>Blade Runner 2049</em> example below). Second, most
+                <em>Blade Runner 2049</em> &nbsp; example below). Second, most
                 barcode software doesn&apos;t retain any color data so other
                 analyses or comparisons can&apos;t be performed or
                 visualized. By contrast, KALMUS retains each frame&apos;s

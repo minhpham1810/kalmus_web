@@ -1,14 +1,11 @@
 "use client";
 import Link from "next/link";
 import Image from "next/image";
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-
 type TutorialTab = "search" | "analysis";
-
 const HUE_LIGHT_SWATCH_ROYAL_BLUE = "#213ac9";
 const HUE_LIGHT_SWATCH_NAVY_BLUE = "#13217b";
-
 function LoopingVideo({
   src,
   className = "",
@@ -70,7 +67,7 @@ function SearchTable({
     </table>
   );
 }
-export default function TutorialPage() {
+function TutorialContent() {
   const searchParams = useSearchParams();
   const from = searchParams.get("from");
   const backHref = from === "admin" ? "/admin" : "/";
@@ -89,7 +86,7 @@ export default function TutorialPage() {
               href={backHref}
               className="text-m kalmus-text-secondary hover:text-[var(--text-primary)] transition-colors"
             >
-              ← Back{from === "admin" ? " to Admin" : ""}
+              ← Back
             </Link>
           </div>
           <div className="flex justify-center mb-8">
@@ -103,7 +100,7 @@ export default function TutorialPage() {
               priority
             />
           </div>
-          <p className="text-center font-mono text-sm tracking-[0.35em] uppercase kalmus-text-secondary mb-8">
+          <p className="text-center font-mono text-xs tracking-[0.35em] uppercase kalmus-text-secondary mb-8">
             Tutorials
           </p>
           <div className="flex justify-center gap-2 mb-10">
@@ -134,7 +131,7 @@ export default function TutorialPage() {
                     className="w-full h-auto"
                   />
                   <p>
-                    The KALMUS search bar allows you to find film in
+                    The KALMUS search bar allows you to find films in
                     different ways. Clicking on a letter shows films whose
                     title starts with that letter. Clicking on &ldquo;Surprise
                     Me!&rdquo; displays a list of five random films from the
@@ -289,7 +286,6 @@ export default function TutorialPage() {
                       &ldquo;Navy Blue&rdquo; (at bottom) with less
                       lightness. Same hue but very different looking
                       colors.
-
                       <br />
                       <br />
                       The HUE/LIGHTNESS SCATTER divides the frames by hue
@@ -308,7 +304,6 @@ export default function TutorialPage() {
                       />
                     </div>
                   </div>
-
                 </section>
                 <section className="space-y-4">
                   <p className="underline uppercase mb-2.5">
@@ -347,5 +342,13 @@ export default function TutorialPage() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function TutorialPage() {
+  return (
+    <Suspense fallback={null}>
+      <TutorialContent />
+    </Suspense>
   );
 }
