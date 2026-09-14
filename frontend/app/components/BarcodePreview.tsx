@@ -44,6 +44,7 @@ function TimeRuler({
 
   const pixelWidth = canvasWidth * zoom;
 
+  // spacing based of film length
   let majorInterval: number;
   let minorInterval: number;
   if (totalDuration <= 120) {
@@ -334,7 +335,7 @@ export default function BarcodePreview({
     }
   };
 
-  // wf
+
 const keyStateRef = useRef({ frameRange, totalColorFrames, lastHandle, onFrameRangeChange });
 useEffect(() => {
   keyStateRef.current = { frameRange, totalColorFrames, lastHandle, onFrameRangeChange };
@@ -423,12 +424,37 @@ useEffect(() => {
 
         const finalStart = startIdx + delta;
         onFrameRangeChange([finalStart, finalStart + width]);
+
+        // keep frame viewer in snyc with left edge while window is dragged
+        if (onPreviewChange) {
+          const preview = buildPreviewFromFrameIndex({
+            barcode,
+            barcodeType,
+            thumbnails,
+            frameIndex: finalStart,
+            sampledFrameRate,
+            skipOver,
+          });
+          onPreviewChange(preview);
+        }
         return;
       }
 
       const idx = fractionToIndex(f);
       if (dragging === "start") {
-        onFrameRangeChange([Math.min(idx, frameRange[1]), frameRange[1]]);
+        const newStart = Math.min(idx, frameRange[1]);
+        onFrameRangeChange([newStart, frameRange[1]]);
+        if (onPreviewChange) {
+          const preview = buildPreviewFromFrameIndex({
+            barcode,
+            barcodeType,
+            thumbnails,
+            frameIndex: newStart,
+            sampledFrameRate,
+            skipOver,
+          });
+          onPreviewChange(preview);
+        }
       } else {
         onFrameRangeChange([frameRange[0], Math.max(idx, frameRange[0])]);
       }
@@ -454,7 +480,18 @@ useEffect(() => {
       rafRef.current = null;
     }
   };
-}, [dragging, frameRange, onFrameRangeChange, fractionToIndex, totalColorFrames]);
+}, [dragging,
+  frameRange,
+  onFrameRangeChange,
+  fractionToIndex,
+  totalColorFrames,
+  onPreviewChange,
+  barcode,
+  barcodeType,
+  thumbnails,
+  sampledFrameRate,
+  skipOver,
+]);
 
   const handleDownload = () => {
     if (!canvasRef.current) return;
@@ -473,6 +510,8 @@ useEffect(() => {
     "currentTarget" | "clientX" | "clientY"
   >;
 
+  // converts pointer position over canvas into frame index
+  // (map ipxel coordinates back to frame)
   const buildPreview = useCallback(
     (event: PreviewPointerEvent): BarcodePreviewData | null => {
       if (
