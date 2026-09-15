@@ -237,6 +237,7 @@ function drawClippedExportText(
   context.restore();
 }
 
+// exports png
 async function exportPinnedFramePreview(preview: BarcodePreviewData): Promise<void> {
   if (!preview.sheet.url) {
     throw new Error("Thumbnail sheet is unavailable");
@@ -1224,7 +1225,7 @@ export default function VisualizationPanel({
 
           {activeTab === "histogram" && barcodeData && (
             <InteractiveHistogram
-              colors={debouncedSlicedColors}
+              colors={slicedColors}
               brightness={slicedBrightness}
               barcodeType={barcodeData.barcode_type}
               frameIndexOffset={frameRange?.[0] ?? 0}
@@ -1249,9 +1250,9 @@ export default function VisualizationPanel({
           {/*  />*/}
           {/*)}*/}
 
-          {activeTab === "huelightscatter" && debouncedSlicedColors && (
+          {activeTab === "huelightscatter" && slicedColors && (
             <InteractiveHueLightScatter
-              colors={debouncedSlicedColors}
+              colors={slicedColors}
               title={`Hue vs Lightness - ${videoFilename}`}
               maxSamples={20000}
               frameIndexOffset={frameRange?.[0] ?? 0}
@@ -1260,9 +1261,9 @@ export default function VisualizationPanel({
             />
           )}
 
-          {activeTab === "huelight3d" && debouncedSlicedColors && (
+          {activeTab === "huelight3d" && slicedColors && (
             <InteractiveHueLight3DBar
-              colors={debouncedSlicedColors}
+              colors={slicedColors}
               title={`Hue/Light 3D Distribution - ${videoFilename}`}
               frameIndexOffset={frameRange?.[0] ?? 0}
               onPreviewFrameChange={handlePreviewFrameChange}
@@ -1270,9 +1271,9 @@ export default function VisualizationPanel({
             />
           )}
 
-          {activeTab === "framesscatter" && barcodeData && debouncedSlicedColors && (
+          {activeTab === "framesscatter" && barcodeData && slicedColors && (
             <FramesScatter
-              colors={debouncedSlicedColors}
+              colors={slicedColors}
               thumbnails={barcodeData.thumbnails}
               title={`Frames Scatter - ${videoFilename}`}
               frameIndexOffset={frameRange?.[0] ?? 0}
