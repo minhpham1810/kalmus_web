@@ -1,5 +1,4 @@
 "use client";
-
 import React, { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { toPng } from "html-to-image";
 import {
@@ -8,7 +7,6 @@ import {
   ThumbnailManifest,
   findClosestThumbnail,
 } from "@/lib/barcode-utils";
-
 interface FramesScatterProps {
   colors: RGB[];
   thumbnails?: ThumbnailManifest | null;
@@ -17,25 +15,19 @@ interface FramesScatterProps {
   sampledFrameRate?: number;
   skipOver?: number;
 }
-
 const SATURATION_THRESHOLD = 0.3;
-
 // Hue bucket (degees)
 const HUE_BIN_DEGREES = 10;
-
 // Max frames per ligthness*hue
 const MAX_PER_CELL = 3;
-
-const FRAME_W = 52;
-const FRAME_H = 30;
+const FRAME_W = 36;
+const FRAME_H = 21;
 const HOVER_SCALE = 10;
 const JITTER_PCT = 2.2;
-
 const PAD_LEFT = 64;
 const PAD_BOTTOM = 52;
 const PAD_TOP = 16;
 const PAD_RIGHT = 16;
-
 interface PlottedFrame {
   key: string;
   hue: number;
@@ -51,7 +43,6 @@ interface PlottedFrame {
   sw: number;
   sh: number;
 }
-
 // random seed
 function seededRandom(seed: number): number {
   let h = (seed + 0x9e3779b9) | 0;
@@ -60,7 +51,6 @@ function seededRandom(seed: number): number {
   h = (h ^ (h >>> 16)) >>> 0;
   return h / 4294967296;
 }
-
 function seededJitter(seed: number): { jx: number; jy: number } {
   let h = (seed + 0x9e3779b9) | 0;
   h = Math.imul(h ^ (h >>> 15), 0x85ebca6b);
@@ -69,7 +59,6 @@ function seededJitter(seed: number): { jx: number; jy: number } {
   const b = ((h >>> 0) % 1000) / 1000;
   return { jx: (a * 2 - 1) * JITTER_PCT, jy: (b * 2 - 1) * JITTER_PCT };
 }
-
 export default function FramesScatter({
   colors,
   thumbnails = null,
@@ -79,25 +68,29 @@ export default function FramesScatter({
   skipOver = 0,
 }: FramesScatterProps) {
   const [hovered, setHovered] = useState<string | null>(null);
-  const [isFullscreen, setIsFullscreen] = useState(false);
   const [plotSize, setPlotSize] = useState({ w: 0, h: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
   const plotRef = useRef<HTMLDivElement>(null);
   const exportRef = useRef<HTMLDivElement>(null);
-
+  const [exportState, setExportState] = useState<"idle" | "working" | "done" | "error">("idle");
   // randomized seed
   const [randomSeed, setRandomSeed] = useState(() => Math.floor(Math.random() * 1_000_000));
 
+  /*
+  * Frame picker for plotting
+  *  - filtering --> if above SATURATION_THRESHOLD
+  *  - bucketing --> hue is rounded to nearest HUE_BIN_DEGREE; lightness to the
+  *                  nearest .1
+  *  - capping -->
+  */
   const frames = useMemo<PlottedFrame[]>(() => {
     if (!thumbnails?.enabled || thumbnails.count === 0) return [];
-
     // saturaation filnter
     const survivors: number[] = [];
     colors.forEach((rgb, index) => {
       const [, s] = rgbToHsv(rgb[0], rgb[1], rgb[2]);
       if (s >= SATURATION_THRESHOLD) survivors.push(index);
     });
-
     const cells = new Map<string, number[]>();
     for (const index of survivors) {
       const rgb = colors[index];
@@ -108,7 +101,6 @@ export default function FramesScatter({
       if (!cells.has(key)) cells.set(key, []);
       cells.get(key)!.push(index);
     }
-
     const capped: number[] = [];
     for (const indices of cells.values()) {
       if (indices.length <= MAX_PER_CELL) {
@@ -123,26 +115,21 @@ export default function FramesScatter({
         }
       }
     }
-
     // plot thumbnail
     const result: PlottedFrame[] = [];
     for (const index of capped) {
       const rgb = colors[index];
       const [h, , v] = rgbToHsv(rgb[0], rgb[1], rgb[2]);
-
       const absoluteIndex = index + frameIndexOffset;
       const sourceFrameIndex =
         sampledFrameRate !== undefined
           ? skipOver + absoluteIndex * sampledFrameRate
           : absoluteIndex;
-
       const thumb = findClosestThumbnail(thumbnails, sourceFrameIndex);
       if (!thumb) continue;
       const sheet = thumbnails.sheets.find((s) => s.index === thumb.sheet_index);
       if (!sheet?.url) continue;
-
       const { jx, jy } = seededJitter(absoluteIndex);
-
       result.push({
         key: `${absoluteIndex}`,
         hue: h,
@@ -159,50 +146,35 @@ export default function FramesScatter({
         sh: thumb.height,
       });
     }
-
     return result;
   }, [colors, thumbnails, sampledFrameRate, skipOver, frameIndexOffset, randomSeed]);
 
-  // Measure the plot area
   useEffect(() => {
     const el = plotRef.current;
     if (!el) return;
-    const update = () => setPlotSize({ w: el.clientWidth, h: el.clientHeight });
-    update();
-    const ro = new ResizeObserver(update);
+    const ro = new ResizeObserver(() => {
+      setPlotSize({ w: el.clientWidth, h: el.clientHeight });
+    });
     ro.observe(el);
     return () => ro.disconnect();
-  }, [frames.length, isFullscreen]);
-
-  // Fullscreen handling
-  const toggleFullscreen = useCallback(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    if (!document.fullscreenElement) {
-      el.requestFullscreen?.();
-    } else {
-      document.exitFullscreen?.();
-    }
-  }, []);
-
-  useEffect(() => {
-    const onChange = () => setIsFullscreen(!!document.fullscreenElement);
-    document.addEventListener("fullscreenchange", onChange);
-    return () => document.removeEventListener("fullscreenchange", onChange);
-  }, []);
+  }, [frames.length]);
 
   //re-randomized frame picks --> come back to it after talking to Faden
-  // useEffect(() => {
-  //   setRandomSeed(Math.floor(Math.random() * 1_000_000));
-  // }, [frameIndexOffset, colors.length]);
-
-
+  useEffect(() => {
+    const id = requestAnimationFrame(() => {
+      setRandomSeed(Math.floor(Math.random() * 1_000_000));
+    });
+    return () => cancelAnimationFrame(id);
+  }, [frameIndexOffset, colors.length]);
   // PNG export
   const handleExport = useCallback(async () => {
     if (!exportRef.current) return;
+    setExportState("working");
     try {
       const dataUrl = await toPng(exportRef.current, {
         pixelRatio: 2,
+        cacheBust: true,
+        fetchRequestInit: {mode: "cors", credentials: "same-origin"},
         backgroundColor: getComputedStyle(document.body).backgroundColor || "#ffffff",
       });
       const link = document.createElement("a");
@@ -212,14 +184,16 @@ export default function FramesScatter({
         .replace(/^_|_$/g, "")}.png`;
       link.href = dataUrl;
       link.click();
+      setExportState("done");
+      setTimeout(() => setExportState("idle"), 2500);
     } catch (e) {
-      console.error("Frames scatter export failed", e);
+      console.error("Export failed", e);
+      setExportState("error");
+      setTimeout(() => setExportState("idle"), 4000);
     }
   }, [title]);
-
   const hueTicks = [0, 60, 120, 180, 240, 300, 360];
   const lightTicks = [0, 0.25, 0.5, 0.75, 1];
-
   const spriteStyle = (
     f: PlottedFrame,
     scaleW: number,
@@ -234,20 +208,13 @@ export default function FramesScatter({
       backgroundRepeat: "no-repeat",
     };
   };
-
   const iconButtonClass =
     "p-1.5 rounded transition-colors border border-[var(--input-border)] kalmus-text-secondary hover:border-[var(--accent-amber)] hover:text-[var(--text-primary)]";
-
   return (
     <div className="space-y-4">
       <div
         ref={containerRef}
         className="panel-bg rounded border border-neutral-200 dark:border-neutral-700 p-4"
-        style={
-          isFullscreen
-            ? { background: "var(--background)", height: "100vh", overflow: "hidden" }
-            : undefined
-        }
       >
         {/* Header */}
         <div className="relative flex items-center justify-center mb-3">
@@ -257,9 +224,11 @@ export default function FramesScatter({
           <div className="absolute right-0 flex items-center gap-2">
             <button
               onClick={handleExport}
+              disabled = {exportState === "working"}
               aria-label="Download PNG"
               title="Download PNG"
               className={iconButtonClass}
+              style = {{opacity: exportState === "working" ? 0.5: 1}}
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
@@ -270,41 +239,14 @@ export default function FramesScatter({
                 />
               </svg>
             </button>
-            <button
-              onClick={toggleFullscreen}
-              aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
-              title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
-              className={iconButtonClass}
-            >
-              {isFullscreen ? (
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 9V4M9 9H4M9 9L4 4M15 9h5M15 9V4M15 9l5-5M9 15v5M9 15H4M9 15l-5 5M15 15h5M15 15v5M15 15l5 5"
-                  />
-                </svg>
-              ) : (
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
-                  />
-                </svg>
-              )}
-            </button>
           </div>
         </div>
-
         {frames.length === 0 ? (
           <div className="py-16 text-center">
             <p className="font-mono text-xs kalmus-text-secondary">
               {thumbnails?.enabled
-                ? "No frames pass the saturation filter for this range."
-                : "Frame thumbnails are not available for this analysis."}
+                ? "No frames passed the saturation filter."
+                : "Frame thumbnails are not available for this visualization."}
             </p>
           </div>
         ) : (
@@ -312,7 +254,7 @@ export default function FramesScatter({
             ref={exportRef}
             className="relative w-full"
             style={{
-              height: isFullscreen ? "calc(100vh - 80px)" : 520,
+              height: 520,
               paddingLeft: PAD_LEFT,
               paddingRight: PAD_RIGHT,
               paddingTop: PAD_TOP,
@@ -347,7 +289,6 @@ export default function FramesScatter({
                   </span>
                 </div>
               ))}
-
               {/* Hue (X) gridlines + ticks */}
               {hueTicks.map((t) => (
                 <div
@@ -375,16 +316,13 @@ export default function FramesScatter({
                   </span>
                 </div>
               ))}
-
               {/* Frames */}
               {frames.map((f) => {
                 const isHovered = hovered === f.key;
                 const xPct = Math.max(0, Math.min(100, (f.hue / 360) * 100 + f.jitterX));
                 const yPct = Math.max(0, Math.min(100, f.light * 100 + f.jitterY));
-
                 const dx = ((50 - xPct) / 100) * plotSize.w;
                 const dy = (-(50 - yPct) / 100) * plotSize.h;
-
                 return (
                   <div
                     key={f.key}
@@ -424,7 +362,6 @@ export default function FramesScatter({
                 );
               })}
             </div>
-
             {/* Axis labels */}
             <div
               style={{
@@ -460,7 +397,61 @@ export default function FramesScatter({
           </div>
         )}
       </div>
-
+      {/* pgress bar for png*/}
+      {exportState !== "idle" && (
+      <div
+        style={{
+          height: 28,
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          padding: "0 4px",
+        }}
+      >
+        <div
+          style={{
+            flex: 1,
+            height: 4,
+            background: "rgba(128,128,128,0.2)",
+            borderRadius: 2,
+            overflow: "hidden",
+          }}
+        >
+          <div
+            style={{
+              height: "100%",
+              width: exportState === "working" ? "40%" : "100%",
+              background:
+                exportState === "error"
+                  ? "var(--accent-crimson)"
+                  : "var(--text-primary)",
+              borderRadius: 2,
+              transition: "width 300ms ease",
+              animation:
+                exportState === "working"
+                  ? "framesscatter-indeterminate 1.2s ease-in-out infinite"
+                  : "none",
+            }}
+          />
+        </div>
+        <span
+          className="font-mono text-xs kalmus-text-secondary"
+          style={{ whiteSpace: "nowrap" }}
+        >
+          {exportState === "working"
+            ? "Downloading…"
+            : exportState === "done"
+            ? "Download ready"
+            : "Download failed"}
+        </span>
+      </div>
+      )}
+      <style>{`
+        @keyframes framesscatter-indeterminate {
+          0%   { margin-left: -40%; }
+          100% { margin-left: 100%; }
+        }
+      `}</style>
       <p className="text-xs text-neutral-500 dark:text-neutral-400">
         Ask about desc to prof Faden
       </p>
