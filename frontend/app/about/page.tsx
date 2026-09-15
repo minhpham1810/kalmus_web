@@ -149,6 +149,66 @@ export default async function AboutPage({
                 visualizations and outputs.
               </p>
             </section>
+
+            <section className="space-y-4">
+              <p className="underline uppercase mb-2.5">Limitations</p>
+              <p>
+                So many!  KALMUS is designed as a quick way of assessing
+                a film’s color palette. However, film color proves to be an
+                enormously complex topic.
+              </p>
+              <p>
+                One KALMUS limitation is the source material.  Films today
+                (and throughout history) use different material bases for image
+                capture which produce different color ranges.  For example, a 35mm
+                film print differs from a film shot on a digital camera.
+                And making things more complicated, these formats are then
+                transferred into yet other  formats
+                (DVD, Blu Ray, streaming, etc.) for home viewing.
+              </p>
+              <p>
+                KALMUS uses digital sources for processing films and thus the
+                visualizations shown are from the REC 709 color space.
+              </p>
+              <p>
+                In addition, KALMUS’ most popular visualization relies on
+                averaging each frame’s color.  As you probably remember from
+                kindergarten, if you mix enough colors together you get BROWN.
+                The same issue is true for average film frames – inevitably the
+                averaging process overlooks some color material.
+              </p>
+            </section>
+
+            <section className="space-y-4">
+              <p className="underline uppercase mb-2.5">Further Reading</p>
+              <p>
+                Beutler, Michelle, and Fotomuseum Winterthur.
+                <i>Color Mania: The Material of Color in Photography and Film.</i> Edited
+                by Barbara Flückiger et al., Fotomuseum Winterthur ;
+                Lars Müller Publishers, 2020.
+              </p>
+              <p>
+                Dalle Vacche, Angela, and Brian Price, editors. <i>Color: The Film Reader</i>. Routledge, 2006.
+              </p>
+              <p>
+                Flückiger, Barbara, et al. <i>Color in Motion: Chromatic Explorations of Cinema</i>. Edited
+                by Jessica Niebel and Sophia Serrano, Academy Museum of Motion Pictures ; DelMonico Books, D.A.P., 2024.
+              </p>
+              <p>
+                Higgins, Scott. <i>Harnessing the Technicolor Rainbow: Color Design
+                in the 1930s</i>. 1st ed, University of Texas Press, 2007
+              </p>
+              <p>
+                Kalmus, Natalie, “Color Consciousness,” <i>Journal of the Society
+                of Motion Picture Engineers</i>, August 1935
+              </p>
+              <p>
+                Street, Sarah, and Joshua Yumibe. <i>Chromatic Modernity: Color,
+                Cinema, and Media of the 1920s</i>. Columbia University Press, 2019
+              </p>
+
+            </section>
+
             <section className="space-y-4">
               <p className="underline uppercase mb-2.5">Contact</p>
               <p>
