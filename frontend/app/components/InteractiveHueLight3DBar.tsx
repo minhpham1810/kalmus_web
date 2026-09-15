@@ -18,32 +18,48 @@ interface InteractiveHueLight3DBarProps {
   onPreviewFramePin?: (frameIndex: number) => void;
 }
 
-interface CameraState {
-  eye: {
-    x: number;
-    y: number;
-    z: number;
-  };
-  up?: {
-    x: number;
-    y: number;
-    z: number;
-  };
+interface Vec3 {
+  x: number;
+  y: number;
+  z: number;
 }
 
+// added to try to fix strange overhead camera
+interface CameraValue {
+  eye: Vec3;
+  up: Vec3;
+  center: Vec3;
+}
+
+const DEFAULT_CENTER: Vec3 = { x: 0, y: 0, z: 0 };
+
 const HUE_RESOLUTIONS = [5, 10, 15, 30];
+const LIGHT_RESOLUTIONS = [0.01, 0.02, 0.05, 0.1];
+const SATURATION_THRESHOLDS = [0, 0.05, 0.1, 0.15, 0.2, 0.3];
+
 const VISIBLE_CAMERA_PRESETS: CameraPreset[] = [
   "Top View",
   "Diagonal View",
   "Hue View",
   "Light View",
 ];
-const LIGHT_RESOLUTIONS = [0.01, 0.02, 0.05, 0.1];
-const SATURATION_THRESHOLDS = [0, 0.05, 0.10, 0.15, 0.20, 0.30];
-const DEFAULT_CAMERA: CameraState = {
-  eye: { ...CAMERA_PRESETS["Diagonal View"].eye },
-  up: { x: 0, y: 0, z: 1 },
-};
+
+const DEFAULT_PRESET: CameraPreset = "Diagonal View";
+
+function cameraForPreset(preset: CameraPreset): CameraValue {
+  const p = CAMERA_PRESETS[preset];
+  const up = "up" in p ? (p as { up: Vec3 }).up : { x: 0, y: 0, z: 1 };
+  return { eye: { ...p.eye }, up: { ...up }, center: { ...DEFAULT_CENTER } };
+}
+
+function sameVec3(a: Vec3 | undefined, b: Vec3 | undefined): boolean {
+  if (!a || !b) return a === b;
+  return a.x === b.x && a.y === b.y && a.z === b.z;
+}
+
+function sameCamera(a: CameraValue, b: CameraValue): boolean {
+  return sameVec3(a.eye, b.eye) && sameVec3(a.up, b.up) && sameVec3(a.center, b.center);
+}
 
 export default function InteractiveHueLight3DBar({
   colors,
@@ -57,94 +73,133 @@ export default function InteractiveHueLight3DBar({
   const [saturationThreshold, setSaturationThreshold] = useState(0);
   const [showGrid, setShowGrid] = useState(false);
   const [showAxis, setShowAxis] = useState(true);
-  const [cameraPreset, setCameraPreset] = useState<CameraPreset>("Diagonal View");
   const [rotationSpeed, setRotationSpeed] = useState(5);
-  const [camera, setCamera] = useState(DEFAULT_CAMERA);
+  const [cameraPreset, setCameraPreset] = useState<CameraPreset>(DEFAULT_PRESET);
+  const [camera, setCamera] = useState<CameraValue>(() =>
+    cameraForPreset(DEFAULT_PRESET)
+  );
   const [cameraRevision, setCameraRevision] = useState(0);
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const cameraRef = useRef(camera);
+  const rotationSpeedRef = useRef(rotationSpeed);
+  const relayoutRafRef = useRef<number | null>(null);
+  const pendingCamRef = useRef<{ eye?: Vec3; up?: Vec3; center?: Vec3 } | null>(null);
+  const chartWrapperRef = useRef<HTMLDivElement>(null);
+  const graphDivRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    cameraRef.current = camera;
+  }, [camera]);
+
+  useEffect(() => {
+    rotationSpeedRef.current = rotationSpeed;
+  }, [rotationSpeed]);
+
   const getPresetButtonStyle = (isActive: boolean) => ({
     background: isActive ? "var(--foreground)" : "var(--surface-bg-strong)",
     color: isActive ? "var(--background)" : "var(--text-primary)",
     borderColor: isActive ? "var(--foreground)" : "var(--input-border)",
   });
 
-  // Compute binned data
-  const barData = useMemo(() => {
-    return computeHueLightBins(
-      colors,
-      hueResolution,
-      lightResolution,
-      saturationThreshold
-    );
-  }, [colors, hueResolution, lightResolution, saturationThreshold]);
+  const barData = useMemo(
+    () =>
+      computeHueLightBins(colors, hueResolution, lightResolution, saturationThreshold),
+    [colors, hueResolution, lightResolution, saturationThreshold]
+  );
 
-  // Handle camera preset change
+  const markerSizes = useMemo(() => {
+    if (barData.maxCount === 0) return barData.counts.map(() => 5);
+    return barData.counts.map((c) => 5 + (c / barData.maxCount) * 25);
+  }, [barData]);
+
+  const handleInitialized = useCallback((_figure: unknown, gd: HTMLElement) => {
+    graphDivRef.current = gd;
+  }, []);
+
   const handlePresetChange = useCallback((preset: CameraPreset) => {
-  setCameraPreset(preset);
-  const presetCamera = CAMERA_PRESETS[preset];
-  setCameraRevision((n) => n + 1);
-  const presetUp =
-    "up" in presetCamera
-      ? (presetCamera as { up: { x: number; y: number; z: number } }).up
-      : { x: 0, y: 0, z: 1 };
-  setCamera({
-    eye: { ...presetCamera.eye },
-    up: { ...presetUp },
-  });
-}, []);
+    setCameraPreset(preset);
+    setCamera(cameraForPreset(preset));
+    setCameraRevision((n) => n + 1);
 
-  // Handle keyboard rotation
+    // Force the drag tool back to orbit whenever a preset is chosen
+    const gd = graphDivRef.current;
+    if (gd) {
+      import("plotly.js/dist/plotly")
+        .then((mod) => mod.default.relayout(gd, { "scene.dragmode": "orbit" } as never))
+        .catch((err) => console.error("Unable to reset dragmode", err));
+    }
+  }, []);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Only handle if container is focused or no other element has focus
-      if (document.activeElement &&
-          document.activeElement.tagName !== 'BODY' &&
-          !containerRef.current?.contains(document.activeElement)) {
+      if (
+        document.activeElement &&
+        document.activeElement.tagName !== "BODY" &&
+        !containerRef.current?.contains(document.activeElement)
+      ) {
         return;
       }
 
       let azimuthDelta = 0;
       let elevationDelta = 0;
+      const speed = rotationSpeedRef.current;
 
       switch (e.key) {
         case "ArrowLeft":
-          azimuthDelta = rotationSpeed;
+          azimuthDelta = speed;
           break;
         case "ArrowRight":
-          azimuthDelta = -rotationSpeed;
+          azimuthDelta = -speed;
           break;
         case "ArrowUp":
-          elevationDelta = -rotationSpeed;
+          elevationDelta = -speed;
           break;
         case "ArrowDown":
-          elevationDelta = rotationSpeed;
+          elevationDelta = speed;
           break;
         default:
           return;
       }
 
       e.preventDefault();
-      const newEye = rotateCamera(camera.eye, azimuthDelta, elevationDelta);
-      setCamera((prev) => ({ eye: newEye, up: prev.up }));
+      const current = cameraRef.current;
+      const newEye = rotateCamera(current.eye, azimuthDelta, elevationDelta);
+      setCamera({ eye: newEye, up: current.up, center: current.center });
     };
 
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [camera, rotationSpeed]);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      if (relayoutRafRef.current !== null) {
+        cancelAnimationFrame(relayoutRafRef.current);
+        relayoutRafRef.current = null;
+      }
+    };
+  }, []);
 
-  // Calculate marker sizes based on counts (for 3D scatter approximation of bar plot)
-  const markerSizes = useMemo(() => {
-    if (barData.maxCount === 0) return barData.counts.map(() => 5);
-    return barData.counts.map((c) => 5 + (c / barData.maxCount) * 25);
-  }, [barData]);
+  useEffect(() => {
+    const el = chartWrapperRef.current;
+    if (!el) return;
+
+    // Stops the page from scrolling while the pointer is over the chart
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+    };
+
+    el.addEventListener("wheel", handleWheel, { passive: false });
+    return () => el.removeEventListener("wheel", handleWheel);
+  }, []);
 
   return (
     <div className="space-y-4" ref={containerRef} tabIndex={0}>
-      {/* 3D Chart */}
-      <div className="panel-bg rounded border border-neutral-200 dark:border-neutral-700">
+      <div
+        ref={chartWrapperRef}
+        className="panel-bg rounded border border-neutral-200 dark:border-neutral-700"
+        style={{ overscrollBehavior: "contain" }}
+      >
         <PlotlyWrapper
-          revision = {cameraRevision}
+          onInitialized={handleInitialized}
           data={[
             {
               type: "scatter3d",
@@ -156,10 +211,7 @@ export default function InteractiveHueLight3DBar({
                 size: markerSizes,
                 color: barData.colors,
                 opacity: 0.85,
-                line: {
-                  color: "rgba(0,0,0,0.2)",
-                  width: 0.5,
-                },
+                line: { color: "rgba(0,0,0,0.2)", width: 0.5 },
               },
               customdata: barData.representativeFrameIndices,
               hovertemplate:
@@ -167,10 +219,7 @@ export default function InteractiveHueLight3DBar({
             },
           ]}
           layout={{
-            title: {
-              text: title,
-              font: { size: 14 },
-            },
+            title: { text: title, font: { size: 14 } },
             scene: {
               xaxis: {
                 title: { text: "Hue (0-360°)" },
@@ -194,31 +243,59 @@ export default function InteractiveHueLight3DBar({
                 visible: showAxis,
                 gridcolor: "rgba(128,128,128,0.3)",
               },
-              camera: camera,
+              camera,
               aspectmode: "manual",
               aspectratio: { x: 1.5, y: 1, z: 0.8 },
-              dragmode: "turntable",
             },
             margin: { l: 0, r: 0, t: 50, b: 0 },
             paper_bgcolor: "transparent",
-            font: {
-              color: "#666",
-            },
+            font: { color: "#666" },
             autosize: true,
-            uirevision: `hue-light-3d`,
-
+            uirevision: `hue-light-3d-${cameraRevision}`,
           }}
           config={{
             displayModeBar: true,
             displaylogo: false,
-            modeBarButtonsToRemove: ["lasso2d", "select2d", "resetCameraDefault3d", "resetCameraLastSave3d"],
+            modeBarButtonsToRemove: [
+              "lasso2d",
+              "select2d",
+              "resetCameraDefault3d",
+              "resetCameraLastSave3d",
+              "tableRotation",
+            ],
             toImageButtonOptions: {
               format: "png",
-              filename: title.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, ""),
+              filename: title
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, "_")
+                .replace(/^_|_$/g, ""),
               height: 800,
               width: 1000,
               scale: 2,
             },
+          }}
+          onRelayout={(event: Record<string, unknown>) => {
+            const cam = event["scene.camera"] as
+              | { eye?: Vec3; up?: Vec3; center?: Vec3 }
+              | undefined;
+            if (!cam?.eye) return;
+
+            pendingCamRef.current = cam;
+            if (relayoutRafRef.current !== null) return;
+
+            relayoutRafRef.current = requestAnimationFrame(() => {
+              relayoutRafRef.current = null;
+              const pending = pendingCamRef.current;
+              if (!pending?.eye) return;
+
+              const next: CameraValue = {
+                eye: { ...pending.eye },
+                up: pending.up ? { ...pending.up } : cameraRef.current.up,
+                center: pending.center ? { ...pending.center } : cameraRef.current.center,
+              };
+
+              setCamera((prev) => (sameCamera(prev, next) ? prev : next));
+            });
           }}
           onHover={(event) => {
             const point = event.points?.[0];
@@ -226,25 +303,6 @@ export default function InteractiveHueLight3DBar({
             onPreviewFrameChange?.(
               typeof frameIndex === "number" ? frameIndex + frameIndexOffset : null
             );
-          }}
-          //debug print check
-          onRelayout={(event: Record<string, unknown>) => {
-            const cam = event["scene.camera"] as
-              | { eye?: { x: number; y: number; z: number }; up?: { x: number; y: number; z: number } }
-              | undefined;
-            if (!cam?.eye) return;
-
-            setCamera((prev) => {
-              const e = cam.eye!;
-              const u = cam.up;
-              if (
-                prev.eye.x === e.x && prev.eye.y === e.y && prev.eye.z === e.z &&
-                prev.up?.x === u?.x && prev.up?.y === u?.y && prev.up?.z === u?.z
-              ) {
-                return prev;                                   // identical → no re-render, loop ends
-              }
-              return { eye: { ...e }, up: u ? { ...u } : prev.up };
-            });
           }}
           onUnhover={() => onPreviewFrameChange?.(null)}
           onClick={(event) => {
@@ -259,14 +317,12 @@ export default function InteractiveHueLight3DBar({
         />
       </div>
 
-      {/* Control Panel */}
       <div className="bg-neutral-100 dark:bg-neutral-900 rounded p-4 space-y-4">
         <h4 className="text-xs font-medium text-neutral-700 dark:text-neutral-300 uppercase tracking-wide">
           Plot Configuration
         </h4>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {/* Resolution Controls */}
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <label className="text-xs text-neutral-600 dark:text-neutral-400 w-28">
@@ -284,7 +340,6 @@ export default function InteractiveHueLight3DBar({
                 ))}
               </select>
             </div>
-
             <div className="flex items-center gap-2">
               <label className="text-xs text-neutral-600 dark:text-neutral-400 w-28">
                 Light Resolution:
@@ -301,7 +356,6 @@ export default function InteractiveHueLight3DBar({
                 ))}
               </select>
             </div>
-
             <div className="flex items-center gap-2">
               <label className="text-xs text-neutral-600 dark:text-neutral-400 w-28">
                 Saturation Filter:
@@ -320,7 +374,6 @@ export default function InteractiveHueLight3DBar({
             </div>
           </div>
 
-          {/* Display Toggles */}
           <div className="space-y-2">
             <label className="flex items-center gap-2 cursor-pointer">
               <input
@@ -333,7 +386,6 @@ export default function InteractiveHueLight3DBar({
                 Show Grid
               </span>
             </label>
-
             <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="checkbox"
@@ -347,7 +399,6 @@ export default function InteractiveHueLight3DBar({
             </label>
           </div>
 
-          {/* Camera Controls */}
           <div className="space-y-2">
             <div className="text-xs text-neutral-600 dark:text-neutral-400 mb-1">
               Camera Views:
@@ -367,7 +418,6 @@ export default function InteractiveHueLight3DBar({
           </div>
         </div>
 
-        {/* Rotation Speed */}
         <div className="flex items-center gap-4 pt-2 border-t border-neutral-200 dark:border-neutral-700">
           <label className="text-xs text-neutral-600 dark:text-neutral-400">
             Rotation Speed (Arrow Keys):
@@ -380,16 +430,13 @@ export default function InteractiveHueLight3DBar({
             onChange={(e) => setRotationSpeed(Number(e.target.value))}
             className="w-32"
           />
-          <span className="text-xs kalmus-text-secondary w-8">
-            {rotationSpeed}°
-          </span>
+          <span className="text-xs kalmus-text-secondary w-8">{rotationSpeed}°</span>
           <span className="text-xs kalmus-text-muted ml-4">
             Use arrow keys to rotate view
           </span>
         </div>
       </div>
 
-      {/* Info */}
       <div className="flex items-center justify-between text-xs text-neutral-500 dark:text-neutral-400">
         <span>
           Showing {barData.counts.length.toLocaleString()} bins with{" "}
@@ -399,8 +446,9 @@ export default function InteractiveHueLight3DBar({
       </div>
 
       <p className="text-xs text-neutral-500 dark:text-neutral-400">
-        3D visualization showing color distribution by Hue (x-axis), Lightness (y-axis), and frequency (z-axis/size).
-        Marker size represents the count of colors in each bin. Drag to rotate, scroll to zoom.
+        3D visualization showing color distribution by Hue (x-axis), Lightness
+        (y-axis), and frequency (z-axis/size). Marker size represents the count of
+        colors in each bin. Drag to rotate, scroll to zoom.
       </p>
     </div>
   );
