@@ -71,7 +71,7 @@ function TutorialContent() {
   const searchParams = useSearchParams();
   const from = searchParams.get("from");
   const backHref = from === "admin" ? "/admin" : "/";
-  const [activeTab, setActiveTab] = useState<TutorialTab>("search");
+  const [activeTab, setActiveTab] = useState<TutorialTab>("analysis");
   const getTabStyle = (isActive: boolean) => ({
     background: isActive ? "var(--foreground)" : "var(--surface-bg)",
     color: isActive ? "var(--background)" : "var(--text-primary)",
