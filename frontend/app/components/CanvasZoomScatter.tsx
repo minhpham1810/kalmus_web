@@ -34,8 +34,10 @@ export default function CanvasZoomScatter({
         element: containerRef.current,
         prefixUrl: "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/images/",
         showNavigator: true,
-        minZoomLevel: 0.1,
-        maxZoomLevel: 30,
+
+        // OSD min + max zoom on canvas
+        minZoomLevel: 0.98,
+        maxZoomLevel: 40,
         visibilityRatio: 1,
         constrainDuringPan: true,
         drawer: "canvas",
@@ -56,6 +58,8 @@ export default function CanvasZoomScatter({
         success: checkDone,
         error: checkDone,
       });
+
+      // axis backgorund
       viewer.addTiledImage({
         tileSource: `${base}/frames/layer.dzi`,
         opacity: 1,
@@ -121,7 +125,7 @@ export default function CanvasZoomScatter({
         {status === "error" && (
           <div className="py-16 text-center">
             <p className="font-mono text-xs kalmus-text-secondary">
-              The layered viewer failed to load. Check the console for details.
+              The layer viewer failed to load.
             </p>
           </div>
         )}
