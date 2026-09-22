@@ -425,6 +425,8 @@ function buildFilmSearchDetailLines(result: FilmSearchResult): string[] {
     .filter((value): value is string => Boolean(value));
 }
 
+const FRAME_VIEWER_PREVIEW_HEIGHT = 250;
+
 function StaticPreviewPanel({
   preview,
   pinned,
@@ -440,7 +442,7 @@ function StaticPreviewPanel({
 }) {
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
-  const previewHeight = preview?.thumbnail.height ?? 200;
+  const previewHeight = FRAME_VIEWER_PREVIEW_HEIGHT;
   const frameLabel = preview
     ? `Frame ${preview.thumbnail.frame_index.toLocaleString()}`
     : "No thumbnail selected";
