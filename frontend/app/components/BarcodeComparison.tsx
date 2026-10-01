@@ -13,6 +13,20 @@ interface ComparisonMetrics {
   smithWaterman: number;
 }
 
+// Output of film_compare.py's Report.to_dict(); null for brightness barcodes.
+interface FilmReport {
+  error?: string;
+  overall?: number | null;
+  sections?: Record<string, number | null>;
+  metrics?: {
+    key: string;
+    label: string;
+    section: string;
+    score: number | null;
+    summary: string;
+  }[];
+}
+
 interface BarcodeComparisonProps {
   jobId1: string;
   jobId2: string;
@@ -31,54 +45,63 @@ export default function BarcodeComparison({
   range2 = null,
 }: BarcodeComparisonProps) {
   const [metrics, setMetrics] = useState<ComparisonMetrics | null>(null);
+  const [film, setFilm] = useState<FilmReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const loadComparisonMetrics = useCallback(async (signal?: AbortSignal) => {
-    setLoading(true);
-    setError(null);
+  const loadComparisonMetrics = useCallback(
+    async (signal?: AbortSignal) => {
+      setLoading(true);
+      setError(null);
 
-    try {
-      const searchParams = new URLSearchParams({
-        jobId1,
-        jobId2,
-      });
+      try {
+        const searchParams = new URLSearchParams({
+          jobId1,
+          jobId2,
+        });
 
-      if (range1) {
-        searchParams.set("start1", range1[0].toString());
-        searchParams.set("end1", range1[1].toString());
-      }
-      if (range2) {
-        searchParams.set("start2", range2[0].toString());
-        searchParams.set("end2", range2[1].toString());
-      }
+        if (range1) {
+          searchParams.set("start1", range1[0].toString());
+          searchParams.set("end1", range1[1].toString());
+        }
+        if (range2) {
+          searchParams.set("start2", range2[0].toString());
+          searchParams.set("end2", range2[1].toString());
+        }
 
-      const response = await fetch(`/api/visualization/compare?${searchParams.toString()}`, {
-        signal,
-      });
+        const response = await fetch(
+          `/api/visualization/compare?${searchParams.toString()}`,
+          {
+            signal,
+          },
+        );
 
-      if (!response.ok) {
-        throw new Error("Failed to load comparison metrics");
-      }
+        if (!response.ok) {
+          throw new Error("Failed to load comparison metrics");
+        }
 
-      const data = await response.json();
+        const data = await response.json();
 
-      if (data.success) {
-        setMetrics(data.metrics);
-      } else {
-        throw new Error(data.error || "Failed to compute metrics");
+        if (data.success) {
+          const { film: filmReport, ...alignment } = data.metrics;
+          setMetrics(alignment);
+          setFilm(filmReport ?? null);
+        } else {
+          throw new Error(data.error || "Failed to compute metrics");
+        }
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") {
+          return;
+        }
+        setError(err instanceof Error ? err.message : "An error occurred");
+      } finally {
+        if (!signal?.aborted) {
+          setLoading(false);
+        }
       }
-    } catch (err) {
-      if (err instanceof DOMException && err.name === "AbortError") {
-        return;
-      }
-      setError(err instanceof Error ? err.message : "An error occurred");
-    } finally {
-      if (!signal?.aborted) {
-        setLoading(false);
-      }
-    }
-  }, [jobId1, jobId2, range1, range2]);
+    },
+    [jobId1, jobId2, range1, range2],
+  );
 
   useEffect(() => {
     const controller = new AbortController();
@@ -122,48 +145,49 @@ export default function BarcodeComparison({
   const metricDescriptions = {
     nrmse: {
       name: "NRMSE Similarity",
-      description: "Normalized Root Mean Square Error - measures pixel-level similarity",
-      range: "0 (least similar) to 1 (most similar)",
+      description:
+        "Normalized Root Mean Square Error - measures pixel-level similarity",
+      range: "0% (least similar) to 100% (most similar)",
       tag: "Image Similarity",
     },
     ssim: {
       name: "SSIM",
       description: "Structural Similarity Index - measures structural patterns",
-      range: "0 (least similar) to 1 (most similar)",
+      range: "0% (least similar) to 100% (most similar)",
       tag: "Image Similarity",
     },
     crossCorrelation: {
       name: "Cross Correlation",
       description: "Measures linear relationship between color sequences",
-      range: "-1 (anti-similar) to 1 (most similar)",
+      range: "-100% (anti-similar) to 100% (most similar)",
       tag: "Signal Correlation",
     },
     localCrossCorrelation: {
       name: "Local Cross Correlation",
       description: "Measures local correlation patterns between sequences",
-      range: "-1 (anti-similar) to 1 (most similar)",
+      range: "-100% (anti-similar) to 100% (most similar)",
       tag: "Signal Correlation",
     },
     needlemanWunsch: {
       name: "Needleman-Wunsch",
       description: "Global sequence alignment similarity",
-      range: "0 (least similar) to 1 (most similar)",
+      range: "0% (least similar) to 100% (most similar)",
       tag: "Sequence Matching",
     },
     smithWaterman: {
       name: "Smith-Waterman",
       description: "Local sequence alignment similarity",
-      range: "0 (least similar) to 1 (most similar)",
+      range: "0% (least similar) to 100% (most similar)",
       tag: "Sequence Matching",
     },
   };
 
   return (
     <div className="panel-bg border border-[var(--surface-border)] rounded p-6">
-      <h3 className="text-sm font-medium mb-2 kalmus-text-secondary uppercase tracking-wide">
+      <h3 className="text-2xl font-semibold mb-2 kalmus-text-primary uppercase tracking-wide text-center">
         Barcode Comparison
       </h3>
-      <p className="text-xs kalmus-text-muted mb-6">
+      <p className="text-xs kalmus-text-muted mb-6 text-center">
         Comparing {title1} and {title2}
       </p>
 
@@ -204,6 +228,70 @@ export default function BarcodeComparison({
 
       {!loading && !error && metrics && (
         <div className="space-y-6">
+          {film && (
+            <div className="">
+              <div className="flex items-baseline justify-between mb-1">
+                <h4 className="text-lg font-semibold kalmus-text-primary">
+                  Look &amp; Feel
+                </h4>
+                {film.overall != null && (
+                  <span
+                    className={`text-2xl font-semibold ${getMetricColor(film.overall / 100, "")}`}
+                  >
+                    {film.overall.toFixed(0)}%
+                  </span>
+                )}
+              </div>
+              <p className="text-xs kalmus-text-muted mb-4">
+                Palette, lightness and editing compared regardless of order.
+                Film A = {title1}, Film B = {title2}.
+              </p>
+              {film.error && (
+                <p className="text-xs kalmus-text-secondary">{film.error}</p>
+              )}
+              {Object.entries(film.sections ?? {}).map(
+                ([section, sectionScore]) => (
+                  <div
+                    key={section}
+                    className="kalmus-surface-strong rounded p-4 mb-4 last:mb-0"
+                  >
+                    <div className="flex items-baseline justify-between text-sm font-medium uppercase tracking-wide kalmus-text-primary border-b border-[var(--surface-border)] pb-2 mb-3">
+                      <span>{section}</span>
+                      <span
+                        className={`text-lg font-semibold ${sectionScore == null ? "kalmus-text-muted" : getMetricColor(sectionScore / 100, "")}`}
+                      >
+                        {sectionScore == null
+                          ? "–"
+                          : `${sectionScore.toFixed(0)}%`}
+                      </span>
+                    </div>
+                    {film.metrics
+                      ?.filter((m) => m.section === section)
+                      .map((m) => (
+                        <div
+                          key={m.key}
+                          className="flex items-baseline gap-3 mb-2 last:mb-0"
+                        >
+                          <span className="w-24 shrink-0 text-xs kalmus-text-primary">
+                            {m.label}
+                          </span>
+                          <span
+                            className={`w-12 shrink-0 text-base font-semibold text-right ${m.score == null ? "kalmus-text-muted" : getMetricColor(m.score / 100, "")}`}
+                          >
+                            {m.score == null ? "–" : `${m.score.toFixed(0)}%`}
+                          </span>
+                          <p className="text-xs kalmus-text-muted">
+                            {m.summary}
+                          </p>
+                        </div>
+                      ))}
+                  </div>
+                ),
+              )}
+            </div>
+          )}
+
+          {/* <h4 className="text-xs uppercase tracking-wide kalmus-text-secondary">Alignment</h4>
           {Object.entries(metrics).map(([key, value]) => {
             const desc = metricDescriptions[key as keyof typeof metricDescriptions];
             return (
@@ -223,9 +311,9 @@ export default function BarcodeComparison({
                     </p>
                   </div>
                   <span
-                    className={`text-lg font-semibold ${getMetricColor(value, key)}`}
+                    className={`text-2xl font-semibold ${getMetricColor(value, key)}`}
                   >
-                    {value.toFixed(3)}
+                    {(value * 100).toFixed(1)}%
                   </span>
                 </div>
 
@@ -241,14 +329,15 @@ export default function BarcodeComparison({
                 </p>
               </div>
             );
-          })}
+          })} */}
 
-          <div className="mt-6 kalmus-surface-strong rounded p-4">
+          {/* <div className="mt-6 kalmus-surface-strong rounded p-4">
             <p className="text-xs kalmus-text-secondary">
-              <strong>Note:</strong> Different metrics capture different aspects of similarity.
-              Use multiple metrics together for comprehensive analysis.
+              <strong>Note:</strong> Different metrics capture different aspects
+              of similarity. Use multiple metrics together for comprehensive
+              analysis.
             </p>
-          </div>
+          </div> */}
         </div>
       )}
     </div>
