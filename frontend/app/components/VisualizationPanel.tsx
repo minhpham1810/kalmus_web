@@ -629,12 +629,29 @@ function MetricRow({
   );
 }
 
+function sliceRange<T>(
+  values: T[] | undefined,
+  range: [number, number] | null | undefined
+): T[] | undefined {
+  if (!values) return undefined;
+  if (!range) return values;
+  return values.slice(range[0], range[1] + 1);
+}
+
 interface VisualizationPanelProps {
   jobId: string;
   videoFilename?: string;
   compareJobId?: string;
   movie?: VisualizationMovieMetadata | null;
 }
+
+type CompareViz = "histogram" | "scatter" | "3d";
+
+const COMPARE_VIZ_OPTIONS: Array<{ id: CompareViz; label: string; colorOnly?: boolean }> = [
+  { id: "histogram", label: "Histogram vs Histogram" },
+  { id: "scatter", label: "Hue/Light Scatter vs Scatter", colorOnly: true },
+  { id: "3d", label: "Hue/Light 3D vs 3D", colorOnly: true },
+];
 
 type VisualizationTab =
   | "histogram"
@@ -842,6 +859,7 @@ export default function VisualizationPanel({
   const [compareDetailLines, setCompareDetailLines] = useState<string[]>([]);
   const [compareData, setCompareData] = useState<LoadedBarcodeData | null>(null);
   const [compareLoading, setCompareLoading] = useState(false);
+  const [compareViz, setCompareViz] = useState<CompareViz>("histogram");
   const previewMovie = useMemo(() => buildPreviewMovie(movie), [movie]);
   const previewDetailLines = useMemo(
     () =>
@@ -998,23 +1016,37 @@ export default function VisualizationPanel({
     setPreviewPinned(false);
   }, [jobId]);
 
-  const slicedColors = useMemo(() => {
-    if (!barcodeData?.colors) return undefined;
-    if (!frameRange) return barcodeData.colors;
-    return barcodeData.colors.slice(frameRange[0], frameRange[1] + 1);
-  }, [barcodeData?.colors, frameRange]);
+  const slicedColors = useMemo(
+    () => sliceRange(barcodeData?.colors, frameRange),
+    [barcodeData?.colors, frameRange]
+  );
 
-  const debouncedSlicedColors = useMemo(() => {
-    if (!barcodeData?.colors) return undefined;
-    if (!debouncedFrameRange) return barcodeData.colors;
-    return barcodeData.colors.slice(debouncedFrameRange[0], debouncedFrameRange[1] + 1);
-  }, [barcodeData?.colors, debouncedFrameRange]);
+  const debouncedSlicedColors = useMemo(
+    () => sliceRange(barcodeData?.colors, debouncedFrameRange),
+    [barcodeData?.colors, debouncedFrameRange]
+  );
 
-  const slicedBrightness = useMemo(() => {
-    if (!barcodeData?.brightness) return undefined;
-    if (!frameRange) return barcodeData.brightness;
-    return barcodeData.brightness.slice(frameRange[0], frameRange[1] + 1);
-  }, [barcodeData?.brightness, frameRange]);
+  const slicedBrightness = useMemo(
+    () => sliceRange(barcodeData?.brightness, frameRange),
+    [barcodeData?.brightness, frameRange]
+  );
+
+  // Compare tab uses its own frame ranges (one per barcode preview).
+  const comparePrimary = useMemo(
+    () => ({
+      colors: sliceRange(barcodeData?.colors, comparePrimaryRange),
+      brightness: sliceRange(barcodeData?.brightness, comparePrimaryRange),
+    }),
+    [barcodeData?.colors, barcodeData?.brightness, comparePrimaryRange]
+  );
+
+  const compareSecondary = useMemo(
+    () => ({
+      colors: sliceRange(compareData?.colors, compareSecondaryRange),
+      brightness: sliceRange(compareData?.brightness, compareSecondaryRange),
+    }),
+    [compareData?.colors, compareData?.brightness, compareSecondaryRange]
+  );
 
   const tabs: Array<{ id: VisualizationTab; label: string; icon: string; colorOnly?: boolean }> = [
     { id: "histogram", label: isColorBarcode ? "Hue Histogram" : "Brightness Histogram", icon: "M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" },
@@ -1077,6 +1109,57 @@ export default function VisualizationPanel({
     setPreviewPinned(false);
     setPreviewData(null);
   }, []);
+
+  const compareVizOptions = COMPARE_VIZ_OPTIONS.filter(
+    (option) =>
+      !option.colorOnly ||
+      (barcodeData?.barcode_type === "Color" && compareData?.barcode_type === "Color")
+  );
+  const activeCompareViz: CompareViz = compareVizOptions.some((o) => o.id === compareViz)
+    ? compareViz
+    : "histogram";
+
+  const renderCompareViz = (
+    data: LoadedBarcodeData,
+    sliced: { colors?: RGB[]; brightness?: number[] },
+    frameIndexOffset: number,
+    label: string
+  ) => {
+    if (activeCompareViz === "scatter" && sliced.colors) {
+      return (
+        <InteractiveHueLightScatter
+          colors={sliced.colors}
+          title={`Hue vs Lightness - ${label}`}
+          maxSamples={20000}
+          frameIndexOffset={frameIndexOffset}
+        />
+      );
+    }
+
+    if (activeCompareViz === "3d" && sliced.colors) {
+      return (
+        <InteractiveHueLight3DBar
+          colors={sliced.colors}
+          title={`Hue/Light 3D Distribution - ${label}`}
+          frameIndexOffset={frameIndexOffset}
+        />
+      );
+    }
+
+    return (
+      <InteractiveHistogram
+        colors={sliced.colors}
+        brightness={sliced.brightness}
+        barcodeType={data.barcode_type}
+        title={
+          data.barcode_type === "Color"
+            ? `Hue Distribution - ${label}`
+            : `Brightness Distribution - ${label}`
+        }
+        frameIndexOffset={frameIndexOffset}
+      />
+    );
+  };
 
   if (loading) {
     return (
@@ -1368,6 +1451,51 @@ export default function VisualizationPanel({
                   totalColorFrames={compareTotalColorFrames}
                   onFrameRangeChange={setCompareSecondaryRange}
                 />
+              )}
+
+              {!compareLoading && compareData && (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <label
+                      htmlFor="compare-viz"
+                      className="font-mono text-xs tracking-[0.3em] uppercase kalmus-text-secondary"
+                    >
+                      Side by side
+                    </label>
+                    <select
+                      id="compare-viz"
+                      value={activeCompareViz}
+                      onChange={(e) => setCompareViz(e.target.value as CompareViz)}
+                      className="kalmus-input px-3 py-2 font-mono text-xs focus:outline-none"
+                      style={{ borderRadius: 0 }}
+                    >
+                      {compareVizOptions.map((option) => (
+                        <option key={option.id} value={option.id}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="grid gap-6 lg:grid-cols-2">
+                    <div className="min-w-0">
+                      {renderCompareViz(
+                        barcodeData,
+                        comparePrimary,
+                        comparePrimaryRange?.[0] ?? 0,
+                        videoFilename
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      {renderCompareViz(
+                        compareData,
+                        compareSecondary,
+                        compareSecondaryRange?.[0] ?? 0,
+                        compareTitle
+                      )}
+                    </div>
+                  </div>
+                </div>
               )}
 
               {compareJobId && (

@@ -198,8 +198,13 @@ function FilmResultCard({ film, hideBarcode }: { film: GroupedFilm; hideBarcode?
             className="w-full h-full object-cover"
           />
         ) : (
-          <div className="w-full h-full kalmus-help flex items-center justify-center">
-            No poster
+          <div className="w-full h-full flex items-center justify-center">
+            <Image
+              src="/missing_poster_thumb.png"
+              alt="No poster"
+              style={{ height: "auto" }}
+              priority
+            />
           </div>
         )}
       </div>
@@ -207,27 +212,27 @@ function FilmResultCard({ film, hideBarcode }: { film: GroupedFilm; hideBarcode?
       <div className="flex flex-col justify-between flex-1 min-w-0">
         <div>
           <h3 className="text-lg tracking-tight kalmus-text-primary leading-snug font-display">
-                {film.title}
+            {film.title}
           </h3>
           <div className="font-mono text-base kalmus-text-secondary mt-1">
             {metadataParts.length > 0 && (
               <span>
-                ({metadataParts.join(", ")}
+                ({metadataParts.join(", ")}{" "}
                 {film.imdb_id && (
                   <>
                     ,
-                  <a
-                  href = {`https://www.imdb.com/title/${film.imdb_id}/`}
-                  target = "_blank"
-                  rel="noopener noreferrer"
-                  className = "underline underline-offset-2 hover:opacity-80"
-                  >
-                    {" "}IMDb
-                  </a>
+                    <a
+                      href={`https://www.imdb.com/title/${film.imdb_id}/`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline underline-offset-2 hover:opacity-80"
+                    >
+                      IMDb
+                    </a>
                   </>
                 )}
                 )
-            </span>
+              </span>
             )}
           </div>
         </div>
