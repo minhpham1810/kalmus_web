@@ -378,6 +378,7 @@ def maybe_generate_thumbnail_manifest(video_path: str, barcode_obj: Barcode, out
 
 def check_should_process(
     imdb_id: str | None,
+    edition: str | None,
     barcode_type: str,
     frame_type: str,
     metric: str,
@@ -386,7 +387,7 @@ def check_should_process(
     output_dir: str,
 ) -> bool:
     existing_job_id = find_existing_analysis(
-        imdb_id, barcode_type, frame_type, metric)
+        imdb_id, barcode_type, frame_type, metric, edition)
     if existing_job_id and not force_reprocess:
         # NOTE: This prevents rerunning a film with the same parameters
         # This should not be an issue unless a film had issues with how it was ripped
@@ -530,6 +531,7 @@ def main(args: list[str] = sys.argv[1:]) -> int:
     upload_metadata = get_upload_metadata(parsed.video_path)
 
     if not check_should_process(film_metadata.get("movie").get("imdb_id"),
+                                film_metadata["config"].get("edition"),
                                 film_metadata["config"]["barcode_type"].lower(),
                                 film_metadata["config"]["frame_type"].lower(),
                                 film_metadata["config"]["color_metric"].lower(),

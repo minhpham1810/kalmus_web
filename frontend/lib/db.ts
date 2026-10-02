@@ -12,6 +12,7 @@ export interface FilmSearchResult {
   runtime_minutes: string | null;
   country: string | null;
   released: string | null;
+  edition: string | null;
   barcode_type: string;
   frame_type: string;
   metric: string;
@@ -75,6 +76,7 @@ export const ANALYSIS_SELECT = `SELECT
     f.runtime_minutes,
     c.country,
     f.released,
+    af.edition,
     af.barcode_type,
     af.frame_type,
     af.metric,
@@ -117,6 +119,7 @@ export function findDuplicateAnalyses(
     barcode_type?: string | null;
     frame_type?: string | null;
     color_metric?: string | null;
+    edition?: string | null;
   },
 ): {
   analyses: FilmSearchResult[];
@@ -135,12 +138,14 @@ export function findDuplicateAnalyses(
   const barcodeType = normalizeAnalysisValue(analysisConfig.barcode_type);
   const frameType = normalizeAnalysisValue(analysisConfig.frame_type);
   const metric = normalizeAnalysisValue(analysisConfig.color_metric);
+  const edition = normalizeAnalysisValue(analysisConfig.edition);
 
   const exactMatches = analyses.filter(
     (analysis) =>
       normalizeAnalysisValue(analysis.barcode_type) === barcodeType &&
       normalizeAnalysisValue(analysis.frame_type) === frameType &&
-      normalizeAnalysisValue(analysis.metric) === metric,
+      normalizeAnalysisValue(analysis.metric) === metric &&
+      normalizeAnalysisValue(analysis.edition) === edition,
   );
 
   return {

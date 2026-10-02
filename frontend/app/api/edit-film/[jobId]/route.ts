@@ -22,11 +22,11 @@ export async function GET(
         const film = withDb((db) => {
             const row = db
             .prepare(
-                `SELECT af.job_id, f.id AS film_id, f.title, f.imdb_id, f.released, f.type, f.runtime_minutes
+                `SELECT af.job_id, af.edition, f.id AS film_id, f.title, f.imdb_id, f.released, f.type, f.runtime_minutes
                 FROM analyzed_files af JOIN films f ON f.id = af.film_id
                 WHERE af.job_id = ?`
             )
-            .get(jobId) as {job_id: string; film_id: number; title: string; imdb_id: string | null;
+            .get(jobId) as {job_id: string; edition: string | null; film_id: number; title: string; imdb_id: string | null;
                 released: string | null; type:string | null; runtime_minutes: number | null } | undefined;
             if (!row) return null;
 
@@ -64,7 +64,8 @@ export async function GET(
 
 /**
  * PUT
- * updates the metadata of the job's film (shared by every analysis of that film) and its junction tables.
+ * updates the metadata of the job's film (shared by every analysis of that film) and its junction tables,
+ * plus this job's edition.
  * Changing the IMDb ID moves this job to the film with that ID, creating one if needed;
  * other jobs keep their film. Films left without jobs are deleted by a database trigger.
  * expects json with film metadata
@@ -77,7 +78,7 @@ export async function PUT(
 
     try {
         const body = await request.json();
-        const {title, imdb_id, released, type, runtime_minutes, directors, actors,
+        const {title, imdb_id, edition, released, type, runtime_minutes, directors, actors,
             genres, writers, languages, countries} = body;
 
             if (!title || !title.trim()) {
@@ -117,6 +118,9 @@ export async function PUT(
                 }
             }
 
+            // edition belongs to this job only; a trigger keeps the film's search row in sync
+            db.prepare("UPDATE analyzed_files SET edition = ? WHERE job_id = ?").run(edition?.trim() || null, jobId);
+
             // update film table
             db.prepare(
                 `UPDATE films
@@ -147,10 +151,11 @@ export async function PUT(
             const aggregates = ENTITIES.map(([table, col]) =>
                 `COALESCE((SELECT GROUP_CONCAT(DISTINCT e.name) FROM film_${table} j JOIN ${table} e ON e.id = j.${col}_id WHERE j.film_id = f.id), '')`
             ).join(", ");
+            const editions = "COALESCE((SELECT GROUP_CONCAT(DISTINCT a.edition) FROM analyzed_files a WHERE a.film_id = f.id), '')";
             db.prepare("DELETE FROM films_search WHERE film_id = ?").run(filmId);
             db.prepare(
-                `INSERT INTO films_search (film_id, title, ${cols})
-                SELECT f.id, f.title, ${aggregates} FROM films f WHERE f.id = ?`
+                `INSERT INTO films_search (film_id, title, ${cols}, edition)
+                SELECT f.id, f.title, ${aggregates}, ${editions} FROM films f WHERE f.id = ?`
             ).run(filmId);
 
             return true;

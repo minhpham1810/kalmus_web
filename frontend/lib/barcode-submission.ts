@@ -53,7 +53,7 @@ export async function submitBarcodeBatch({
   for (const analysisConfig of analysisConfigs) {
     const duplicateMatch = findDuplicateAnalyses(
       (movie?.imdb_id as string | undefined) || null,
-      analysisConfig,
+      { ...analysisConfig, edition: sharedConfig.edition },
     );
 
     if (duplicateMatch.exactMatch && !analysisConfig.force_reprocess) {

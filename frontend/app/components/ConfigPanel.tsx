@@ -207,6 +207,19 @@ export default function ConfigPanel({
             style={inputStyle}
           />
         </ConfigField>
+        <ConfigField
+          label="Edition"
+          helper="Optional. Which version of the film this is, e.g. Criterion Color"
+        >
+          <input
+            type="text"
+            placeholder="Original release"
+            value={sharedConfig.edition || ""}
+            onChange={(e) => onSharedConfigChange({ edition: e.target.value })}
+            className="kalmus-input"
+            style={inputStyle}
+          />
+        </ConfigField>
       </div>
 
       <div className="md:col-span-2">

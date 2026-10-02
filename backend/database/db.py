@@ -38,6 +38,7 @@ class Config(TypedDict):
     barcode_type: str
     video_title: str
     force_reprocess: bool
+    edition: NotRequired[str]  # free-text version of the film, e.g. "Criterion Color"
 
 
 class User(TypedDict):
@@ -120,6 +121,7 @@ class JobDetails(TypedDict):
     uploader: str
     process_date: str
     json: str
+    edition: str | None
     barcode_type: str
     frame_type: str
     metric: str
@@ -273,6 +275,7 @@ def create_db(db_path: Path = films_db, con: sqlite3.Connection | None = None):
           CREATE TABLE IF NOT EXISTS analyzed_files (
               job_id TEXT PRIMARY KEY,
               film_id INTEGER NOT NULL,
+              edition TEXT,
               uploader TEXT,
               process_date DATE NOT NULL,
               json TEXT,
@@ -288,8 +291,18 @@ def create_db(db_path: Path = films_db, con: sqlite3.Connection | None = None):
           """
         )
         cur.execute("CREATE INDEX IF NOT EXISTS analyzed_files_film_id ON analyzed_files(film_id)")
+        # Migration: databases created before editions existed
+        if "edition" not in {r[1] for r in cur.execute("PRAGMA table_info(analyzed_files)")}:
+            cur.execute("ALTER TABLE analyzed_files ADD COLUMN edition TEXT")
 
-        # Search table, one row per film
+        # Search table, one row per film. edition holds the editions of all the film's analyses.
+        # Migration: FTS columns cannot be added, so an older search table is rebuilt
+        rebuild_search = (
+            bool(cur.execute("SELECT 1 FROM sqlite_master WHERE name = 'films_search'").fetchone())
+            and "edition" not in {r[1] for r in cur.execute("PRAGMA table_info(films_search)")}
+        )
+        if rebuild_search:
+            cur.execute("DROP TABLE films_search")
         cur.execute(
             """
           CREATE VIRTUAL TABLE IF NOT EXISTS films_search USING fts5 (
@@ -301,10 +314,14 @@ def create_db(db_path: Path = films_db, con: sqlite3.Connection | None = None):
               genre,
               language,
               writer,
+              edition,
               tokenize = "unicode61 remove_diacritics 2"
           )
           """
         )
+        if rebuild_search:
+            for (film_id,) in cur.execute("SELECT id FROM films").fetchall():
+                _refresh_search(cur, film_id)
 
         # Remove a film once no job references it (job deleted, or job relinked to another film)
         for event in ("DELETE", "UPDATE OF film_id"):
@@ -328,10 +345,21 @@ def create_db(db_path: Path = films_db, con: sqlite3.Connection | None = None):
           END
           """
         )
+        # Keep each film's searchable editions in sync as its jobs are added, edited, moved or deleted
+        for name, event, film_ids in (
+            ("insert", "INSERT", ("NEW",)),
+            ("update", "UPDATE OF edition, film_id", ("OLD", "NEW")),
+            ("delete", "DELETE", ("OLD",)),
+        ):
+            updates = "".join(
+                f"UPDATE films_search SET edition = {_EDITIONS_SQL.format(film=f'{row}.film_id')} WHERE film_id = {row}.film_id;"
+                for row in film_ids
+            )
+            cur.execute(f"CREATE TRIGGER IF NOT EXISTS sync_search_edition_{name} AFTER {event} ON analyzed_files BEGIN {updates} END")
 
 
-def find_existing_analysis(imdb_id: str | None, barcode_type: str, frame_type: str, metric: str, db_path: Path = films_db, con: sqlite3.Connection | None = None) -> str | None:
-    """Find an existing analysis job ID for a given IMDb ID and analysis parameters."""
+def find_existing_analysis(imdb_id: str | None, barcode_type: str, frame_type: str, metric: str, edition: str | None = None, db_path: Path = films_db, con: sqlite3.Connection | None = None) -> str | None:
+    """Find an existing analysis job ID for a given IMDb ID, edition (case-insensitive, None matches no edition) and analysis parameters."""
     if not imdb_id:
         return None
 
@@ -344,13 +372,14 @@ def find_existing_analysis(imdb_id: str | None, barcode_type: str, frame_type: s
           FROM analyzed_files
           JOIN films ON analyzed_files.film_id = films.id
           WHERE films.imdb_id = ?
+              AND LOWER(COALESCE(analyzed_files.edition, '')) = LOWER(?)
               AND analyzed_files.barcode_type = ?
               AND analyzed_files.frame_type = ?
               AND analyzed_files.metric = ?
           ORDER BY analyzed_files.process_date DESC
           LIMIT 1
           """,
-            (imdb_id, barcode_type, frame_type, metric)
+            (imdb_id, (edition or "").strip(), barcode_type, frame_type, metric)
         )
         row = cur.fetchone()
 
@@ -360,8 +389,12 @@ def find_existing_analysis(imdb_id: str | None, barcode_type: str, frame_type: s
         return None
 
 
+# All editions of a film's analyses, comma separated, for the search table. {film} is the film id expression.
+_EDITIONS_SQL = "COALESCE((SELECT GROUP_CONCAT(DISTINCT a.edition) FROM analyzed_files a WHERE a.film_id = {film}), '')"
+
+
 def _refresh_search(cur: sqlite3.Cursor, film_id: int):
-    """Rebuild a film's full-text search row from its current metadata and related entities."""
+    """Rebuild a film's full-text search row from its current metadata, related entities and editions."""
     cols = ", ".join(col for _, col, _ in ENTITIES)
     names = ", ".join(
         f"COALESCE((SELECT GROUP_CONCAT(DISTINCT e.name) FROM film_{table} j JOIN {table} e ON e.id = j.{col}_id WHERE j.film_id = f.id), '')"
@@ -369,7 +402,7 @@ def _refresh_search(cur: sqlite3.Cursor, film_id: int):
     )
     cur.execute("DELETE FROM films_search WHERE film_id = ?", (film_id,))
     cur.execute(
-        f"INSERT INTO films_search (film_id, title, {cols}) SELECT f.id, f.title, {names} FROM films f WHERE f.id = ?",
+        f"INSERT INTO films_search (film_id, title, {cols}, edition) SELECT f.id, f.title, {names}, {_EDITIONS_SQL.format(film='f.id')} FROM films f WHERE f.id = ?",
         (film_id,)
     )
 
@@ -445,7 +478,7 @@ def upsert_job(job_id: str, data: Job, upload_metadata: UploadMetadata, json_loc
             _refresh_search(cur, film_id)
 
         # Insert or update job metadata (ON CONFLICT rather than REPLACE so the orphan-film trigger fires on relink)
-        job_cols = ("job_id", "film_id", "uploader", "process_date", "json", "barcode_type", "frame_type",
+        job_cols = ("job_id", "film_id", "edition", "uploader", "process_date", "json", "barcode_type", "frame_type",
                     "metric", "source_width", "source_height", "source_fps", "source_frame_count")
         cur.execute(
             f"""
@@ -456,6 +489,7 @@ def upsert_job(job_id: str, data: Job, upload_metadata: UploadMetadata, json_loc
             (
                 job_id,
                 film_id,
+                (config.get("edition") or "").strip() or None,
                 config.get("email", "").lower(),
                 datetime.fromisoformat(
                     data.get("submittedAt").replace("Z", "+00:00")

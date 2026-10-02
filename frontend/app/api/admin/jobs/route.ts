@@ -11,6 +11,7 @@ interface JobRow {
   runtime_minutes: number | null;
   uploader: string | null;
   process_date: string | null;
+  edition: string | null;
   barcode_type: string | null;
   frame_type: string | null;
   metric: string | null;
@@ -35,6 +36,7 @@ export async function GET() {
             f.runtime_minutes,
             af.uploader,
             af.process_date,
+            af.edition,
             af.barcode_type,
             af.frame_type,
             af.metric,

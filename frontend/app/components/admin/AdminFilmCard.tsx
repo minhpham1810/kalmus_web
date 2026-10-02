@@ -80,6 +80,12 @@ export default function AdminFilmCard({
                   <span>{a.frame_type.replace(/_/g, " ")}</span>
                   <span style={{ color: "var(--accent-crimson)" }}>|</span>
                   <span>{a.metric}</span>
+                  {a.edition && (
+                    <>
+                      <span style={{ color: "var(--accent-crimson)" }}>|</span>
+                      <span className="normal-case">{a.edition}</span>
+                    </>
+                  )}
                 </div>
                 <div className="flex items-center gap-2 font-mono text-sm kalmus-text-secondary">
                   <span>Source File:</span>

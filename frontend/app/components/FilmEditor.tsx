@@ -4,6 +4,7 @@ import {useState} from "react";
 
 export interface FilmRecord {
   job_id: string;
+  edition: string | null;
   title: string;
   imdb_id: string | null;
   released: string | null;
@@ -170,6 +171,7 @@ export default function FilmEditor({
 }: FilmEditorProps) {
 
   const [title, setTitle] = useState(film.title);
+  const [edition, setEdition] = useState(film.edition ?? "");
   const [imdbId, setImdbId] = useState(film.imdb_id ?? ""); // null becomes empty string for the input
   const [released, setReleased] = useState(film.released ?? "");
   const [type, setType] = useState(film.type ?? "");
@@ -211,6 +213,7 @@ export default function FilmEditor({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title,
+          edition: edition.trim() || null,  // this analysis only, not the whole film
           imdb_id: imdbId || null,           // empty string → null for the database
           released: released || null,
           type: type || null,
@@ -429,6 +432,23 @@ export default function FilmEditor({
             flex: 1,
           }}
         >
+          { /** edition: per analysis, unlike every field below which is shared by all analyses of the film */ }
+          <div>
+            <label
+              className = {labelClass}
+              style = {{ display: "block", marginBottom: 4 }}
+            >
+              Edition (this analysis only)
+            </label>
+            <input
+              className = "kalmus-input"
+              style = {inputBaseStyle}
+              value = {edition}
+              onChange = {(e) => setEdition(e.target.value)}
+              placeholder = "e.g. Criterion Color"
+            />
+          </div>
+
           { }
           <div>
             <label

@@ -9,6 +9,7 @@ export interface FilmSearchResult {
   runtime_minutes: string | null;
   country: string | null;
   released: string | null;
+  edition: string | null;
   barcode_type: string;
   frame_type: string;
   metric: string;
@@ -22,6 +23,7 @@ export interface FilmSearchResult {
 /** one analysis for grouped filmes*/
 export interface FilmAnalysis {
   job_id: string;
+  edition: string | null;
   barcode_type: string;
   frame_type: string;
   metric: string;
@@ -61,6 +63,7 @@ export function groupResults(results: FilmSearchResult[]): GroupedFilm[] {
     }
     map.get(key)!.analyses.push({
       job_id: r.job_id,
+      edition: r.edition,
       barcode_type: r.barcode_type,
       frame_type: r.frame_type,
       metric: r.metric,

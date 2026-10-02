@@ -6,12 +6,14 @@ export async function GET(request: NextRequest) {
   const barcodeType = request.nextUrl.searchParams.get("barcode_type");
   const frameType = request.nextUrl.searchParams.get("frame_type");
   const colorMetric = request.nextUrl.searchParams.get("color_metric");
+  const edition = request.nextUrl.searchParams.get("edition");
 
   try {
     const duplicates = findDuplicateAnalyses(imdbId, {
       barcode_type: barcodeType,
       frame_type: frameType,
       color_metric: colorMetric,
+      edition,
     });
 
     return NextResponse.json({

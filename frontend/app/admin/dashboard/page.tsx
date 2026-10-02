@@ -16,6 +16,7 @@ interface Job {
   runtime_minutes: number | null;
   uploader: string | null;
   process_date: string | null;
+  edition: string | null;
   barcode_type: string | null;
   frame_type: string | null;
   metric: string | null;
@@ -269,6 +270,7 @@ export default function AdminDashboardPage() {
                         ]
                           .filter(Boolean)
                           .join(" / ") || "—"}
+                        {j.edition && <div className="normal-case">{j.edition}</div>}
                       </td>
                       <td className="px-3 py-5 align-top text-right whitespace-nowrap">
                         <Link

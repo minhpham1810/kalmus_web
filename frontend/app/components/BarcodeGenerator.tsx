@@ -22,10 +22,12 @@ export interface SharedBarcodeConfig {
   save_thumbnails: boolean;
   partition?: string;
   email?: string;
+  edition?: string;
 }
 
 interface ExistingAnalysis {
   job_id: string;
+  edition: string | null;
   barcode_type: string;
   frame_type: string;
   metric: string;
@@ -53,6 +55,7 @@ export default function BarcodeGenerator() {
     save_thumbnails: true,
     partition: "short",
     email: "",
+    edition: "",
   });
   const [analysisConfigs, setAnalysisConfigs] = useState<AnalysisConfig[]>(
     getInitialAnalysisConfigs(),
@@ -97,9 +100,11 @@ export default function BarcodeGenerator() {
         currentConfig.barcode_type,
       )}&frame_type=${encodeURIComponent(
         currentConfig.frame_type,
-      )}&color_metric=${encodeURIComponent(currentConfig.color_metric)}`;
+      )}&color_metric=${encodeURIComponent(
+        currentConfig.color_metric,
+      )}&edition=${encodeURIComponent(sharedConfig.edition?.trim() || "")}`;
     },
-    [],
+    [sharedConfig.edition],
   );
 
   const fetchDuplicateState = useCallback(
@@ -418,6 +423,7 @@ export default function BarcodeGenerator() {
               save_thumbnails: String(sharedConfig.save_thumbnails),
               partition: sharedConfig.partition || "short",
               email: sharedConfig.email,
+              edition: sharedConfig.edition?.trim() || "",
               analysis_configs: analysisPayload,
             },
             movie: movieInfo,
@@ -447,6 +453,7 @@ export default function BarcodeGenerator() {
       formData.append("save_thumbnails", String(sharedConfig.save_thumbnails));
       formData.append("partition", sharedConfig.partition || "short");
       formData.append("email", sharedConfig.email);
+      formData.append("edition", sharedConfig.edition?.trim() || "");
       formData.append("movie", JSON.stringify(movieInfo));
       formData.append("analysis_configs", JSON.stringify(analysisPayload));
 
@@ -679,6 +686,7 @@ export default function BarcodeGenerator() {
                                     {analysis.barcode_type}
                                   </span>
                                   {analysis.frame_type.replace(/_/g, " ")} · {analysis.metric}
+                                  {analysis.edition && ` · ${analysis.edition}`}
                                   {isExactMatch && (
                                     <span className="ml-2" style={{ color: "var(--accent-amber)" }}>
                                       matching config

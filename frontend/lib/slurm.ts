@@ -35,6 +35,7 @@ export interface JobConfig {
   email?: string;
   video_title?: string;
   force_reprocess?: boolean;
+  edition?: string; // free-text version of the film, e.g. "Criterion Color"
 }
 
 export interface JobMetadata {

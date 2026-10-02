@@ -22,6 +22,7 @@ def test_check_should_process_allows_force_reprocess(monkeypatch, tmp_path):
 
     should_process = clg.check_should_process(
         "tt0133093",
+        None,
         "color",
         "whole_frame",
         "average",
@@ -46,6 +47,7 @@ def test_check_should_process_marks_duplicate_when_not_forcing(monkeypatch, tmp_
 
     should_process = clg.check_should_process(
         "tt0133093",
+        None,
         "color",
         "whole_frame",
         "average",

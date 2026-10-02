@@ -21,6 +21,7 @@ export interface SubmissionBatchSharedConfig {
   total_frames: number;
   frames_per_column: number;
   save_thumbnails: boolean;
+  edition?: string;
 }
 
 export interface SubmissionBatchRecord {

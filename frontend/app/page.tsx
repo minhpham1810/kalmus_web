@@ -13,6 +13,7 @@ interface FilmSearchResult {
   runtime_minutes: string | null;
   country: string | null;
   released: string | null;
+  edition: string | null;
   barcode_type: string;
   frame_type: string;
   metric: string;
@@ -35,6 +36,7 @@ interface GroupedFilm {
 
   analyses: {
     job_id: string;
+    edition: string | null;
     barcode_type: string;
     frame_type: string;
     metric: string;
@@ -71,6 +73,7 @@ function groupResults(results: FilmSearchResult[]): GroupedFilm[] {
     }
     map.get(key)!.analyses.push({
       job_id: r.job_id,
+      edition: r.edition,
       barcode_type: r.barcode_type,
       frame_type: r.frame_type,
       metric: r.metric,
@@ -143,34 +146,40 @@ function BarcodeImagePreview({ data }: { data: FilmOfDayBarcode }) {
 function FilmCardBarcode({ jobId }: { jobId: string }) {
   return (
     <div
-      style = {{
+      style={{
         marginTop: 8,
         width: "100%",
-      maxWidth: 200,
-      height: 40,
-      overflow: "hidden",
-    }}
+        maxWidth: 200,
+        height: 40,
+        overflow: "hidden",
+      }}
     >
       <img
-        src = {`api/barcode-image/${jobId}`}
-        alt = "Barcode preview"
-        style = {{
+        src={`api/barcode-image/${jobId}`}
+        alt="Barcode preview"
+        style={{
           width: "100%",
           height: "100%",
           objectFit: "fill",
           border: "1px solid rgba(100,100,100,0.25)",
-          display: "block"
+          display: "block",
         }}
-        onError = {(e) => {
+        onError={(e) => {
           // hide barcode preview
           e.currentTarget.style.display = "none";
-      }}
-    />
-  </div>
+        }}
+      />
+    </div>
   );
 }
 
-function FilmResultCard({ film, hideBarcode }: { film: GroupedFilm; hideBarcode?: boolean }) {
+function FilmResultCard({
+  film,
+  hideBarcode,
+}: {
+  film: GroupedFilm;
+  hideBarcode?: boolean;
+}) {
   const format = (val: string | null) =>
     val ? val.split(",").join(" & ") : null;
 
@@ -238,7 +247,7 @@ function FilmResultCard({ film, hideBarcode }: { film: GroupedFilm; hideBarcode?
             )}
           </div>
         </div>
-        {!hideBarcode && <FilmCardBarcode jobId = {film.analyses[0].job_id}/>}
+        {!hideBarcode && <FilmCardBarcode jobId={film.analyses[0].job_id} />}
 
         <div>
           {film.analyses.map((a) => (
@@ -254,6 +263,12 @@ function FilmResultCard({ film, hideBarcode }: { film: GroupedFilm; hideBarcode?
                 <span>{a.frame_type.replace(/_/g, " ")}</span>
                 <span style={{ color: "var(--accent-crimson)" }}>|</span>
                 <span>{a.metric}</span>
+                {a.edition && (
+                  <>
+                    <span style={{ color: "var(--accent-crimson)" }}>|</span>
+                    <span className="normal-case">{a.edition}</span>
+                  </>
+                )}
               </div>
               <div className="flex items-center gap-2 font-mono text-sm kalmus-text-secondary">
                 <span>Source File:</span>
@@ -263,9 +278,7 @@ function FilmResultCard({ film, hideBarcode }: { film: GroupedFilm; hideBarcode?
                 <span>{Number(a.source_fps).toFixed(3)} fps,</span>
                 <span>{a.source_frame_count} frames</span>
               </div>
-              <div
-                className="justify-self-start sm:justify-self-end font-mono text-xs tracking-wider uppercase px-3 py-1.5 transition-colors kalmus-button-filled"
-              >
+              <div className="justify-self-start sm:justify-self-end font-mono text-xs tracking-wider uppercase px-3 py-1.5 transition-colors kalmus-button-filled">
                 <span>View →</span>
               </div>
             </Link>
@@ -279,7 +292,7 @@ function FilmResultCard({ film, hideBarcode }: { film: GroupedFilm; hideBarcode?
 export default function Home() {
   const helpRef = useRef<HTMLDivElement>(null);
 
-  const [showHelp, setShowHelp] = useState(false)
+  const [showHelp, setShowHelp] = useState(false);
   const [activeSelection, setActiveSelection] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<FilmSearchResult[]>([]);
@@ -306,8 +319,8 @@ export default function Home() {
         setShowHelp(false);
       }
     }
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
   useEffect(() => {
@@ -403,7 +416,7 @@ export default function Home() {
     debounceRef.current = setTimeout(async () => {
       try {
         const res = await fetch(
-          `/api/search-films?q=${encodeURIComponent(trimmed)}`
+          `/api/search-films?q=${encodeURIComponent(trimmed)}`,
         );
         const data = await res.json();
         setResults(data.results || []);
@@ -427,30 +440,26 @@ export default function Home() {
 
     debounceRef.current = setTimeout(async () => {
       try {
-        let res: Response
+        let res: Response;
         if (activeSelection === "random") {
-          res = await fetch(
-            `/api/search-films?random`
-          );
-        }
-        else {
+          res = await fetch(`/api/search-films?random`);
+        } else {
           let search: string;
           if (activeSelection === "numbers") {
             search = "numbers";
-          }
-          else if (activeSelection === "symbols") {
+          } else if (activeSelection === "symbols") {
             search = "symbols";
-          }
-          else {
-            search = `title:^${activeSelection}`
+          } else {
+            search = `title:^${activeSelection}`;
           }
 
           res = await fetch(
-            `/api/search-films?q=${encodeURIComponent(search)}`
+            `/api/search-films?q=${encodeURIComponent(search)}`,
           );
         }
 
-        const selectionResults: FilmSearchResult[] = (await res.json()).results || [];
+        const selectionResults: FilmSearchResult[] =
+          (await res.json()).results || [];
 
         setResults(selectionResults);
       } catch {
@@ -513,7 +522,7 @@ export default function Home() {
                 width={300}
                 height={100}
                 className="dark:invert"
-                style={{ height: "auto"}}
+                style={{ height: "auto" }}
                 priority
               />
             </div>

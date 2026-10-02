@@ -35,6 +35,7 @@ export async function POST(request: NextRequest) {
                 : config.save_thumbnails === 'true' || config.save_thumbnails === true,
             partition: config.partition || 'short',
             email: config.email || undefined,
+            edition: (config.edition as string | undefined)?.trim() || undefined,
         } satisfies Omit<JobConfig, 'color_metric' | 'frame_type' | 'barcode_type'>;
         const analysisConfigs = parseAnalysisConfigPayload(config.analysis_configs);
         const invalidFrameType = analysisConfigs.find(

@@ -142,7 +142,8 @@ function buildFtsQuery(input: string) {
     "country",
     "genre",
     "language",
-    "writer"
+    "writer",
+    "edition"
   ]);
 
   let remaining = input;
