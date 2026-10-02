@@ -1,18 +1,14 @@
 import requests
 import json
-import os
 from datetime import datetime
-from dotenv import load_dotenv
+from pathlib import Path
 import sys
 
-load_dotenv()
-pythonpath = os.getenv("PYTHONPATH")
-if pythonpath:
-    sys.path.insert(0, pythonpath)
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
 
 from database import *  # noqa: F401, F403
 
-OMDB_KEY = os.getenv("OMDB_KEY")
+OMDB_KEY = require_env("OMDB_KEY")
 OMDB_URL = "https://www.omdbapi.com/"
 
 
@@ -32,7 +28,7 @@ def format_date_safe(date_str: str) -> str | None:
 
 
 def get_upload_metadata(job_id: str) -> UploadMetadata:
-    barcode_path = Path(f'/home/kalmus/kalmus/results/{job_id}/barcode.json')
+    barcode_path = RESULTS_DIR / job_id / "barcode.json"
     try:
         with open(barcode_path, "r") as f:
             data = json.load(f)

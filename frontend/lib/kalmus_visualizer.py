@@ -23,7 +23,7 @@ HUE_HISTOGRAM_WHITE_MIN = 195
 # Import KALMUS visualization utilities
 try:
     # Add the KALMUS backend to the path
-    kalmus_path = Path('/home/kalmus/kalmus/app/backend')
+    kalmus_path = Path(__file__).resolve().parents[2] / "backend"
     if str(kalmus_path) not in sys.path:
         sys.path.insert(0, str(kalmus_path))
 
@@ -422,7 +422,7 @@ if __name__ == '__main__':
     parser.add_argument('--type', required=True,
                        choices=['histogram', 'cube', 'scatter', '3dbar'],
                        help='Visualization type')
-    parser.add_argument('--results-dir', default='/shared/kalmus/results',
+    parser.add_argument('--results-dir', required=True,
                        help='Results directory')
     parser.add_argument('--sampling', type=int, default=3000,
                        help='Number of color points to sample for RGB cube plots')

@@ -524,7 +524,7 @@ def main(args: list[str] = sys.argv[1:]) -> int:
         sys.exit(1)
 
     # Create directories
-    os.makedirs("/home/kalmus/kalmus/app/databases", exist_ok=True)
+    os.makedirs(films_db.parent, exist_ok=True)
     os.makedirs(parsed.output_dir, exist_ok=True)
 
     create_db()

@@ -1,7 +1,8 @@
 import { promises as fs } from "fs";
 import path from "path";
+import { requireEnv } from "./env";
 
-const RESULTS_DIR = process.env.RESULTS_DIR || "/home/kalmus/kalmus/results";
+const RESULTS_DIR = requireEnv("RESULTS_DIR");
 
 interface JobMetadataMovie {
   title?: string;

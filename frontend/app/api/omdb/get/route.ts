@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireEnv } from '@/lib/env';
 
-const OMDB_KEY = process.env.OMDB_KEY || 'NO_KEY';
+const OMDB_KEY = requireEnv('OMDB_KEY');
 const OMDB_URL = 'https://www.omdbapi.com/';
 
 export const dynamic = 'force-dynamic';

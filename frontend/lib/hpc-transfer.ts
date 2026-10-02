@@ -20,6 +20,7 @@ import path from 'path';
 import { copyFile, mkdir, rm } from 'fs/promises';
 import { createWriteStream } from 'fs';
 import { pipeline } from 'stream/promises';
+import { requireEnv } from '@/lib/env';
 
 export interface TransferResult {
   remotePath: string;
@@ -35,7 +36,7 @@ const HPC_CONFIG = {
   privateKeyPath: process.env.HPC_KEY_PATH,
   // HPC_UPLOAD_DIR is the canonical upload path on the HPC.
   // Falls back to UPLOAD_DIR (NFS direct) for backward compatibility.
-  uploadDir: process.env.HPC_UPLOAD_DIR || process.env.UPLOAD_DIR || '/shared/kalmus/uploads',
+  uploadDir: process.env.HPC_UPLOAD_DIR || requireEnv('UPLOAD_DIR'),
 };
 
 /**

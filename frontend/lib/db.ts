@@ -1,4 +1,5 @@
 import Database from "better-sqlite3";
+import { requireEnv } from "@/lib/env";
 
 export interface FilmSearchResult {
   job_id: string;
@@ -19,9 +20,7 @@ export interface FilmSearchResult {
   source_frame_count: string;
 }
 
-const DB_PATH =
-  process.env.FILMS_DB_PATH ||
-  "/home/kalmus/kalmus/app/databases/films.db";
+const DB_PATH = requireEnv("FILMS_DB_PATH");
 
 function normalizeAnalysisValue(value: string | null | undefined): string {
   return (value || "").trim().toLowerCase();
@@ -37,19 +36,21 @@ export function withDb<T>(fn: (db: Database.Database) => T): T {
 }
 
 export function getDb(): Database.Database {
-    return new  Database(DB_PATH, {
-        // This can be enabled, but due to concurrent writes to the database from the backend, it can cause disk I/O errors.
-        // Enabling will not cause any crashes, but it will flood the logs.
-        // For all purposes, the database is read-only from the frontend, so this should not cause any issues.
-        //   readonly: true,
-        timeout: 5000,
-    });
+  return new Database(DB_PATH, {
+    // This can be enabled, but due to concurrent writes to the database from the backend, it can cause disk I/O errors.
+    // Enabling will not cause any crashes, but it will flood the logs.
+    // For all purposes, the database is read-only from the frontend, so this should not cause any issues.
+    //   readonly: true,
+    timeout: 5000,
+  });
 }
 
 export function getAnalysesByImdbId(imdbId: string): FilmSearchResult[] {
-  return withDb((db) => db
-    .prepare(
-      `SELECT
+  return withDb(
+    (db) =>
+      db
+        .prepare(
+          `SELECT
         f.job_id,
         f.title,
         f.imdb_id,
@@ -81,10 +82,10 @@ export function getAnalysesByImdbId(imdbId: string): FilmSearchResult[] {
         GROUP BY fc.job_id
       ) c ON f.job_id = c.job_id
       WHERE LOWER(f.imdb_id) = LOWER(?)
-      ORDER BY af.process_date DESC`
-    )
-    .all(imdbId) as FilmSearchResult[]
-    );
+      ORDER BY af.process_date DESC`,
+        )
+        .all(imdbId) as FilmSearchResult[],
+  );
 }
 
 export function findDuplicateAnalyses(
@@ -93,7 +94,7 @@ export function findDuplicateAnalyses(
     barcode_type?: string | null;
     frame_type?: string | null;
     color_metric?: string | null;
-  }
+  },
 ): {
   analyses: FilmSearchResult[];
   exactMatches: FilmSearchResult[];
@@ -116,7 +117,7 @@ export function findDuplicateAnalyses(
     (analysis) =>
       normalizeAnalysisValue(analysis.barcode_type) === barcodeType &&
       normalizeAnalysisValue(analysis.frame_type) === frameType &&
-      normalizeAnalysisValue(analysis.metric) === metric
+      normalizeAnalysisValue(analysis.metric) === metric,
   );
 
   return {

@@ -27,22 +27,16 @@ from pathlib import Path
 import json
 import os
 from datetime import datetime
-from dotenv import load_dotenv
 import sys
 
-load_dotenv()
-pythonpath = os.getenv("PYTHONPATH")
-if pythonpath:
-    sys.path.insert(0, pythonpath)
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
 
 from database import *
 
-
-FILMS_DB = Path("/home/kalmus/kalmus/app/databases/films-fix.db")
-RESULTS_DIR = Path("/home/kalmus/kalmus/results")
+FILMS_DB = films_db.with_name("films-fix.db")
 
 def get_upload_metadata(job_id: str) -> dict:
-    barcode_path = Path(f'/home/kalmus/kalmus/results/{job_id}/barcode.json')
+    barcode_path = RESULTS_DIR / job_id / "barcode.json"
     try:
         with open(barcode_path, "r") as f:
             data = json.load(f)

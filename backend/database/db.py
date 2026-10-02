@@ -6,8 +6,22 @@ from pathlib import Path
 import json
 from datetime import datetime
 
+import os
+from dotenv import load_dotenv
 
-films_db = Path("/home/kalmus/kalmus/app/databases/films.db")
+# Shares the frontend's env file; vars already in the environment (e.g. from sbatch) take priority.
+load_dotenv(Path(__file__).resolve().parents[2] / "frontend" / ".env.local")
+
+
+def require_env(name: str) -> str:
+    value = os.getenv(name)
+    if not value:
+        raise RuntimeError(f"Missing required env var {name} (see frontend/.env.local.example)")
+    return value
+
+
+films_db = Path(require_env("FILMS_DB_PATH"))
+RESULTS_DIR = Path(require_env("RESULTS_DIR"))
 
 
 class Config(TypedDict):
@@ -488,7 +502,7 @@ def get_job_metadata(job_id: str) -> Job:
 
     This function assumes that the metadata JSON files are stored in a specific directory structure based on the job ID.
     """
-    metadata_path = Path(f'/home/kalmus/kalmus/results/{job_id}/metadata.json')
+    metadata_path = RESULTS_DIR / job_id / "metadata.json"
     try:
         with metadata_path.open("r") as f:
             data = json.load(f)

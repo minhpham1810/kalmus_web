@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readFile, stat } from "fs/promises";
 import path from "path";
+import { requireEnv } from "@/lib/env";
 
-const RESULTS_ROOT = "/home/kalmus/kalmus/results";
+const RESULTS_ROOT = requireEnv("RESULTS_DIR");
 
 const CONTENT_TYPES: Record<string, string> = {
   ".dzi": "application/xml",

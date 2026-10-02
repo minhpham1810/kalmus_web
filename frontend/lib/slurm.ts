@@ -5,18 +5,19 @@ import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { ThumbnailManifest } from '@/lib/barcode-utils';
 import { hydrateBarcodeResult } from '@/lib/barcode-result';
+import { requireEnv } from '@/lib/env';
 
 const execAsync = promisify(exec);
 
 // Configuration - these should match your HPC environment
 export const SLURM_CONFIG = {
-  uploadDir: process.env.UPLOAD_DIR || '/shared/kalmus/uploads',
-  resultsDir: process.env.RESULTS_DIR || '/shared/kalmus/results',
-  scriptsDir: process.env.SCRIPTS_DIR || '/shared/kalmus/scripts',
-  pythonEnv: process.env.PYTHON_ENV || 'source ~/kalmus_env/bin/activate',
-  kalmusScript: process.env.KALMUS_SCRIPT || '/shared/kalmus/kalmus_processor.py',
-  emailScript: process.env.EMAIL_SCRIPT || '/shared/kalmus/send_barcode_email.py',
-  websiteUrl: process.env.WEBSITE_URL || 'http://localhost:3000',
+  uploadDir: requireEnv('UPLOAD_DIR'),
+  resultsDir: requireEnv('RESULTS_DIR'),
+  scriptsDir: requireEnv('SCRIPTS_DIR'),
+  pythonEnv: requireEnv('PYTHON_ENV'),
+  kalmusScript: requireEnv('KALMUS_SCRIPT'),
+  emailScript: requireEnv('EMAIL_SCRIPT'),
+  websiteUrl: requireEnv('WEBSITE_URL'),
 };
 
 export type NotificationStatus = 'COMPLETED' | 'FAILED' | 'DUPLICATE';

@@ -1,8 +1,9 @@
 import {NextRequest, NextResponse} from "next/server";
 import {readFile} from "fs/promises";
 import path from "path";
+import { requireEnv } from "@/lib/env";
 
-const RESULTS_DIR = "/home/kalmus/kalmus/results"
+const RESULTS_DIR = requireEnv("RESULTS_DIR");
 
 export async function GET(
   request: NextRequest,

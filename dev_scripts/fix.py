@@ -9,19 +9,15 @@ from pathlib import Path
 import json
 import os
 from datetime import datetime
-from dotenv import load_dotenv
 import sys
 
-load_dotenv()
-pythonpath = os.getenv("PYTHONPATH")
-if pythonpath:
-    sys.path.insert(0, pythonpath)
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
 
 from database import *
 
 
 def get_upload_metadata(job_id: str) -> dict:
-    barcode_path = Path(f'/home/kalmus/kalmus/results/{job_id}/barcode.json')
+    barcode_path = RESULTS_DIR / job_id / "barcode.json"
     try:
         with open(barcode_path, "r") as f:
             data = json.load(f)
@@ -39,7 +35,7 @@ def get_upload_metadata(job_id: str) -> dict:
 
 def main():
     job_id = input("Job ID: ")
-    if not Path(f'/home/kalmus/kalmus/results/{job_id}').exists():
+    if not (RESULTS_DIR / job_id).exists():
         print("Job not found. Make sure the ID is correct and the job is in the results directory.")
         return
 
@@ -47,7 +43,7 @@ def main():
     upload_metadata = get_upload_metadata(job_id)
 
     # Save to database
-    upsert_job(job_id, film_metadata, upload_metadata, os.path.join("/home/kalmus/kalmus/results", job_id, "barcode.json"), os.path.join("/home/kalmus/kalmus/results", job_id, "poster.jpg"))
+    upsert_job(job_id, film_metadata, upload_metadata, str(RESULTS_DIR / job_id / "barcode.json"), str(RESULTS_DIR / job_id / "poster.jpg"))
 
     # Update search table
     update_search_table(job_id)
