@@ -28,7 +28,7 @@ export async function GET() {
       db
         .prepare(
           `SELECT
-            f.job_id,
+            af.job_id,
             f.title,
             f.imdb_id,
             f.released,
@@ -45,19 +45,19 @@ export async function GET() {
             d.director,
             c.country
           FROM analyzed_files af
-          INNER JOIN films f ON f.job_id = af.job_id
+          INNER JOIN films f ON f.id = af.film_id
           LEFT JOIN (
-            SELECT fd.job_id, GROUP_CONCAT(dir.name, ', ') AS director
+            SELECT fd.film_id, GROUP_CONCAT(dir.name, ', ') AS director
             FROM film_directors fd
             JOIN directors dir ON fd.director_id = dir.id
-            GROUP BY fd.job_id
-          ) d ON f.job_id = d.job_id
+            GROUP BY fd.film_id
+          ) d ON f.id = d.film_id
           LEFT JOIN (
-            SELECT fc.job_id, GROUP_CONCAT(co.name, ', ') AS country
+            SELECT fc.film_id, GROUP_CONCAT(co.name, ', ') AS country
             FROM film_countries fc
             JOIN countries co ON fc.country_id = co.id
-            GROUP BY fc.job_id
-          ) c ON f.job_id = c.job_id
+            GROUP BY fc.film_id
+          ) c ON f.id = c.film_id
           ORDER BY af.process_date DESC, af.rowid DESC`,
         )
         .all() as JobRow[],

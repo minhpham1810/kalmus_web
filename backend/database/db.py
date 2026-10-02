@@ -120,7 +120,6 @@ class JobDetails(TypedDict):
     uploader: str
     process_date: str
     json: str
-    poster: str | None
     barcode_type: str
     frame_type: str
     metric: str
@@ -131,13 +130,15 @@ class JobDetails(TypedDict):
 
 
 class FilmRecord(TypedDict):
-    """A complete record of a film in the database, including basic info, job details, and related entities like actors, genres, directors, writers, languages, and countries."""
+    """A complete record of an analysis job: its film's info, the job details, and the film's related entities like actors, genres, directors, writers, languages, and countries."""
     job_id: str
+    film_id: int
     title: str
     imdb_id: str | None
     released: str | None
     type: str | None
     runtime_minutes: int | None
+    poster: str | None
     job: JobDetails
     actors: list[str]
     genres: list[str]
@@ -145,6 +146,17 @@ class FilmRecord(TypedDict):
     writers: list[str]
     languages: list[str]
     countries: list[str]
+
+
+# (entity table, link column prefix, OMDb raw key). Each entity has a film_<table> link table.
+ENTITIES = [
+    ("genres", "genre", "Genre"),
+    ("directors", "director", "Director"),
+    ("writers", "writer", "Writer"),
+    ("actors", "actor", "Actors"),
+    ("languages", "language", "Language"),
+    ("countries", "country", "Country"),
+]
 
 
 class DbConnection:
@@ -162,10 +174,13 @@ class DbConnection:
         return self.con
 
     def __exit__(self, exc_type, exc_val, exc_tb):  # type: ignore
-        """Exit the context manager, ensuring that the database connection is properly closed."""
+        """Exit the context manager, committing only if no exception occurred, and close the connection."""
         if self.con:
             if not self.readonly:
-                self.con.commit()
+                if exc_type is None:
+                    self.con.commit()
+                else:
+                    self.con.rollback()
             _maybe_close(self.con, True)
 
 
@@ -175,6 +190,7 @@ def _connect(db_path: Path = films_db, readonly: bool = False) -> sqlite3.Connec
     con = sqlite3.connect(db_path)
     con.execute("PRAGMA journal_mode=WAL")
     con.execute("PRAGMA busy_timeout=5000")
+    con.execute("PRAGMA foreign_keys=ON")
     if readonly:
         con.execute("PRAGMA readonly=ON")
     return con
@@ -208,27 +224,29 @@ def create_db(db_path: Path = films_db, con: sqlite3.Connection | None = None):
     """
     Create the database schema if it does not already exist.
 
-    This includes tables for films, related entities (genres, directors, writers, actors, languages, countries), analyzed files, and a virtual table for full-text search.
+    Films are shared between analysis jobs: each analyzed_files row (one per job) points at one film.
+    Deleting the last job of a film deletes the film, its links, and its search row (via triggers and cascades).
     """
     with DbConnection(db_path=db_path) as con:
         cur = con.cursor()
 
-        # Main table, contains references to other tables
+        # Film metadata, shared by all analyses of the same film
         cur.execute(
             """
           CREATE TABLE IF NOT EXISTS films (
-              job_id TEXT PRIMARY KEY,
+              id INTEGER PRIMARY KEY,
+              imdb_id TEXT UNIQUE,
               title TEXT NOT NULL,
-              imdb_id TEXT,
               released DATE,
               released_year INTEGER GENERATED ALWAYS AS (CAST(strftime('%Y', released) AS INTEGER)) STORED,
               type TEXT,
-              runtime_minutes INTEGER
+              runtime_minutes INTEGER,
+              poster TEXT
           )
           """
         )
 
-        def create_entity_table(cur: sqlite3.Cursor, table: str) -> None:
+        for table, col, _ in ENTITIES:
             cur.execute(
                 f"""
               CREATE TABLE IF NOT EXISTS {table} (
@@ -237,41 +255,27 @@ def create_db(db_path: Path = films_db, con: sqlite3.Connection | None = None):
               )
               """
             )
-        create_entity_table(cur, "genres")
-        create_entity_table(cur, "directors")
-        create_entity_table(cur, "writers")
-        create_entity_table(cur, "actors")
-        create_entity_table(cur, "languages")
-        create_entity_table(cur, "countries")
-
-        def create_link_table(cur: sqlite3.Cursor, table: str, col: str) -> None:
             cur.execute(
                 f"""
               CREATE TABLE IF NOT EXISTS film_{table} (
-                  job_id TEXT,
+                  film_id INTEGER,
                   {col}_id INTEGER,
-                  PRIMARY KEY (job_id, {col}_id),
-                  FOREIGN KEY (job_id) REFERENCES films(job_id),
+                  PRIMARY KEY (film_id, {col}_id),
+                  FOREIGN KEY (film_id) REFERENCES films(id) ON DELETE CASCADE,
                   FOREIGN KEY ({col}_id) REFERENCES {table}(id)
               )
               """
             )
-        create_link_table(cur, "genres", "genre")
-        create_link_table(cur, "directors", "director")
-        create_link_table(cur, "writers", "writer")
-        create_link_table(cur, "actors", "actor")
-        create_link_table(cur, "languages", "language")
-        create_link_table(cur, "countries", "country")
 
-        # Analyzed films
+        # One row per analysis job
         cur.execute(
             """
           CREATE TABLE IF NOT EXISTS analyzed_files (
               job_id TEXT PRIMARY KEY,
+              film_id INTEGER NOT NULL,
               uploader TEXT,
               process_date DATE NOT NULL,
               json TEXT,
-              poster TEXT,
               barcode_type TEXT NOT NULL,
               frame_type TEXT NOT NULL,
               metric TEXT NOT NULL,
@@ -279,16 +283,17 @@ def create_db(db_path: Path = films_db, con: sqlite3.Connection | None = None):
               source_height INTEGER,
               source_fps REAL,
               source_frame_count INTEGER,
-              FOREIGN KEY (job_id) REFERENCES films(job_id)
+              FOREIGN KEY (film_id) REFERENCES films(id)
           )
           """
         )
+        cur.execute("CREATE INDEX IF NOT EXISTS analyzed_files_film_id ON analyzed_files(film_id)")
 
-        # Search table
+        # Search table, one row per film
         cur.execute(
             """
           CREATE VIRTUAL TABLE IF NOT EXISTS films_search USING fts5 (
-              job_id UNINDEXED,
+              film_id UNINDEXED,
               title,
               director,
               actor,
@@ -301,10 +306,33 @@ def create_db(db_path: Path = films_db, con: sqlite3.Connection | None = None):
           """
         )
 
+        # Remove a film once no job references it (job deleted, or job relinked to another film)
+        for event in ("DELETE", "UPDATE OF film_id"):
+            cur.execute(
+                f"""
+              CREATE TRIGGER IF NOT EXISTS delete_orphan_film_{event.split()[0].lower()}
+              AFTER {event} ON analyzed_files
+              WHEN NOT EXISTS (SELECT 1 FROM analyzed_files WHERE film_id = OLD.film_id)
+              BEGIN
+                  DELETE FROM films WHERE id = OLD.film_id;
+              END
+              """
+            )
+        # FTS tables cannot have foreign keys
+        cur.execute(
+            """
+          CREATE TRIGGER IF NOT EXISTS delete_film_search
+          AFTER DELETE ON films
+          BEGIN
+              DELETE FROM films_search WHERE film_id = OLD.id;
+          END
+          """
+        )
+
 
 def find_existing_analysis(imdb_id: str | None, barcode_type: str, frame_type: str, metric: str, db_path: Path = films_db, con: sqlite3.Connection | None = None) -> str | None:
     """Find an existing analysis job ID for a given IMDb ID and analysis parameters."""
-    if imdb_id is None:
+    if not imdb_id:
         return None
 
     with DbConnection(db_path=db_path, readonly=True) as con:
@@ -312,9 +340,9 @@ def find_existing_analysis(imdb_id: str | None, barcode_type: str, frame_type: s
 
         cur.execute(
             """
-          SELECT films.job_id
+          SELECT analyzed_files.job_id
           FROM analyzed_files
-          JOIN films ON analyzed_files.job_id = films.job_id
+          JOIN films ON analyzed_files.film_id = films.id
           WHERE films.imdb_id = ?
               AND analyzed_files.barcode_type = ?
               AND analyzed_files.frame_type = ?
@@ -332,14 +360,41 @@ def find_existing_analysis(imdb_id: str | None, barcode_type: str, frame_type: s
         return None
 
 
+def _refresh_search(cur: sqlite3.Cursor, film_id: int):
+    """Rebuild a film's full-text search row from its current metadata and related entities."""
+    cols = ", ".join(col for _, col, _ in ENTITIES)
+    names = ", ".join(
+        f"COALESCE((SELECT GROUP_CONCAT(DISTINCT e.name) FROM film_{table} j JOIN {table} e ON e.id = j.{col}_id WHERE j.film_id = f.id), '')"
+        for table, col, _ in ENTITIES
+    )
+    cur.execute("DELETE FROM films_search WHERE film_id = ?", (film_id,))
+    cur.execute(
+        f"INSERT INTO films_search (film_id, title, {cols}) SELECT f.id, f.title, {names} FROM films f WHERE f.id = ?",
+        (film_id,)
+    )
+
+
+def _results_relative(path: str | None) -> str | None:
+    """Store file paths relative to RESULTS_DIR so the database survives the results directory moving. Raises if the file is outside it."""
+    return Path(path).resolve().relative_to(RESULTS_DIR.resolve()).as_posix() if path else None
+
+
 def upsert_job(job_id: str, data: Job, upload_metadata: UploadMetadata, json_loc: str, poster_loc: str | None, db_path: Path = films_db, con: sqlite3.Connection | None = None):
-    """Insert or update a job record in the database, along with related entities and analyzed file metadata."""
+    """
+    Insert or update a job record and link it to its film.
+
+    The film (with its related entities and search row) is only created when no film with the same IMDb ID exists,
+    so a new upload never overwrites edits made to a shared film. Films without an IMDb ID are always created new.
+    json_loc and poster_loc must be inside RESULTS_DIR; they are stored relative to it.
+    """
+    json_rel = _results_relative(json_loc)
+    poster_rel = _results_relative(poster_loc)
     config = data.get("config")
     movie = data.get("movie")
     raw = movie.get("raw", None)
 
     title = movie.get("title")
-    imdb_id = movie.get("imdb_id")
+    imdb_id = movie.get("imdb_id") or None  # UNIQUE allows many NULLs, but not many empty strings
     type_ = raw.get("Type") if raw else ""
     runtime_raw = raw.get("Runtime") if raw else ""
     runtime = int(runtime_raw.split()[0]) if runtime_raw else None
@@ -355,75 +410,57 @@ def upsert_job(job_id: str, data: Job, upload_metadata: UploadMetadata, json_loc
     with DbConnection(db_path=db_path) as con:
         cur = con.cursor()
 
-        # Insert film record
+        row = cur.execute("SELECT id FROM films WHERE imdb_id = ?", (imdb_id,)).fetchone() if imdb_id else None
+        if row:
+            (film_id,) = row
+            cur.execute("UPDATE films SET poster = COALESCE(poster, ?) WHERE id = ?", (poster_rel, film_id))
+        else:
+            cur.execute(
+                """
+              INSERT INTO films
+                  (imdb_id, title, released, type, runtime_minutes, poster)
+              VALUES
+                  (?, ?, ?, ?, ?, ?)
+              """,
+                (imdb_id, title, released, type_, runtime, poster_rel)
+            )
+            film_id = cur.lastrowid
+
+            if raw:
+                def insert_or_get_id(table: str, value: str) -> int | None:
+                    row = cur.execute(f"SELECT id FROM {table} WHERE name = ?", (value,)).fetchone()
+                    if row:
+                        (id,) = row
+                        return id
+                    cur.execute(f"INSERT INTO {table} (name) VALUES (?)", (value,))
+                    return cur.lastrowid
+
+                for table, col, raw_key in ENTITIES:
+                    for name in [v.strip() for v in raw.get(raw_key, "").split(",") if v and v != "N/A"]:
+                        cur.execute(
+                            f"INSERT OR IGNORE INTO film_{table} (film_id, {col}_id) VALUES (?, ?)",
+                            (film_id, insert_or_get_id(table, name))
+                        )
+
+            _refresh_search(cur, film_id)
+
+        # Insert or update job metadata (ON CONFLICT rather than REPLACE so the orphan-film trigger fires on relink)
+        job_cols = ("job_id", "film_id", "uploader", "process_date", "json", "barcode_type", "frame_type",
+                    "metric", "source_width", "source_height", "source_fps", "source_frame_count")
         cur.execute(
-            """
-          INSERT OR REPLACE INTO films
-              (title, imdb_id, released, type, runtime_minutes, job_id)
-          VALUES
-              (?, ?, ?, ?, ?, ?)
-          """,
-            (title, imdb_id, released, type_, runtime, job_id)
-        )
-
-        # If raw data is available, update junction tables for genres, directors, writers, actors, languages, and countries
-        if raw:
-            # Clear and re-insert all junction table entries
-            for junction_table in ("film_genres", "film_directors", "film_writers", "film_actors", "film_languages", "film_countries"):
-                cur.execute(
-                    f"DELETE FROM {junction_table} WHERE job_id = ?",
-                    (job_id,)
-                )
-
-            def insert_or_get_id(table: str, col: str, value: str) -> int | None:
-                cur.execute(
-                    f"SELECT id FROM {table} WHERE {col} = ?",
-                    (value,)
-                )
-                row = cur.fetchone()
-                if row:
-                    (id,) = row
-                    return id
-                cur.execute(
-                    f"INSERT INTO {table} ({col}) VALUES (?)",
-                    (value,)
-                )
-                return cur.lastrowid
-
-            def clean_and_split(col: str) -> list[str]:
-                return [g.strip() for g in raw.get(col, "").split(",") if g and g != "N/A"]
-
-            def insert_links(key: str, table: str, col: str):
-                keys = clean_and_split(key)
-                for key in keys:
-                    id = insert_or_get_id(table, "name", key)
-                    cur.execute(
-                        f"INSERT OR IGNORE INTO film_{table} (job_id, {col}_id) VALUES (?, ?)",
-                        (job_id, id)
-                    )
-            insert_links("Genre", "genres", "genre")
-            insert_links("Director", "directors", "director")
-            insert_links("Writer", "writers", "writer")
-            insert_links("Actors", "actors", "actor")
-            insert_links("Language", "languages", "language")
-            insert_links("Country", "countries", "country")
-
-        # Insert job metadata
-        cur.execute(
-            """
-          INSERT OR REPLACE INTO analyzed_files
-              (job_id, uploader, process_date, json, poster, barcode_type, frame_type,
-              metric, source_width, source_height, source_fps, source_frame_count)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            f"""
+          INSERT INTO analyzed_files ({", ".join(job_cols)})
+          VALUES ({", ".join("?" for _ in job_cols)})
+          ON CONFLICT(job_id) DO UPDATE SET {", ".join(f"{c} = excluded.{c}" for c in job_cols[1:])}
           """,
             (
                 job_id,
+                film_id,
                 config.get("email", "").lower(),
                 datetime.fromisoformat(
                     data.get("submittedAt").replace("Z", "+00:00")
                 ).date() or datetime.now().date(),
-                json_loc,
-                poster_loc,
+                json_rel,
                 config.get("barcode_type").lower(),
                 config.get("frame_type").lower(),
                 config.get("color_metric").lower(),
@@ -435,67 +472,6 @@ def upsert_job(job_id: str, data: Job, upload_metadata: UploadMetadata, json_loc
         )
 
 
-def update_search_table(job_id: str, db_path: Path = films_db, con: sqlite3.Connection | None = None):
-    """Update the full-text search table for a given job ID, aggregating related entities into concatenated strings for efficient searching."""
-    with DbConnection(db_path=db_path) as con:
-        cur = con.cursor()
-
-        cur.execute(
-            """
-          INSERT INTO films_search
-              (job_id, title, director, actor, country, genre, language, writer)
-          SELECT
-              f.job_id,
-              f.title,
-              COALESCE(d.directors, ''),
-              COALESCE(a.actors, ''),
-              COALESCE(c.countries, ''),
-              COALESCE(g.genres, ''),
-              COALESCE(l.languages, ''),
-              COALESCE(w.writers, '')
-          FROM films f
-          LEFT JOIN (
-              SELECT fd.job_id, GROUP_CONCAT(DISTINCT d.name) AS directors
-              FROM film_directors fd
-              JOIN directors d ON d.id = fd.director_id
-              GROUP BY fd.job_id
-          ) d ON d.job_id = f.job_id
-          LEFT JOIN (
-              SELECT fa.job_id, GROUP_CONCAT(DISTINCT a.name) AS actors
-              FROM film_actors fa
-              JOIN actors a ON a.id = fa.actor_id
-              GROUP BY fa.job_id
-          ) a ON a.job_id = f.job_id
-          LEFT JOIN (
-              SELECT fc.job_id, GROUP_CONCAT(DISTINCT c.name) AS countries
-              FROM film_countries fc
-              JOIN countries c ON c.id = fc.country_id
-              GROUP BY fc.job_id
-          ) c ON c.job_id = f.job_id
-          LEFT JOIN (
-              SELECT fg.job_id, GROUP_CONCAT(DISTINCT g.name) AS genres
-              FROM film_genres fg
-              JOIN genres g ON g.id = fg.genre_id
-              GROUP BY fg.job_id
-          ) g ON g.job_id = f.job_id
-          LEFT JOIN (
-              SELECT fl.job_id, GROUP_CONCAT(DISTINCT l.name) AS languages
-              FROM film_languages fl
-              JOIN languages l ON l.id = fl.language_id
-              GROUP BY fl.job_id
-          ) l ON l.job_id = f.job_id
-          LEFT JOIN (
-              SELECT fw.job_id, GROUP_CONCAT(DISTINCT w.name) AS writers
-              FROM film_writers fw
-              JOIN writers w ON w.id = fw.writer_id
-              GROUP BY fw.job_id
-          ) w ON w.job_id = f.job_id
-          WHERE f.job_id = ?
-          """,
-            (job_id,)
-        )
-
-
 def get_job_metadata(job_id: str) -> Job:
     """
     Retrieve the job metadata for a given job ID by reading the corresponding JSON file from the filesystem.
@@ -504,7 +480,7 @@ def get_job_metadata(job_id: str) -> Job:
     """
     metadata_path = RESULTS_DIR / job_id / "metadata.json"
     try:
-        with metadata_path.open("r") as f:
+        with metadata_path.open("r", encoding="utf-8") as f:
             data = json.load(f)
         return data
     except json.JSONDecodeError:
@@ -516,64 +492,46 @@ def get_job_metadata(job_id: str) -> Job:
 def get_job(job_id: str, db_path: Path = films_db, con: sqlite3.Connection | None = None) -> FilmRecord | None:
     """Retrieve a complete film record for a given job ID."""
     with DbConnection(db_path=db_path, readonly=True) as con:
+        con.row_factory = sqlite3.Row
         cur = con.cursor()
 
-        cur.execute(
-            "SELECT * FROM films WHERE job_id = ?",
+        row = cur.execute(
+            """
+          SELECT f.id AS film_id, f.title, f.imdb_id, f.released, f.type, f.runtime_minutes, f.poster, af.*
+          FROM analyzed_files af
+          JOIN films f ON f.id = af.film_id
+          WHERE af.job_id = ?
+          """,
             (job_id,)
-        )
-        film_row = cur.fetchone()
-        if film_row is None:
+        ).fetchone()
+        if row is None:
             return None
 
-        cur.execute(
-            "SELECT * FROM analyzed_files WHERE job_id = ?",
-            (job_id,)
-        )
-        analyzed_file_row = cur.fetchone()
-        if analyzed_file_row is None:
-            return None
-
-        def fetch_names(table: str, join_table: str, col: str) -> list[str]:
+        def fetch_names(table: str, col: str) -> list[str]:
             cur.execute(
-                f"""
-                SELECT {table[0]}.name FROM {table} {table[0]}
-                JOIN {join_table} j ON {table[0]}.id = j.{col}_id
-                WHERE j.job_id = ?
-                """,
-                (job_id,),
+                f"SELECT e.name FROM {table} e JOIN film_{table} j ON e.id = j.{col}_id WHERE j.film_id = ?",
+                (row["film_id"],),
             )
             return [r[0] for r in cur.fetchall()]
 
-        film = FilmRecord(
-            job_id=film_row[0],
-            title=film_row[1],
-            imdb_id=film_row[2],
-            released=film_row[3],
-            type=film_row[4],
-            runtime_minutes=film_row[5],
-            job={
-                "uploader": analyzed_file_row[1],
-                "process_date": analyzed_file_row[2],
-                "json": analyzed_file_row[3],
-                "poster": analyzed_file_row[4],
-                "barcode_type": analyzed_file_row[5],
-                "frame_type": analyzed_file_row[6],
-                "metric": analyzed_file_row[7],
-                "source_width": analyzed_file_row[8],
-                "source_height": analyzed_file_row[9],
-                "source_fps": analyzed_file_row[10],
-                "source_frame_count": analyzed_file_row[11],
-            },
-            actors=fetch_names("actors", "film_actors", "actor"),
-            genres=fetch_names("genres", "film_genres", "genre"),
-            directors=fetch_names("directors", "film_directors", "director"),
-            writers=fetch_names("writers", "film_writers", "writer"),
-            languages=fetch_names("languages", "film_languages", "language"),
-            countries=fetch_names("countries", "film_countries", "country")
+        names = {table: fetch_names(table, col) for table, col, _ in ENTITIES}
+        return FilmRecord(
+            job_id=row["job_id"],
+            film_id=row["film_id"],
+            title=row["title"],
+            imdb_id=row["imdb_id"],
+            released=row["released"],
+            type=row["type"],
+            runtime_minutes=row["runtime_minutes"],
+            poster=row["poster"],
+            job={k: row[k] for k in JobDetails.__annotations__},  # type: ignore
+            actors=names["actors"],
+            genres=names["genres"],
+            directors=names["directors"],
+            writers=names["writers"],
+            languages=names["languages"],
+            countries=names["countries"],
         )
-
-        return film
 
 
 def get_recent_jobs(limit: int = 10, db_path: Path = films_db, con: sqlite3.Connection | None = None) -> list[FilmRecord]:
@@ -597,23 +555,18 @@ def get_recent_jobs(limit: int = 10, db_path: Path = films_db, con: sqlite3.Conn
         return results
 
 
-def delete_job(job_id: str, db_path: Path = films_db, con: sqlite3.Connection | None = None):
-    """Delete a job and all related records from the database for a given job ID."""
+def update_film(film_id: int, title: str, released: str | None, type_: str | None, runtime_minutes: int | None, db_path: Path = films_db, con: sqlite3.Connection | None = None):
+    """Update a film's basic info (shared by all of its analyses) and its search row."""
     with DbConnection(db_path=db_path) as con:
         cur = con.cursor()
+        cur.execute(
+            "UPDATE films SET title = ?, released = ?, type = ?, runtime_minutes = ? WHERE id = ?",
+            (title, released, type_, runtime_minutes, film_id)
+        )
+        _refresh_search(cur, film_id)
 
-        def delete_job_from_table(table: str):
-            cur.execute(
-                f"DELETE FROM {table} WHERE job_id = ?",
-                (job_id,)
-            )
 
-        delete_job_from_table("film_genres")
-        delete_job_from_table("film_directors")
-        delete_job_from_table("film_writers")
-        delete_job_from_table("film_actors")
-        delete_job_from_table("film_languages")
-        delete_job_from_table("film_countries")
-        delete_job_from_table("films")
-        delete_job_from_table("analyzed_files")
-        delete_job_from_table("films_search")
+def delete_job(job_id: str, db_path: Path = films_db, con: sqlite3.Connection | None = None):
+    """Delete a job. Its film (with links and search row) is removed by triggers once no other job uses it."""
+    with DbConnection(db_path=db_path) as con:
+        con.execute("DELETE FROM analyzed_files WHERE job_id = ?", (job_id,))

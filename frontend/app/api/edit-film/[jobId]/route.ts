@@ -1,6 +1,15 @@
 import {NextRequest, NextResponse} from "next/server";
 import {withDb} from "@/lib/db";
-import { syncJobMetadataMovie } from "@/lib/job-metadata";
+
+// [entity table, link column prefix]; each has a film_<table> link table. Same as ENTITIES in db.py
+const ENTITIES = [
+    ["genres", "genre"],
+    ["directors", "director"],
+    ["writers", "writer"],
+    ["actors", "actor"],
+    ["languages", "language"],
+    ["countries", "country"],
+] as const;
 
 /** GET */
 export async function GET(
@@ -12,30 +21,34 @@ export async function GET(
     try {
         const film = withDb((db) => {
             const row = db
-            .prepare("SELECT job_id, title, imdb_id, released, type, runtime_minutes FROM films WHERE job_id = ?")
-            .get(jobId) as {job_id: string; title: string; imdb_id: string | null;
+            .prepare(
+                `SELECT af.job_id, f.id AS film_id, f.title, f.imdb_id, f.released, f.type, f.runtime_minutes
+                FROM analyzed_files af JOIN films f ON f.id = af.film_id
+                WHERE af.job_id = ?`
+            )
+            .get(jobId) as {job_id: string; film_id: number; title: string; imdb_id: string | null;
                 released: string | null; type:string | null; runtime_minutes: number | null } | undefined;
             if (!row) return null;
 
-            const fetchNames = (table: string, joinTable: string, col:string): string[] => {
+            const fetchNames = (table: string, col:string): string[] => {
                 const rows = db
                 .prepare(
                     `SELECT t.name FROM ${table} t
-                    JOIN ${joinTable} j ON t.id = j.${col}_id
-                    WHERE j.job_id = ?`
+                    JOIN film_${table} j ON t.id = j.${col}_id
+                    WHERE j.film_id = ?`
                 )
-                .all(jobId) as {name:string}[];
+                .all(row.film_id) as {name:string}[];
             return rows.map((r) => r.name);
             };
 
         return {
         ...row,
-        directors: fetchNames("directors", "film_directors", "director"),
-        actors: fetchNames("actors", "film_actors", "actor"),
-        genres: fetchNames("genres", "film_genres", "genre"),
-        writers: fetchNames("writers", "film_writers", "writer"),
-        languages: fetchNames("languages", "film_languages", "language"),
-        countries: fetchNames("countries", "film_countries", "country"),
+        directors: fetchNames("directors", "director"),
+        actors: fetchNames("actors", "actor"),
+        genres: fetchNames("genres", "genre"),
+        writers: fetchNames("writers", "writer"),
+        languages: fetchNames("languages", "language"),
+        countries: fetchNames("countries", "country"),
         };
     });
 
@@ -51,10 +64,10 @@ export async function GET(
 
 /**
  * PUT
- * updates film metadata and junction table
+ * updates the metadata of the job's film (shared by every analysis of that film) and its junction tables.
+ * Changing the IMDb ID moves this job to the film with that ID, creating one if needed;
+ * other jobs keep their film. Films left without jobs are deleted by a database trigger.
  * expects json with film metadata
- *
- * basically edit_database.py
  */
 export async function PUT(
     request: NextRequest,
@@ -71,102 +84,81 @@ export async function PUT(
                 return NextResponse.json({error: "Title is required"}, {status: 400});
             }
 
-        withDb((db) => {
+        const names: Record<string, string[]> = {directors, actors, genres, writers, languages, countries};
+        const newImdbId: string | null = imdb_id?.trim() || null;
+
+        const found = withDb((db) => db.transaction(() => {
+            const job = db
+            .prepare(
+                `SELECT af.film_id, f.imdb_id, f.poster
+                FROM analyzed_files af JOIN films f ON f.id = af.film_id
+                WHERE af.job_id = ?`
+            )
+            .get(jobId) as {film_id: number; imdb_id: string | null; poster: string | null} | undefined;
+            if (!job) return false;
+
+            let filmId = job.film_id;
+            if (newImdbId !== job.imdb_id) {
+                const target = newImdbId
+                    ? db.prepare("SELECT id FROM films WHERE imdb_id = ?").get(newImdbId) as {id: number} | undefined
+                    : undefined;
+                const {n} = db.prepare("SELECT COUNT(*) AS n FROM analyzed_files WHERE film_id = ?").get(filmId) as {n: number};
+
+                if (target) {
+                    filmId = target.id;
+                } else if (n > 1) {
+                    // Other jobs still use the current film, so split this job off into its own film
+                    filmId = Number(db.prepare("INSERT INTO films (title, poster) VALUES (?, ?)").run(title, job.poster).lastInsertRowid);
+                }
+                // else: this job is the film's only one, so the film itself is updated below
+
+                if (filmId !== job.film_id) {
+                    db.prepare("UPDATE analyzed_files SET film_id = ? WHERE job_id = ?").run(filmId, jobId);
+                }
+            }
+
             // update film table
             db.prepare(
                 `UPDATE films
                 SET title = ?, imdb_id = ?, released = ?, type = ?, runtime_minutes = ?
-                WHERE job_id = ?`
-            ).run(title, imdb_id, released, type, runtime_minutes, jobId);
+                WHERE id = ?`
+            ).run(title, newImdbId, released, type, runtime_minutes, filmId);
 
             // update junction tables (ex: mutiple directors)
-            // same logic as insert_links() in db.py
-            function updateJunction(names: string[], entityTable: string, junctionTable: string, colPrefix: string) {
-                db.prepare(`DELETE FROM ${junctionTable} WHERE job_id = ?`).run(jobId);
+            // same logic as upsert_job() in db.py
+            for (const [table, col] of ENTITIES) {
+                db.prepare(`DELETE FROM film_${table} WHERE film_id = ?`).run(filmId);
 
-                if (!names || names.length === 0) return;
+                const find = db.prepare(`SELECT id FROM ${table} WHERE name = ?`);
+                const insertEntity = db.prepare(`INSERT INTO ${table} (name) VALUES (?)`);
+                const insertLink = db.prepare(`INSERT OR IGNORE INTO film_${table} (film_id, ${col}_id) VALUES (?, ?)`);
 
-                const findStmt = db.prepare(`SELECT id FROM ${entityTable} WHERE name = ?`);
-                const insertEntityStmt = db.prepare(`INSERT INTO ${entityTable} (name) VALUES (?)`);
-                const insertLinkStmt = db.prepare(`INSERT OR IGNORE INTO ${junctionTable} (job_id, ${colPrefix}_id) VALUES (?, ?)`);
-
-                for (const name of names) {
+                for (const name of names[table] ?? []) {
                     const trimmed = name.trim();
                     if (!trimmed) continue;
 
-                    const existing = findStmt.get(trimmed) as {id: number} | undefined;
-                    const entityId = existing ? existing.id : insertEntityStmt.run(trimmed).lastInsertRowid;
-                    insertLinkStmt.run(jobId, entityId);
+                    const existing = find.get(trimmed) as {id: number} | undefined;
+                    insertLink.run(filmId, existing ? existing.id : insertEntity.run(trimmed).lastInsertRowid);
                 }
             }
 
-            updateJunction(directors, "directors", "film_directors", "director");
-            updateJunction(actors, "actors", "film_actors", "actor");
-            updateJunction(genres, "genres", "film_genres", "genre");
-            updateJunction(writers, "writers", "film_writers", "writer");
-            updateJunction(languages, "languages", "film_languages", "language");
-            updateJunction(countries, "countries", "film_countries", "country");
-
-            //delete old row and insert updated matadata
-            db.prepare("DELETE FROM films_search WHERE job_id = ?").run(jobId);
-
+            // rebuild search row, same as _refresh_search() in db.py
+            const cols = ENTITIES.map(([, col]) => col).join(", ");
+            const aggregates = ENTITIES.map(([table, col]) =>
+                `COALESCE((SELECT GROUP_CONCAT(DISTINCT e.name) FROM film_${table} j JOIN ${table} e ON e.id = j.${col}_id WHERE j.film_id = f.id), '')`
+            ).join(", ");
+            db.prepare("DELETE FROM films_search WHERE film_id = ?").run(filmId);
             db.prepare(
-                `INSERT INTO films_search (job_id, title, director, actor, country, genre, language, writer)
-                SELECT
-                f.job_id,
-                f.title,
-                COALESCE(d.directors, ''),
-                COALESCE(a.actors, ''),
-                COALESCE(c.countries, ''),
-                COALESCE(g.genres, ''),
-                COALESCE(l.languages, ''),
-                COALESCE(w.writers, '')
-                FROM films f
-                LEFT JOIN (
-                SELECT fd.job_id, GROUP_CONCAT(DISTINCT d.name) AS directors
-                FROM film_directors fd JOIN directors d ON d.id = fd.director_id
-                GROUP BY fd.job_id
-                ) d ON d.job_id = f.job_id
-                LEFT JOIN (
-                SELECT fa.job_id, GROUP_CONCAT(DISTINCT a.name) AS actors
-                FROM film_actors fa JOIN actors a ON a.id = fa.actor_id
-                GROUP BY fa.job_id
-                ) a ON a.job_id = f.job_id
-                LEFT JOIN (
-                SELECT fc.job_id, GROUP_CONCAT(DISTINCT c.name) AS countries
-                FROM film_countries fc JOIN countries c ON c.id = fc.country_id
-                GROUP BY fc.job_id
-                ) c ON c.job_id = f.job_id
-                LEFT JOIN (
-                SELECT fg.job_id, GROUP_CONCAT(DISTINCT g.name) AS genres
-                FROM film_genres fg JOIN genres g ON g.id = fg.genre_id
-                GROUP BY fg.job_id
-                ) g ON g.job_id = f.job_id
-                LEFT JOIN (
-                SELECT fl.job_id, GROUP_CONCAT(DISTINCT l.name) AS languages
-                FROM film_languages fl JOIN languages l ON l.id = fl.language_id
-                GROUP BY fl.job_id
-                ) l ON l.job_id = f.job_id
-                LEFT JOIN (
-                SELECT fw.job_id, GROUP_CONCAT(DISTINCT w.name) AS writers
-                FROM film_writers fw JOIN writers w ON w.id = fw.writer_id
-                GROUP BY fw.job_id
-                ) w ON w.job_id = f.job_id
-                WHERE f.job_id = ?`
-            ).run(jobId);
-        });
+                `INSERT INTO films_search (film_id, title, ${cols})
+                SELECT f.id, f.title, ${aggregates} FROM films f WHERE f.id = ?`
+            ).run(filmId);
 
-        await syncJobMetadataMovie(jobId, {
-            title,
-            imdbId: imdb_id,
-            released,
-            type,
-            runtimeMinutes: runtime_minutes,
-            directors,
-            genres,
-            countries,
-        });
+            return true;
+        })());
 
+        if (!found) {
+            return NextResponse.json({error: "Film not found"}, {status: 404});
+        }
         return NextResponse.json({success:true});
     } catch (error) {
         console.error("PUT /api/edit-film error:", error);
@@ -176,7 +168,8 @@ export async function PUT(
 
 /**
  * DELETE
- * same as delete_job() in db.py
+ * same as delete_job() in db.py: the film, its junction rows and search row
+ * are removed by triggers/cascades once no other job uses it
  */
 export async function DELETE(
     _request: NextRequest,
@@ -186,25 +179,7 @@ export async function DELETE(
 
     try {
         withDb((db) => {
-            const junctionTables = [
-               "film_genres",
-                "film_directors",
-                "film_writers",
-                "film_actors",
-                "film_languages",
-                "film_countries",
-            ];
-
-            for (const table of junctionTables) {
-                db.prepare(`DELETE FROM ${table} WHERE job_id = ?`).run(jobId);
-            }
-
-            // deete from main table
             db.prepare("DELETE FROM analyzed_files WHERE job_id = ?").run(jobId);
-            db.prepare("DELETE FROM films WHERE job_id = ?").run(jobId);
-
-            // Delete from the FTS search table
-            db.prepare("DELETE FROM films_search WHERE job_id = ?").run(jobId);
         });
 
         return NextResponse.json({success: true});

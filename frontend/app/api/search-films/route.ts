@@ -1,6 +1,5 @@
-import { promises as fs } from 'fs';
 import { NextRequest, NextResponse } from "next/server";
-import { getAnalysesByImdbId, FilmSearchResult, withDb } from "@/lib/db";
+import { ANALYSIS_SELECT, getAnalysesByImdbId, FilmSearchResult, readPoster, withDb } from "@/lib/db";
 
 const IMDB_ID_PATTERN = /^tt\d{5,8}$/i;
 
@@ -20,42 +19,7 @@ export async function GET(request: NextRequest) {
     }
     else if (random) {
       const sql = (
-        `SELECT 
-          f.job_id,
-          f.title,
-          f.imdb_id,
-          af.poster,
-          d.director,
-          f.runtime_minutes,
-          c.country,
-          f.released,
-          af.barcode_type,
-          af.frame_type,
-          af.metric,
-          af.process_date,
-          af.source_width,
-          af.source_height,
-          af.source_fps,
-          af.source_frame_count
-        FROM films_search
-        JOIN films f ON f.job_id = films_search.job_id
-
-        INNER JOIN analyzed_files af ON af.job_id = f.job_id
-
-        LEFT JOIN (
-          SELECT fd.job_id, GROUP_CONCAT(d.name) AS director
-          FROM film_directors fd
-          JOIN directors d ON fd.director_id = d.id
-          GROUP BY fd.job_id
-        ) d ON f.job_id = d.job_id
-
-        LEFT JOIN (
-          SELECT fc.job_id, GROUP_CONCAT(c.name) AS country
-          FROM film_countries fc
-          JOIN countries c ON fc.country_id = c.id
-          GROUP BY fc.job_id
-        ) c ON f.job_id = c.job_id
-
+        `${ANALYSIS_SELECT}
         ORDER BY RANDOM()
         LIMIT 5`
       );
@@ -75,42 +39,8 @@ export async function GET(request: NextRequest) {
       }
 
       const sql = (
-        `SELECT 
-          f.job_id,
-          f.title,
-          f.imdb_id,
-          af.poster,
-          d.director,
-          f.runtime_minutes,
-          c.country,
-          f.released,
-          af.barcode_type,
-          af.frame_type,
-          af.metric,
-          af.process_date,
-          af.source_width,
-          af.source_height,
-          af.source_fps,
-          af.source_frame_count
-        FROM films_search
-        JOIN films f ON f.job_id = films_search.job_id
-
-        INNER JOIN analyzed_files af ON af.job_id = f.job_id
-
-        LEFT JOIN (
-          SELECT fd.job_id, GROUP_CONCAT(d.name) AS director
-          FROM film_directors fd
-          JOIN directors d ON fd.director_id = d.id
-          GROUP BY fd.job_id
-        ) d ON f.job_id = d.job_id
-
-        LEFT JOIN (
-          SELECT fc.job_id, GROUP_CONCAT(c.name) AS country
-          FROM film_countries fc
-          JOIN countries c ON fc.country_id = c.id
-          GROUP BY fc.job_id
-        ) c ON f.job_id = c.job_id
-
+        `${ANALYSIS_SELECT}
+        JOIN films_search ON films_search.film_id = f.id
         ${ret && clause ? `WHERE ${clause}` : ``}
         ORDER BY f.title ASC, af.process_date DESC
         LIMIT 50`
@@ -124,17 +54,10 @@ export async function GET(request: NextRequest) {
 
     // Map poster to browser URL
     const results = await Promise.all(
-      rawResults.map(async (film) => {
-        let posterData: string | null = null;
-        if (film.poster) {
-          const fileBuffer = await fs.readFile(film.poster);
-          posterData = `data:image/jpeg;base64,${fileBuffer.toString("base64")}`;
-        }
-        return {
-          ...film,
-          poster: posterData,
-        };
-      })
+      rawResults.map(async (film) => ({
+        ...film,
+        poster: await readPoster(film.poster),
+      }))
     );
 
     return NextResponse.json({ results });

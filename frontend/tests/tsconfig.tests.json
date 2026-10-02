@@ -12,14 +12,12 @@
     "../tests/barcode-utils.test.ts",
     "../tests/film-of-day.test.ts",
     "../tests/multi-analysis.test.ts",
-    "../tests/job-metadata.test.ts",
     "../tests/theme-provider.test.ts",
     "../app/components/theme.ts",
     "../lib/barcode-result.ts",
     "../lib/barcode-utils.ts",
     "../lib/film-of-day.ts",
     "../lib/multi-analysis.ts",
-    "../lib/submission-batches.ts",
-    "../lib/job-metadata.ts"
+    "../lib/submission-batches.ts"
   ]
 }

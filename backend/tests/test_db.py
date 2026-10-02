@@ -1,0 +1,54 @@
+from pathlib import Path
+import sqlite3
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from database import RESULTS_DIR, create_db, delete_job, upsert_job, update_film
+
+
+def make_job(title: str, imdb_id: str | None) -> dict:
+    return {
+        "config": {"email": "a@b.c", "barcode_type": "Color", "frame_type": "Whole_frame", "color_metric": "Average"},
+        "submittedAt": "2026-01-01T00:00:00Z",
+        "movie": {"title": title, "imdb_id": imdb_id, "raw": {"Director": "Wong Kar-wai", "Type": "movie"}},
+    }
+
+
+def count(db: Path, sql: str) -> int:
+    con = sqlite3.connect(db)
+    try:
+        return con.execute(sql).fetchone()[0]
+    finally:
+        con.close()
+
+
+def test_jobs_share_film_and_orphans_are_removed(tmp_path):
+    db = tmp_path / "films.db"
+    create_db(db)
+
+    upsert_job("job1", make_job("Chungking Express", "tt0109424"), {}, str(RESULTS_DIR / "job1" / "barcode.json"), str(RESULTS_DIR / "job1" / "poster.jpg"), db)
+    con = sqlite3.connect(db)
+    (film_id,) = con.execute("SELECT film_id FROM analyzed_files WHERE job_id = 'job1'").fetchone()
+    con.close()
+    update_film(film_id, "Edited Title", None, "movie", 102, db_path=db)
+
+    # Same IMDb ID reuses the film and keeps the manual edit
+    upsert_job("job2", make_job("Chungking Express (Criterion)", "tt0109424"), {}, str(RESULTS_DIR / "job2" / "barcode.json"), None, db)
+    assert count(db, "SELECT COUNT(*) FROM films") == 1
+    assert count(db, "SELECT COUNT(*) FROM films WHERE title = 'Edited Title' AND poster = 'job1/poster.jpg'") == 1
+    assert count(db, "SELECT COUNT(*) FROM films_search WHERE films_search MATCH 'edited'") == 1
+    assert count(db, "SELECT COUNT(*) FROM analyzed_files WHERE json = 'job2/barcode.json'") == 1
+
+    # Films without an IMDb ID are never shared
+    upsert_job("job3", make_job("Home Video", None), {}, str(RESULTS_DIR / "job3" / "barcode.json"), None, db)
+    upsert_job("job4", make_job("Home Video", ""), {}, str(RESULTS_DIR / "job4" / "barcode.json"), None, db)
+    assert count(db, "SELECT COUNT(*) FROM films") == 3
+
+    # Film survives until its last job is deleted, then links and search row go with it
+    delete_job("job1", db)
+    assert count(db, f"SELECT COUNT(*) FROM films WHERE id = {film_id}") == 1
+    delete_job("job2", db)
+    assert count(db, f"SELECT COUNT(*) FROM films WHERE id = {film_id}") == 0
+    assert count(db, f"SELECT COUNT(*) FROM film_directors WHERE film_id = {film_id}") == 0
+    assert count(db, f"SELECT COUNT(*) FROM films_search WHERE film_id = {film_id}") == 0

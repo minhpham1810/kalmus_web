@@ -1,7 +1,7 @@
 """
 This file can be used to add entries to the database if processing was completed but there was an
-error updating the database. It should not be used on the same job more than once without removing
-old entries from the database.
+error updating the database. Re-running it on a job updates that job's row; an existing film with
+the same IMDb ID is reused as-is.
 """
 
 
@@ -30,7 +30,7 @@ def get_upload_metadata(job_id: str) -> dict:
         }
         return upload_metadata
     except json.JSONDecodeError:
-        print("Invalid JSON:", job_dir)
+        print("Invalid JSON:", barcode_path)
         return {}
 
 def main():
@@ -41,12 +41,10 @@ def main():
 
     film_metadata = get_job_metadata(job_id)
     upload_metadata = get_upload_metadata(job_id)
+    poster = RESULTS_DIR / job_id / "poster.jpg"
 
-    # Save to database
-    upsert_job(job_id, film_metadata, upload_metadata, str(RESULTS_DIR / job_id / "barcode.json"), str(RESULTS_DIR / job_id / "poster.jpg"))
-
-    # Update search table
-    update_search_table(job_id)
+    # Save to database (also updates the search table)
+    upsert_job(job_id, film_metadata, upload_metadata, str(RESULTS_DIR / job_id / "barcode.json"), str(poster) if poster.exists() else None)
 
 if __name__ == "__main__":
     main()

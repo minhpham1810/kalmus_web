@@ -1,5 +1,4 @@
 import requests
-import json
 from datetime import datetime
 from pathlib import Path
 import sys
@@ -25,24 +24,6 @@ def format_date_safe(date_str: str) -> str | None:
         return datetime.strptime(date_str, "%d %b %Y").strftime("%Y-%m-%d")
     except (ValueError, TypeError):
         return date_str  # Return original if parsing fails
-
-
-def get_upload_metadata(job_id: str) -> UploadMetadata:
-    barcode_path = RESULTS_DIR / job_id / "barcode.json"
-    try:
-        with open(barcode_path, "r") as f:
-            data = json.load(f)
-
-        upload_metadata = UploadMetadata(
-            width=data.get("high_bound_hor"),
-            height=data.get("high_bound_ver"),
-            fps=data.get("fps"),
-            frame_count=data.get("film_length_in_frames"),
-        )
-        return upload_metadata
-    except json.JSONDecodeError:
-        print("Invalid JSON:", barcode_path)
-        raise
 
 
 def edit_job(job_id: str):
@@ -89,19 +70,9 @@ def edit_job(job_id: str):
     new_runtime = input(
         f"New runtime in minutes (leave blank to keep '{new_runtime}'): ").strip() or new_runtime
 
-    film_metadata = get_job_metadata(job_id)
-    film_metadata["movie"]["title"] = new_title
-    film_metadata["movie"]["imdb_id"] = new_imdb
-    if "raw" not in film_metadata["movie"]:
-        film_metadata["movie"]["raw"] = MovieRaw(
-            Released=new_released,
-            Type=new_type,
-            Runtime=f"{new_runtime} min" if new_runtime else ""
-        )
-    upload_metadata = get_upload_metadata(job_id)
-
-    upsert_job(job_id, film_metadata, upload_metadata,
-               film["job"]["json"], film["job"]["poster"])
+    # Films are shared, so this edits every analysis of this film
+    update_film(film["film_id"], new_title, new_released, new_type,
+                int(new_runtime) if str(new_runtime).isdigit() else None)
 
     print("Film updated!")
 
