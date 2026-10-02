@@ -11,6 +11,20 @@ from pathlib import Path
 
 # Import the visualizer module
 import kalmus_visualizer as visualizer
+from film_compare import FilmProfile, compare
+
+
+def film_report(barcode_1, barcode_2):
+    """Palette, lightness and editing comparison (film_compare.py). Colour barcodes only."""
+    if barcode_1.barcode_type != 'color':
+        return None
+    try:
+        # ponytail: no credit trimming or letterbox correction; add trim_end_s once films carry credit times
+        profiles = [FilmProfile.from_frames(b.colors, b.fps / b.sampled_frame_rate, name=name)
+                    for b, name in ((barcode_1, 'Film A'), (barcode_2, 'Film B'))]
+    except ValueError as e:   # range too short to profile
+        return {'error': str(e)}
+    return compare(*profiles).to_dict()
 
 
 def main():
@@ -19,12 +33,16 @@ def main():
     parser = argparse.ArgumentParser(description='Compare two KALMUS barcodes')
     parser.add_argument('--job-id-1', required=True, help='First job ID')
     parser.add_argument('--job-id-2', required=True, help='Second job ID')
-    parser.add_argument('--start-1', type=int, help='Start frame index for the first barcode')
-    parser.add_argument('--end-1', type=int, help='End frame index for the first barcode')
-    parser.add_argument('--start-2', type=int, help='Start frame index for the second barcode')
-    parser.add_argument('--end-2', type=int, help='End frame index for the second barcode')
+    parser.add_argument('--start-1', type=int,
+                        help='Start frame index for the first barcode')
+    parser.add_argument('--end-1', type=int,
+                        help='End frame index for the first barcode')
+    parser.add_argument('--start-2', type=int,
+                        help='Start frame index for the second barcode')
+    parser.add_argument('--end-2', type=int,
+                        help='End frame index for the second barcode')
     parser.add_argument('--results-dir', default='/shared/kalmus/results',
-                       help='Results directory')
+                        help='Results directory')
 
     args = parser.parse_args()
 
@@ -36,13 +54,16 @@ def main():
     barcode_2 = visualizer.load_barcode_from_json(json_path_2)
 
     if args.start_1 is not None or args.end_1 is not None:
-        barcode_1 = visualizer.slice_barcode_by_frame_range(barcode_1, args.start_1, args.end_1)
+        barcode_1 = visualizer.slice_barcode_by_frame_range(
+            barcode_1, args.start_1, args.end_1)
 
     if args.start_2 is not None or args.end_2 is not None:
-        barcode_2 = visualizer.slice_barcode_by_frame_range(barcode_2, args.start_2, args.end_2)
+        barcode_2 = visualizer.slice_barcode_by_frame_range(
+            barcode_2, args.start_2, args.end_2)
 
     # Generate comparison metrics
     metrics = visualizer.generate_comparison_metrics(barcode_1, barcode_2)
+    metrics['film'] = film_report(barcode_1, barcode_2)
 
     # Output as JSON
     print(json.dumps(metrics, indent=2))
