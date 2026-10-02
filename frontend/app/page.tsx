@@ -202,6 +202,8 @@ function FilmResultCard({ film, hideBarcode }: { film: GroupedFilm; hideBarcode?
             <Image
               src="/missing_poster_thumb.png"
               alt="No poster"
+              width={80}
+              height={120}
               style={{ height: "auto" }}
               priority
             />
