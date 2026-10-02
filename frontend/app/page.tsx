@@ -255,9 +255,9 @@ function FilmResultCard({
               key={a.job_id}
               href={`/results/${a.job_id}`}
               aria-label={`View result for ${film.title}`}
-              className="grid grid-cols-1 sm:grid-cols-[1fr_2fr_auto] items-start sm:items-center gap-2 sm:gap-4 border-b-2 border-transparent py-2 sm:py-1 hover:border-blue-500"
+              className="grid grid-cols-[1fr_auto] items-center gap-4 border-b-2 border-transparent py-1 hover:border-blue-500"
             >
-              <div className="flex items-center gap-2 font-mono text-sm kalmus-text-secondary capitalize">
+              <div className="flex items-center gap-2 min-w-0 overflow-hidden whitespace-nowrap font-mono text-sm kalmus-text-secondary capitalize">
                 <span>{a.barcode_type}</span>
                 <span style={{ color: "var(--accent-crimson)" }}>|</span>
                 <span>{a.frame_type.replace(/_/g, " ")}</span>
@@ -270,15 +270,7 @@ function FilmResultCard({
                   </>
                 )}
               </div>
-              <div className="flex items-center gap-2 font-mono text-sm kalmus-text-secondary">
-                <span>Source File:</span>
-                <span>
-                  {a.source_width} x {a.source_height},
-                </span>
-                <span>{Number(a.source_fps).toFixed(3)} fps,</span>
-                <span>{a.source_frame_count} frames</span>
-              </div>
-              <div className="justify-self-start sm:justify-self-end font-mono text-xs tracking-wider uppercase px-3 py-1.5 transition-colors kalmus-button-filled">
+              <div className="justify-self-end font-mono text-xs tracking-wider uppercase px-3 py-1.5 transition-colors kalmus-button-filled">
                 <span>View →</span>
               </div>
             </Link>

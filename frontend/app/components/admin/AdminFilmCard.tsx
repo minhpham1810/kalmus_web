@@ -71,10 +71,10 @@ export default function AdminFilmCard({
               <Link
                 href={resultsHref(a.job_id)}
                 aria-label={`View result for ${film.title}`}
-                className="grid grid-cols-1 sm:grid-cols-[1fr_2fr_auto] items-start sm:items-center gap-2 sm:gap-4 border-b-2 border-transparent py-2 sm:py-1 hover:border-blue-500 flex-1"
+                className="grid grid-cols-[1fr_auto] items-center gap-4 border-b-2 border-transparent py-1 hover:border-blue-500 flex-1 min-w-0"
                 style={isAdminMode ? { color: "var(--accent-amber)" } : undefined}
               >
-                <div className="flex items-center gap-2 font-mono text-sm kalmus-text-secondary capitalize">
+                <div className="flex items-center gap-2 min-w-0 overflow-hidden whitespace-nowrap font-mono text-sm kalmus-text-secondary capitalize">
                   <span>{a.barcode_type}</span>
                   <span style={{ color: "var(--accent-crimson)" }}>|</span>
                   <span>{a.frame_type.replace(/_/g, " ")}</span>
@@ -87,15 +87,7 @@ export default function AdminFilmCard({
                     </>
                   )}
                 </div>
-                <div className="flex items-center gap-2 font-mono text-sm kalmus-text-secondary">
-                  <span>Source File:</span>
-                  <span>
-                    {a.source_width} x {a.source_height},
-                  </span>
-                  <span>{Number(a.source_fps).toFixed(3)} fps,</span>
-                  <span>{a.source_frame_count} frames</span>
-                </div>
-                <div className="justify-self-start sm:justify-self-end font-mono text-xs tracking-wider uppercase px-3 py-1.5 transition-colors text-[var(--text-muted)] hover:text-[var(--accent-amber)]">
+                <div className="justify-self-end font-mono text-xs tracking-wider uppercase px-3 py-1.5 transition-colors text-[var(--text-muted)] hover:text-[var(--accent-amber)]">
                   <span>View</span>
                 </div>
               </Link>
