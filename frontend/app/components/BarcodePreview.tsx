@@ -7,6 +7,13 @@ import {
   RGB,
   ThumbnailManifest,
 } from "@/lib/barcode-utils";
+import {
+  getDownloadSize,
+  withPngDpi,
+  PRINT_DPI,
+  PRINT_WIDTH_INCHES,
+  type DownloadVariant,
+} from "@/lib/barcode-download";
 
 export interface BarcodePreviewMovie {
   title: string;
@@ -172,6 +179,15 @@ interface BarcodePreviewProps {
   onPreviewPin?: (preview: BarcodePreviewData) => void;
 }
 
+const DOWNLOAD_OPTIONS: Array<{ variant: DownloadVariant; label: string; hint: string }> = [
+  { variant: "digital", label: "Regular", hint: "For screens and sharing" },
+  {
+    variant: "print",
+    label: "Large",
+    hint: `For printing, ${PRINT_WIDTH_INCHES} in wide @ ${PRINT_DPI} dpi`,
+  },
+];
+
 function formatTimestamp(totalSeconds: number | null): string {
   if (totalSeconds === null || Number.isNaN(totalSeconds)) return "Time unavailable";
 
@@ -221,6 +237,26 @@ export default function BarcodePreview({
   const [lastHandle, setLastHandle] = useState<"start" | "end">("start");
 
   const [shiftHeld, setShiftHeld] = useState(false);
+
+  const downloadMenuRef = useRef<HTMLDivElement>(null);
+  const [downloadMenuOpen, setDownloadMenuOpen] = useState(false);
+
+  // close download menu on outside click / Escape
+  useEffect(() => {
+    if (!downloadMenuOpen) return;
+    const onMouseDown = (e: MouseEvent) => {
+      if (!downloadMenuRef.current?.contains(e.target as Node)) setDownloadMenuOpen(false);
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setDownloadMenuOpen(false);
+    };
+    document.addEventListener("mousedown", onMouseDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onMouseDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [downloadMenuOpen]);
 
   const getZoomButtonStyle = (isActive: boolean) => ({
     background: isActive ? "var(--foreground)" : "var(--surface-bg-strong)",
@@ -493,16 +529,41 @@ useEffect(() => {
   skipOver,
 ]);
 
-  const handleDownload = () => {
+  const handleDownload = (variant: DownloadVariant) => {
+    setDownloadMenuOpen(false);
     if (!canvasRef.current) return;
     const slug = downloadTitle
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "_")
       .replace(/^_|_$/g, "");
-    const link = document.createElement("a");
-    link.download = `${slug}.png`;
-    link.href = canvasRef.current.toDataURL("image/png");
-    link.click();
+    // Upscale with nearest-neighbor so each frame stays a solid block of its
+    // exact color — no blending, no invented pixels.
+    const source = canvasRef.current;
+    const { width, height, dpi } = getDownloadSize(variant, source.width, source.height);
+    const out = document.createElement("canvas");
+    out.width = width;
+    out.height = height;
+    const ctx = out.getContext("2d");
+    if (!ctx) return;
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(source, 0, 0, out.width, out.height);
+    // Blob URL rather than a data URL: the print version is too large for the latter.
+    out.toBlob(async (blob) => {
+      if (!blob) return;
+      const file =
+        dpi === null
+          ? blob
+          : new Blob(
+              [withPngDpi(new Uint8Array(await blob.arrayBuffer()), dpi) as BlobPart],
+              { type: "image/png" }
+            );
+      const url = URL.createObjectURL(file);
+      const link = document.createElement("a");
+      link.download = variant === "print" ? `${slug}_print.png` : `${slug}.png`;
+      link.href = url;
+      link.click();
+      URL.revokeObjectURL(url);
+    }, "image/png");
   };
 
   type PreviewPointerEvent = Pick<
@@ -683,25 +744,62 @@ useEffect(() => {
 
           <div className="flex items-center gap-1 rounded border border-[var(--surface-border)] bg-[var(--surface-bg)] p-1">
             {headerActions}
-            <button
-              onClick={handleDownload}
-              className="p-2 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded transition-colors"
-              title="Download PNG"
-            >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+            <div ref={downloadMenuRef} className="relative">
+              <button
+                onClick={() => setDownloadMenuOpen((open) => !open)}
+                className="p-2 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded transition-colors"
+                title="Download PNG"
+                aria-haspopup="menu"
+                aria-expanded={downloadMenuOpen}
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-                />
-              </svg>
-            </button>
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                  />
+                </svg>
+              </button>
+              {downloadMenuOpen && (
+                <div
+                  role="menu"
+                  className="absolute right-0 top-full mt-2 w-64 rounded border shadow-lg"
+                  style={{
+                    zIndex: 20,
+                    background: "var(--background)",
+                    borderColor: "var(--surface-border)",
+                  }}
+                >
+                  {DOWNLOAD_OPTIONS.map(({ variant, label, hint }) => {
+                    const size = getDownloadSize(variant, dimensions.width, dimensions.height);
+                    return (
+                      <button
+                        key={variant}
+                        role="menuitem"
+                        onClick={() => handleDownload(variant)}
+                        className="block w-full px-3 py-2 text-left transition-colors hover:bg-[var(--surface-hover)]"
+                      >
+                        <span className="block font-mono text-xs kalmus-text-primary">
+                          {label}
+                        </span>
+                        <span className="block font-mono text-xs kalmus-text-secondary mt-0.5">
+                          {hint}
+                        </span>
+                        <span className="block font-mono text-xs kalmus-text-muted mt-0.5">
+                          {size.width.toLocaleString()} × {size.height.toLocaleString()} px
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

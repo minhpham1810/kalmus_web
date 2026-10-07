@@ -8,12 +8,14 @@
     "rootDir": ".."
   },
   "include": [
+    "../tests/barcode-download.test.ts",
     "../tests/barcode-result.test.ts",
     "../tests/barcode-utils.test.ts",
     "../tests/film-of-day.test.ts",
     "../tests/multi-analysis.test.ts",
     "../tests/theme-provider.test.ts",
     "../app/components/theme.ts",
+    "../lib/barcode-download.ts",
     "../lib/barcode-result.ts",
     "../lib/barcode-utils.ts",
     "../lib/film-of-day.ts",
