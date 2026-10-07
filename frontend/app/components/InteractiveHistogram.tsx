@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import PlotlyWrapper from "./PlotlyWrapper";
 import {
   RGB,
@@ -20,9 +20,13 @@ interface InteractiveHistogramProps {
   frameIndexOffset?: number;
   onPreviewFrameChange?: (frameIndex: number | null) => void;
   onPreviewFramePin?: (frameIndex: number) => void;
+  /** Peak bin count to scale the Y-axis to when no manual max is set (shared across compared films). */
+  sharedPeakCount?: number;
+  onPeakCountChange?: (peakCount: number) => void;
 }
 
 const BIN_STEP_OPTIONS = [1, 2, 5, 10, 15, 20, 30];
+const Y_AXIS_HEADROOM = 1.05;
 const SATURATION_THRESHOLDS = [0, 0.05, 0.10, 0.15, 0.20, 0.30];
 const HUE_HISTOGRAM_MODES: Array<{ value: HueHistogramMode; label: string }> = [
   { value: "perceptual", label: "Perceptual hue" },
@@ -37,6 +41,8 @@ export default function InteractiveHistogram({
   frameIndexOffset = 0,
   onPreviewFrameChange,
   onPreviewFramePin,
+  sharedPeakCount,
+  onPeakCountChange,
 }: InteractiveHistogramProps) {
   const [binStep, setBinStep] = useState(1);
   const [satThreshold, setSatThreshold] = useState(0);
@@ -130,7 +136,24 @@ export default function InteractiveHistogram({
     return null;
   }, [colors, brightness, barcodeType, binStep, satThreshold, hueMode]);
 
-  const plotUiRevision = `${barcodeType}-${binStep}-${satThreshold}-${hueMode}-${yMax}`;
+  const peakCount = useMemo(
+    () => (histogramData ? histogramData.y.reduce((max, count) => Math.max(max, count), 0) : 0),
+    [histogramData]
+  );
+
+  useEffect(() => {
+    onPeakCountChange?.(peakCount);
+  }, [peakCount, onPeakCountChange]);
+
+  // Manual Y-axis max wins; otherwise fall back to the shared peak (with Plotly-like headroom).
+  const yAxisMax =
+    yMax && Number(yMax) > 0
+      ? Number(yMax)
+      : sharedPeakCount && sharedPeakCount > 0
+        ? sharedPeakCount * Y_AXIS_HEADROOM
+        : null;
+
+  const plotUiRevision = `${barcodeType}-${binStep}-${satThreshold}-${hueMode}-${yAxisMax ?? "auto"}`;
 
   if (!histogramData) {
     return (
@@ -180,8 +203,8 @@ export default function InteractiveHistogram({
             yaxis: {
               title: { text: histogramData.yLabel },
               gridcolor: "rgba(128,128,128,0.2)",
-              ...(yMax && Number(yMax) > 0
-                ? { range: [0, Number(yMax)], autorange: false }
+              ...(yAxisMax !== null
+                ? { range: [0, yAxisMax], autorange: false }
                 : { autorange: true }),
             },
             bargap: 0.05,

@@ -860,6 +860,8 @@ export default function VisualizationPanel({
   const [compareData, setCompareData] = useState<LoadedBarcodeData | null>(null);
   const [compareLoading, setCompareLoading] = useState(false);
   const [compareViz, setCompareViz] = useState<CompareViz>("histogram");
+  const [comparePrimaryPeak, setComparePrimaryPeak] = useState(0);
+  const [compareSecondaryPeak, setCompareSecondaryPeak] = useState(0);
   const previewMovie = useMemo(() => buildPreviewMovie(movie), [movie]);
   const previewDetailLines = useMemo(
     () =>
@@ -1123,7 +1125,8 @@ export default function VisualizationPanel({
     data: LoadedBarcodeData,
     sliced: { colors?: RGB[]; brightness?: number[] },
     frameIndexOffset: number,
-    label: string
+    label: string,
+    onPeakCountChange: (peakCount: number) => void
   ) => {
     if (activeCompareViz === "scatter" && sliced.colors) {
       return (
@@ -1157,6 +1160,8 @@ export default function VisualizationPanel({
             : `Brightness Distribution - ${label}`
         }
         frameIndexOffset={frameIndexOffset}
+        sharedPeakCount={Math.max(comparePrimaryPeak, compareSecondaryPeak)}
+        onPeakCountChange={onPeakCountChange}
       />
     );
   };
@@ -1483,7 +1488,8 @@ export default function VisualizationPanel({
                         barcodeData,
                         comparePrimary,
                         comparePrimaryRange?.[0] ?? 0,
-                        videoFilename
+                        videoFilename,
+                        setComparePrimaryPeak
                       )}
                     </div>
                     <div className="min-w-0">
@@ -1491,7 +1497,8 @@ export default function VisualizationPanel({
                         compareData,
                         compareSecondary,
                         compareSecondaryRange?.[0] ?? 0,
-                        compareTitle
+                        compareTitle,
+                        setCompareSecondaryPeak
                       )}
                     </div>
                   </div>
