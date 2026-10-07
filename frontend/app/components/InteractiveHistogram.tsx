@@ -23,6 +23,8 @@ interface InteractiveHistogramProps {
   /** Peak bin count to scale the Y-axis to when no manual max is set (shared across compared films). */
   sharedPeakCount?: number;
   onPeakCountChange?: (peakCount: number) => void;
+  /** Hide the Plotly mode bar, the controls row and the caption (used in side-by-side comparisons). */
+  hideControls?: boolean;
 }
 
 const BIN_STEP_OPTIONS = [1, 2, 5, 10, 15, 20, 30];
@@ -43,6 +45,7 @@ export default function InteractiveHistogram({
   onPreviewFramePin,
   sharedPeakCount,
   onPeakCountChange,
+  hideControls = false,
 }: InteractiveHistogramProps) {
   const [binStep, setBinStep] = useState(1);
   const [satThreshold, setSatThreshold] = useState(0);
@@ -218,7 +221,7 @@ export default function InteractiveHistogram({
             uirevision: plotUiRevision,
           }}
           config={{
-            displayModeBar: true,
+            displayModeBar: !hideControls,
             displaylogo: false,
             modeBarButtonsToRemove: ["lasso2d", "select2d"],
             toImageButtonOptions: {
@@ -250,6 +253,7 @@ export default function InteractiveHistogram({
       </div>
 
       {/* Controls */}
+      {!hideControls && (
       <div className="flex items-center gap-4 flex-wrap">
         {barcodeType === "Color" && (
           <div className="flex items-center gap-2">
@@ -336,7 +340,9 @@ export default function InteractiveHistogram({
           </span>
         )}
       </div>
+      )}
 
+      {!hideControls && (
       <p className="text-xs text-neutral-500 dark:text-neutral-400">
         {barcodeType === "Color"
           ? histogramData.hueMode === "perceptual"
@@ -344,6 +350,7 @@ export default function InteractiveHistogram({
             : `Raw KALMUS/HSV hue distribution (0-360°) across all sampled frames. Near-black and gray colors can collapse to hue 0.${satThreshold > 0 ? ` Hue samples also require saturation > ${satThreshold}.` : ""}`
           : "Distribution of brightness values (0-255) across all sampled frames."}
       </p>
+      )}
     </div>
   );
 }

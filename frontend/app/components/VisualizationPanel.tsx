@@ -645,12 +645,11 @@ interface VisualizationPanelProps {
   movie?: VisualizationMovieMetadata | null;
 }
 
-type CompareViz = "histogram" | "scatter" | "3d";
+type CompareViz = "histogram" | "scatter";
 
 const COMPARE_VIZ_OPTIONS: Array<{ id: CompareViz; label: string; colorOnly?: boolean }> = [
-  { id: "histogram", label: "Histogram vs Histogram" },
-  { id: "scatter", label: "Hue/Light Scatter vs Scatter", colorOnly: true },
-  { id: "3d", label: "Hue/Light 3D vs 3D", colorOnly: true },
+  { id: "histogram", label: "Histogram" },
+  { id: "scatter", label: "Hue/Lightness Scatter", colorOnly: true },
 ];
 
 type VisualizationTab =
@@ -1135,16 +1134,7 @@ export default function VisualizationPanel({
           title={`Hue vs Lightness - ${label}`}
           maxSamples={20000}
           frameIndexOffset={frameIndexOffset}
-        />
-      );
-    }
-
-    if (activeCompareViz === "3d" && sliced.colors) {
-      return (
-        <InteractiveHueLight3DBar
-          colors={sliced.colors}
-          title={`Hue/Light 3D Distribution - ${label}`}
-          frameIndexOffset={frameIndexOffset}
+          hideControls
         />
       );
     }
@@ -1162,6 +1152,7 @@ export default function VisualizationPanel({
         frameIndexOffset={frameIndexOffset}
         sharedPeakCount={Math.max(comparePrimaryPeak, compareSecondaryPeak)}
         onPeakCountChange={onPeakCountChange}
+        hideControls
       />
     );
   };

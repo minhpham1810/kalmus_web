@@ -15,6 +15,8 @@ interface InteractiveHueLightScatterProps {
   frameIndexOffset?: number;
   onPreviewFrameChange?: (frameIndex: number | null) => void;
   onPreviewFramePin?: (frameIndex: number) => void;
+  /** Hide the Plotly mode bar, the controls row and the caption (used in side-by-side comparisons). */
+  hideControls?: boolean;
 }
 
 const SATURATION_THRESHOLDS = [0, 0.05, 0.10, 0.15, 0.20, 0.30];
@@ -28,6 +30,7 @@ export default function InteractiveHueLightScatter({
   frameIndexOffset = 0,
   onPreviewFrameChange,
   onPreviewFramePin,
+  hideControls = false,
 }: InteractiveHueLightScatterProps) {
   const [saturationThreshold, setSaturationThreshold] = useState(0);
   const maxSelectableSamples = Math.min(maxSamples, colors.length);
@@ -87,7 +90,7 @@ export default function InteractiveHueLightScatter({
             autosize: true,
           }}
           config={{
-            displayModeBar: true,
+            displayModeBar: !hideControls,
             displaylogo: false,
             modeBarButtonsToRemove: ["lasso2d", "select2d"],
             toImageButtonOptions: {
@@ -119,6 +122,7 @@ export default function InteractiveHueLightScatter({
       </div>
 
       {/* Controls */}
+      {!hideControls && (
       <div className="flex items-center gap-4 flex-wrap">
         <div className="flex items-center gap-2">
           <label className="text-xs text-neutral-600 dark:text-neutral-400">
@@ -163,12 +167,15 @@ export default function InteractiveHueLightScatter({
           Showing {scatterData.hueValues.length.toLocaleString()} points
         </span>
       </div>
+      )}
 
+      {!hideControls && (
       <p className="text-xs text-neutral-500 dark:text-neutral-400">
         Scatter plot showing the distribution of colors by Hue (x-axis) and Lightness/Value (y-axis).
         Each point is colored with its original RGB color.
         {saturationThreshold > 0 && ` Only colors with saturation > ${saturationThreshold} are included.`}
       </p>
+      )}
     </div>
   );
 }
