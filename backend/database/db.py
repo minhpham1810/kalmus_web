@@ -232,6 +232,16 @@ def create_db(db_path: Path = films_db, con: sqlite3.Connection | None = None):
     with DbConnection(db_path=db_path) as con:
         cur = con.cursor()
 
+        # Admin information
+        cur.execute(
+            """
+          CREATE TABLE IF NOT EXISTS admins (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              username TEXT UNIQUE NOT NULL,
+          )
+          """
+        )
+
         # Film metadata, shared by all analyses of the same film
         cur.execute(
             """

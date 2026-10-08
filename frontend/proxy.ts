@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { withDb } from './lib/db';
 
-// Define allowed Bucknell usernames
-const ADMIN_USERS = ['efaden', 'jtr029', 'kp025', 'lgom001'];
 
 export function proxy(request: NextRequest) {
   // Extract user ID from the x-username header
@@ -18,7 +17,15 @@ export function proxy(request: NextRequest) {
   const username = user.toLowerCase();
 
   // Verify username against allowed admins
-  if (!ADMIN_USERS.includes(username)) {
+  const admin = withDb((db) =>
+    db
+      .prepare(
+        `SELECT 1 FROM admins WHERE username = ? LIMIT 1`,
+      )
+      .get(username)
+      .fetchone()
+  );
+  if (!admin) {
     return new NextResponse('403 Forbidden: You do not have admin access.', { status: 403 });
   }
 
