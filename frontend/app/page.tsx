@@ -228,15 +228,15 @@ function FilmResultCard({
           <div className="font-mono text-base kalmus-text-secondary mt-1">
             {metadataParts.length > 0 && (
               <span>
-                ({metadataParts.join(", ")}{" "}
+                ({metadataParts.join(", ")}
                 {film.imdb_id && (
                   <>
-                    ,
+                    ,{" "}
                     <a
                       href={`https://www.imdb.com/title/${film.imdb_id}/`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="underline underline-offset-2 hover:opacity-80"
+                      className="underline underline-offset-2 hover:opacity-50"
                     >
                       IMDb
                     </a>
