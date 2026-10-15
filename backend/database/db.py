@@ -9,6 +9,8 @@ from datetime import datetime
 import os
 from dotenv import load_dotenv
 
+from film_map import map_point
+
 # Shares the frontend's env file; vars already in the environment (e.g. from sbatch) take priority.
 load_dotenv(Path(__file__).resolve().parents[2] / "frontend" / ".env.local")
 
@@ -295,6 +297,18 @@ def create_db(db_path: Path = films_db, con: sqlite3.Connection | None = None):
         if "edition" not in {r[1] for r in cur.execute("PRAGMA table_info(analyzed_files)")}:
             cur.execute("ALTER TABLE analyzed_files ADD COLUMN edition TEXT")
 
+        # Film-map position of each colour-barcode job. primary_hue is NULL for black-and-white films
+        cur.execute(
+            """
+          CREATE TABLE IF NOT EXISTS film_map (
+              job_id TEXT PRIMARY KEY,
+              primary_hue REAL,
+              lightness REAL NOT NULL,
+              FOREIGN KEY (job_id) REFERENCES analyzed_files(job_id) ON DELETE CASCADE
+          )
+          """
+        )
+
         # Search table, one row per film. edition holds the editions of all the film's analyses.
         # Migration: FTS columns cannot be added, so an older search table is rebuilt
         rebuild_search = (
@@ -423,6 +437,7 @@ def upsert_job(job_id: str, data: Job, upload_metadata: UploadMetadata, json_loc
     json_rel = _results_relative(json_loc)
     poster_rel = _results_relative(poster_loc)
     config = data.get("config")
+    primary_hue, lightness = map_point(json_loc, config["barcode_type"], config["color_metric"], config["frame_type"])
     movie = data.get("movie")
     raw = movie.get("raw", None)
 
@@ -501,9 +516,11 @@ def upsert_job(job_id: str, data: Job, upload_metadata: UploadMetadata, json_loc
                 upload_metadata.get("width"),
                 upload_metadata.get("height"),
                 upload_metadata.get("fps"),
-                upload_metadata.get("frame_count")
+                upload_metadata.get("frame_count"),
             )
         )
+        if lightness is not None:
+            cur.execute("INSERT OR REPLACE INTO film_map (job_id, primary_hue, lightness) VALUES (?, ?, ?)", (job_id, primary_hue, lightness))
 
 
 def get_job_metadata(job_id: str) -> Job:
