@@ -116,6 +116,8 @@ def parse_args_into_dict(args: list[str]) -> argparse.Namespace:
                         help='Capture hover-preview thumbnails')
     parser.add_argument('--force-reprocess', action='store_true',
                         help='Allow reprocessing even if an equivalent analysis already exists')
+    parser.add_argument('--changing-aspect-ratio', action='store_true',
+                        help='The film contains changing aspect ratios')
     parser.add_argument('--job-id', required=True,
                         help='Unique job identifier')
     return parser.parse_args(args)
@@ -421,6 +423,7 @@ def generate_barcode(args: argparse.Namespace) -> Barcode:
         video_file_path=args.video_path,
         num_thread=4,  # Use 4 threads as specified in SLURM script
         save_frames=False,
+        changing_aspect_ratio=args.changing_aspect_ratio,
     )
 
     print("Processing barcode data...")

@@ -23,6 +23,7 @@ export interface SharedBarcodeConfig {
   partition?: string;
   email?: string;
   edition?: string;
+  changing_aspect_ratio: boolean;
 }
 
 interface ExistingAnalysis {
@@ -56,11 +57,14 @@ export default function BarcodeGenerator() {
     partition: "short",
     email: "",
     edition: "",
+    changing_aspect_ratio: false,
   });
   const [analysisConfigs, setAnalysisConfigs] = useState<AnalysisConfig[]>(
     getInitialAnalysisConfigs(),
   );
-  const [duplicateStates, setDuplicateStates] = useState<Record<string, DuplicateState>>({});
+  const [duplicateStates, setDuplicateStates] = useState<
+    Record<string, DuplicateState>
+  >({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -76,7 +80,10 @@ export default function BarcodeGenerator() {
   );
 
   const duplicateCheckLoading = useMemo(
-    () => analysisConfigs.some((config) => duplicateStates[config.clientId]?.loading),
+    () =>
+      analysisConfigs.some(
+        (config) => duplicateStates[config.clientId]?.loading,
+      ),
     [analysisConfigs, duplicateStates],
   );
   const duplicateMetrics = useMemo(
@@ -146,7 +153,9 @@ export default function BarcodeGenerator() {
     setMovieInfo(movie);
   };
 
-  const handleSharedConfigChange = (newConfig: Partial<SharedBarcodeConfig>) => {
+  const handleSharedConfigChange = (
+    newConfig: Partial<SharedBarcodeConfig>,
+  ) => {
     setSharedConfig((prev) => ({ ...prev, ...newConfig }));
   };
 
@@ -154,7 +163,9 @@ export default function BarcodeGenerator() {
     clientId: string,
     newConfig: Partial<AnalysisConfig>,
   ) => {
-    const existingConfig = analysisConfigs.find((config) => config.clientId === clientId);
+    const existingConfig = analysisConfigs.find(
+      (config) => config.clientId === clientId,
+    );
     if (!existingConfig) {
       return;
     }
@@ -178,7 +189,9 @@ export default function BarcodeGenerator() {
     }
 
     setError((currentError) =>
-      currentError?.startsWith("Each batch option must be unique") ? null : currentError,
+      currentError?.startsWith("Each batch option must be unique")
+        ? null
+        : currentError,
     );
     setAnalysisConfigs((prev) =>
       prev.map((config) =>
@@ -201,13 +214,11 @@ export default function BarcodeGenerator() {
     );
     setAnalysisConfigs((prev) => [
       ...prev,
-      createAnalysisConfig(
-        {
-          ...prev[prev.length - 1],
-          ...nextConfig,
-          forceReprocess: false,
-        },
-      ),
+      createAnalysisConfig({
+        ...prev[prev.length - 1],
+        ...nextConfig,
+        forceReprocess: false,
+      }),
     ]);
   };
 
@@ -265,7 +276,10 @@ export default function BarcodeGenerator() {
         analysisConfigs.map(async (config) => {
           try {
             const duplicateState = await fetchDuplicateState(movieInfo, config);
-            return [config.clientId, { ...duplicateState, loading: false }] as const;
+            return [
+              config.clientId,
+              { ...duplicateState, loading: false },
+            ] as const;
           } catch {
             return [
               config.clientId,
@@ -318,7 +332,9 @@ export default function BarcodeGenerator() {
 
         if (response.status >= 400 && response.status < 500) {
           const errorData = await response.json();
-          throw new Error(errorData.error || `Failed to upload chunk ${chunkIndex}`);
+          throw new Error(
+            errorData.error || `Failed to upload chunk ${chunkIndex}`,
+          );
         }
       } catch (uploadError) {
         lastError = uploadError as Error;
@@ -362,11 +378,16 @@ export default function BarcodeGenerator() {
       onProgress(Math.round((completedChunks / totalChunks) * 100));
     };
 
-    const chunkIndices = Array.from({ length: totalChunks }, (_, index) => index);
+    const chunkIndices = Array.from(
+      { length: totalChunks },
+      (_, index) => index,
+    );
 
     for (let i = 0; i < chunkIndices.length; i += concurrentUploads) {
       if (signal.aborted) throw new Error("Upload was cancelled");
-      await Promise.all(chunkIndices.slice(i, i + concurrentUploads).map(uploadChunk));
+      await Promise.all(
+        chunkIndices.slice(i, i + concurrentUploads).map(uploadChunk),
+      );
     }
   };
 
@@ -425,6 +446,8 @@ export default function BarcodeGenerator() {
               email: sharedConfig.email,
               edition: sharedConfig.edition?.trim() || "",
               analysis_configs: analysisPayload,
+              changing_aspect_ratio:
+                sharedConfig.changing_aspect_ratio.toString(),
             },
             movie: movieInfo,
           }),
@@ -432,7 +455,9 @@ export default function BarcodeGenerator() {
 
         if (!assembleResponse.ok) {
           const errorData = await assembleResponse.json();
-          throw new Error(errorData.error || "Failed to assemble file and submit jobs");
+          throw new Error(
+            errorData.error || "Failed to assemble file and submit jobs",
+          );
         }
 
         const data = (await assembleResponse.json()) as BatchSubmitResponse;
@@ -454,6 +479,10 @@ export default function BarcodeGenerator() {
       formData.append("partition", sharedConfig.partition || "short");
       formData.append("email", sharedConfig.email);
       formData.append("edition", sharedConfig.edition?.trim() || "");
+      formData.append(
+        "changing_aspect_ratio",
+        String(sharedConfig.changing_aspect_ratio),
+      );
       formData.append("movie", JSON.stringify(movieInfo));
       formData.append("analysis_configs", JSON.stringify(analysisPayload));
 
@@ -512,7 +541,9 @@ export default function BarcodeGenerator() {
       }
 
       setError(
-        submitError instanceof Error ? submitError.message : "An error occurred",
+        submitError instanceof Error
+          ? submitError.message
+          : "An error occurred",
       );
     } finally {
       setIsSubmitting(false);
@@ -542,7 +573,10 @@ export default function BarcodeGenerator() {
         <h2 className="font-mono text-xs tracking-[0.35em] uppercase kalmus-text-secondary mb-4">
           ▸ Video Upload
         </h2>
-        <FileUpload onFileSelect={handleFileSelect} selectedFile={selectedFile} />
+        <FileUpload
+          onFileSelect={handleFileSelect}
+          selectedFile={selectedFile}
+        />
       </div>
 
       {selectedFile && (
@@ -556,12 +590,17 @@ export default function BarcodeGenerator() {
             }}
           >
             <h2 className="font-mono text-xs tracking-[0.35em] uppercase kalmus-text-secondary mb-1">
-              ▸ Movie Title <span style={{ color: "var(--accent-amber)" }}>*</span>
+              ▸ Movie Title{" "}
+              <span style={{ color: "var(--accent-amber)" }}>*</span>
             </h2>
             <p className="font-mono text-xs kalmus-text-muted mb-3">
-              Search by title or enter an IMDb ID to attach metadata to your barcode.
+              Search by title or enter an IMDb ID to attach metadata to your
+              barcode.
             </p>
-            <MovieSearchInput key={selectedFile.name} onChange={handleMovieChange} />
+            <MovieSearchInput
+              key={selectedFile.name}
+              onChange={handleMovieChange}
+            />
           </div>
 
           {movieStepComplete && (
@@ -593,7 +632,8 @@ export default function BarcodeGenerator() {
                   const duplicateState = duplicateStates[config.clientId];
                   if (
                     !duplicateState ||
-                    (!duplicateState.loading && duplicateState.analyses.length === 0)
+                    (!duplicateState.loading &&
+                      duplicateState.analyses.length === 0)
                   ) {
                     return null;
                   }
@@ -638,7 +678,9 @@ export default function BarcodeGenerator() {
                         {exactDuplicate && !duplicateState.loading && (
                           <div className="flex gap-2 shrink-0">
                             <button
-                              onClick={() => router.push(`/results/${exactDuplicate.job_id}`)}
+                              onClick={() =>
+                                router.push(`/results/${exactDuplicate.job_id}`)
+                              }
                               className="px-3 py-1.5 font-mono text-xs tracking-[0.12em] uppercase transition-all hover:opacity-90"
                               style={{
                                 background: "var(--accent-amber)",
@@ -654,7 +696,9 @@ export default function BarcodeGenerator() {
                                 })
                               }
                               className="px-3 py-1.5 font-mono text-xs tracking-[0.12em] uppercase transition-all kalmus-text-secondary hover:text-[var(--text-primary)]"
-                              style={{ border: "1px solid var(--input-border)" }}
+                              style={{
+                                border: "1px solid var(--input-border)",
+                              }}
                             >
                               {config.forceReprocess
                                 ? "Cancel Reprocess"
@@ -667,7 +711,8 @@ export default function BarcodeGenerator() {
                       {!duplicateState.loading && (
                         <div className="space-y-2">
                           {duplicateState.analyses.map((analysis) => {
-                            const isExactMatch = exactDuplicate?.job_id === analysis.job_id;
+                            const isExactMatch =
+                              exactDuplicate?.job_id === analysis.job_id;
                             return (
                               <div
                                 key={analysis.job_id}
@@ -685,16 +730,22 @@ export default function BarcodeGenerator() {
                                   >
                                     {analysis.barcode_type}
                                   </span>
-                                  {analysis.frame_type.replace(/_/g, " ")} · {analysis.metric}
+                                  {analysis.frame_type.replace(/_/g, " ")} ·{" "}
+                                  {analysis.metric}
                                   {analysis.edition && ` · ${analysis.edition}`}
                                   {isExactMatch && (
-                                    <span className="ml-2" style={{ color: "var(--accent-amber)" }}>
+                                    <span
+                                      className="ml-2"
+                                      style={{ color: "var(--accent-amber)" }}
+                                    >
                                       matching config
                                     </span>
                                   )}
                                 </span>
                                 <button
-                                  onClick={() => router.push(`/results/${analysis.job_id}`)}
+                                  onClick={() =>
+                                    router.push(`/results/${analysis.job_id}`)
+                                  }
                                   className="underline transition-colors hover:text-[var(--text-primary)]"
                                   style={{
                                     color: isExactMatch
@@ -714,16 +765,25 @@ export default function BarcodeGenerator() {
                 })}
 
               {isSubmitting && uploadProgress > 0 && (
-                <div className="panel-bg p-6" style={{ border: "1px solid var(--surface-border)" }}>
+                <div
+                  className="panel-bg p-6"
+                  style={{ border: "1px solid var(--surface-border)" }}
+                >
                   <div className="mb-2 flex justify-between items-center">
                     <span className="font-mono text-xs tracking-[0.18em] uppercase kalmus-text-muted">
                       Uploading footage...
                     </span>
-                    <span className="font-mono text-sm" style={{ color: "var(--accent-amber)" }}>
+                    <span
+                      className="font-mono text-sm"
+                      style={{ color: "var(--accent-amber)" }}
+                    >
                       {uploadProgress}%
                     </span>
                   </div>
-                  <div className="w-full h-1.5" style={{ background: "var(--surface-bg-strong)" }}>
+                  <div
+                    className="w-full h-1.5"
+                    style={{ background: "var(--surface-bg-strong)" }}
+                  >
                     <div
                       className="h-1.5 transition-all duration-300"
                       style={{
@@ -754,7 +814,12 @@ export default function BarcodeGenerator() {
               <div className="flex justify-end">
                 <button
                   onClick={handleSubmit}
-                  disabled={isSubmitting || !sharedConfig.email || duplicateCheckLoading || duplicateMetrics.length > 0}
+                  disabled={
+                    isSubmitting ||
+                    !sharedConfig.email ||
+                    duplicateCheckLoading ||
+                    duplicateMetrics.length > 0
+                  }
                   className="kalmus-button-filled px-6 py-2.5 font-mono text-xs tracking-[0.22em] uppercase transition-all hover:brightness-90 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:hover:brightness-100 disabled:hover:translate-y-0"
                 >
                   {isSubmitting ? (
@@ -775,7 +840,9 @@ export default function BarcodeGenerator() {
                           d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                         />
                       </svg>
-                      {uploadProgress < 100 ? `Uploading ${uploadProgress}%` : "Submitting..."}
+                      {uploadProgress < 100
+                        ? `Uploading ${uploadProgress}%`
+                        : "Submitting..."}
                     </span>
                   ) : (
                     "Submit Jobs"
@@ -788,7 +855,10 @@ export default function BarcodeGenerator() {
       )}
 
       {error && (
-        <div className="p-4 kalmus-surface-strong" style={{ border: "1px solid var(--accent-crimson)" }}>
+        <div
+          className="p-4 kalmus-surface-strong"
+          style={{ border: "1px solid var(--accent-crimson)" }}
+        >
           <p className="font-mono text-xs kalmus-text-secondary">{error}</p>
         </div>
       )}

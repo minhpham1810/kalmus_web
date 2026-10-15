@@ -38,6 +38,7 @@ export interface JobConfig {
   video_title?: string;
   force_reprocess?: boolean;
   edition?: string; // free-text version of the film, e.g. "Criterion Color"
+  changing_aspect_ratio?: boolean;
 }
 
 export interface JobMetadata {
@@ -186,6 +187,9 @@ export function generateSlurmScript(
   const forceReprocessArg = config.force_reprocess
     ? "  --force-reprocess \\\n"
     : "";
+  const aspectRatioArg = config.changing_aspect_ratio
+    ? "  --changing-aspect-ratio \\\n"
+    : "";
   const notificationScript = SLURM_CONFIG.emailScript;
   const notificationResultsUrl = `${SLURM_CONFIG.websiteUrl}/results/${jobId}`;
   const notificationTitle = config.video_title || videoFilename;
@@ -249,6 +253,7 @@ echo "  - Total Frames: ${config.total_frames}"
 echo "  - Frames Per Column: ${config.frames_per_column}"
 echo "  - Save Thumbnails: ${config.save_thumbnails !== false ? "Yes" : "No"}"
 echo "  - Force Reprocess: ${config.force_reprocess ? "Yes" : "No"}"
+echo "  - Changing Aspect Ratio: ${config.changing_aspect_ratio ? "Yes" : "No"}"
 echo ""
 
 python3 ${SLURM_CONFIG.kalmusScript} \\
@@ -261,7 +266,7 @@ python3 ${SLURM_CONFIG.kalmusScript} \\
   --skip-over ${config.skip_over} \\
   --total-frames ${config.total_frames} \\
   --frames-per-column ${config.frames_per_column} \\
-${thumbnailArg}${forceReprocessArg}  --job-id "${jobId}"
+${thumbnailArg}${forceReprocessArg}${aspectRatioArg}  --job-id "${jobId}"
 
 EXIT_CODE=$?
 

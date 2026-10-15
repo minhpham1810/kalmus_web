@@ -82,7 +82,10 @@ export default function ConfigPanel({
           onClick={onAddAnalysisConfig}
           disabled={!canAddAnalysisConfig}
           className="inline-flex items-center justify-center w-9 h-9 font-mono text-lg transition-all hover:opacity-90"
-          style={{ border: "1px solid var(--accent-crimson)", color: "var(--accent-crimson)" }}
+          style={{
+            border: "1px solid var(--accent-crimson)",
+            color: "var(--accent-crimson)",
+          }}
           aria-label="Add analysis row"
         >
           +
@@ -179,9 +182,14 @@ export default function ConfigPanel({
               </ConfigField>
             </div>
 
-            {(config.frame_type === "foreground" || config.frame_type === "background") && (
-              <p className="mt-3 font-mono text-xs" style={{ color: "var(--accent-amber)" }}>
-                Foreground and background runs are substantially slower than whole-frame analysis.
+            {(config.frame_type === "foreground" ||
+              config.frame_type === "background") && (
+              <p
+                className="mt-3 font-mono text-xs"
+                style={{ color: "var(--accent-amber)" }}
+              >
+                Foreground and background runs are substantially slower than
+                whole-frame analysis.
               </p>
             )}
           </div>
@@ -207,19 +215,45 @@ export default function ConfigPanel({
             style={inputStyle}
           />
         </ConfigField>
-        <ConfigField
-          label="Edition"
-          helper="Optional. Which version of the film this is, e.g. Criterion Color"
-        >
-          <input
-            type="text"
-            placeholder="Original release"
-            value={sharedConfig.edition || ""}
-            onChange={(e) => onSharedConfigChange({ edition: e.target.value })}
-            className="kalmus-input"
-            style={inputStyle}
-          />
-        </ConfigField>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <ConfigField
+            label="Edition"
+            helper="Optional. Which version of the film this is, e.g. Criterion Color"
+          >
+            <input
+              type="text"
+              placeholder="Original release"
+              value={sharedConfig.edition || ""}
+              onChange={(e) =>
+                onSharedConfigChange({ edition: e.target.value })
+              }
+              className="kalmus-input"
+              style={inputStyle}
+            />
+          </ConfigField>
+          <ConfigField
+            label="Aspect Ratio"
+            helper="If the film contains changing aspect ratios"
+          >
+            <label
+              className="kalmus-input flex items-center gap-2 cursor-pointer select-none"
+              style={inputStyle}
+            >
+              <input
+                type="checkbox"
+                checked={sharedConfig.changing_aspect_ratio}
+                onChange={(e) =>
+                  onSharedConfigChange({
+                    changing_aspect_ratio: e.target.checked,
+                  })
+                }
+                className="h-3.5 w-3.5 cursor-pointer"
+                style={{ accentColor: "var(--accent-amber)" }}
+              />
+              Changes during film
+            </label>
+          </ConfigField>
+        </div>
       </div>
 
       <div className="md:col-span-2">

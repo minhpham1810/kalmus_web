@@ -62,6 +62,7 @@ class Barcode:
         self.high_bound_ver = 0
         self.low_bound_hor = 0
         self.high_bound_hor = 0
+        self.changing_aspect_ratio = False
 
         self.barcode = None
 
@@ -140,15 +141,20 @@ class Barcode:
 
     def remove_letter_box_from_frame(self, frame):
         """
-        Remove the letter box from the frame using the known letter box bounds
+        Remove the letter box from the frame using the known letter box bounds.
+        If changing_aspect_ratio is set, the bounds are found from this frame alone instead.
 
         :param frame: Input original frame with letter box
         :type frame: numpy.ndarray
         :return: Cropped frame without letter box
         :rtype: numpy.ndarray
         """
-        frame = frame[self.low_bound_ver: self.high_bound_ver, self.low_bound_hor: self.high_bound_hor, ...]
-        return frame
+        if self.changing_aspect_ratio:
+            # Locals, not self: generation threads share this object
+            low_v, high_v, low_h, high_h = get_letter_box_from_frames(frame)
+        else:
+            low_v, high_v, low_h, high_h = self.low_bound_ver, self.high_bound_ver, self.low_bound_hor, self.high_bound_hor
+        return frame[low_v: high_v, low_h: high_h, ...]
 
     def process_frame(self, frame):
         """

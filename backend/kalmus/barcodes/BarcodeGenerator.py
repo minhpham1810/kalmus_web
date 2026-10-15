@@ -116,7 +116,7 @@ class BarcodeGenerator:
     def generate_barcode(self, video_file_path, user_defined_letterbox=False,
                          low_ver=-1, high_ver=-1, left_hor=-1, right_hor=-1,
                          num_thread=None, save_frames=False, rescale_frames_factor=-1,
-                         save_frames_rate=4):
+                         save_frames_rate=4, changing_aspect_ratio=False):
         """
         Generate the barcode
 
@@ -142,8 +142,11 @@ class BarcodeGenerator:
         :type save_frames_rate: float
         :param rescale_frames_factor: factor to rescale the input frames during the generation
         :type rescale_frames_factor: float
+        :param changing_aspect_ratio: Find the letterbox from each frame instead of once for the whole film
+        :type changing_aspect_ratio: bool
         """
         self.instantiate_barcode_object()
+        self.barcode.changing_aspect_ratio = changing_aspect_ratio
         if user_defined_letterbox:
             self.barcode.set_letterbox_bound(up_vertical_bound=high_ver, down_vertical_bound=low_ver,
                                              left_horizontal_bound=left_hor, right_horizontal_bound=right_hor)

@@ -36,6 +36,7 @@ export async function POST(request: NextRequest) {
             partition: config.partition || 'short',
             email: config.email || undefined,
             edition: (config.edition as string | undefined)?.trim() || undefined,
+            changing_aspect_ratio: config.changing_aspect_ratio === 'true' || config.changing_aspect_ratio === true,
         } satisfies Omit<JobConfig, 'color_metric' | 'frame_type' | 'barcode_type'>;
         const analysisConfigs = parseAnalysisConfigPayload(config.analysis_configs);
         const invalidFrameType = analysisConfigs.find(
