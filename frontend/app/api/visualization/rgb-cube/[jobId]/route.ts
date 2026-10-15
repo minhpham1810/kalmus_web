@@ -20,7 +20,7 @@ export async function GET(
 
     // Execute the Python script to generate the RGB cube
     const { stdout, stderr } = await execAsync(
-      `python3 ${visualizerScript} --job-id ${jobId} --type cube --sampling ${sampling} --results-dir ${SLURM_CONFIG.resultsDir}`
+      `"${SLURM_CONFIG.pythonBin}" ${visualizerScript} --job-id ${jobId} --type cube --sampling ${sampling} --results-dir ${SLURM_CONFIG.resultsDir}`
     );
 
     if (stderr) {

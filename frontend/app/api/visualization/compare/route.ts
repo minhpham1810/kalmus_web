@@ -69,8 +69,8 @@ export async function GET(request: NextRequest) {
 
     // Execute the Python script to compare barcodes
     const { stdout, stderr } = await execAsync(
-      `cd ${path.join(process.cwd(), 'lib')} && ` +
-      `python3 ${compareScript} --job-id-1 ${jobId1} --job-id-2 ${jobId2} --results-dir ${SLURM_CONFIG.resultsDir}${rangeArgs}`
+      `cd ${path.join(process.cwd(), "lib")} && ` +
+        `"${SLURM_CONFIG.pythonBin}" ${compareScript} --job-id-1 ${jobId1} --job-id-2 ${jobId2} --title-1 "${title1}" --title-2 "${title2}" --results-dir ${SLURM_CONFIG.resultsDir}${rangeArgs}`,
     );
 
     if (stderr && !stderr.includes('UserWarning')) {

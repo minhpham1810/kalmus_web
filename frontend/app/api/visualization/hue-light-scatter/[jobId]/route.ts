@@ -18,7 +18,7 @@ export async function GET(
 
     // Execute the Python script to generate the scatter plot
     const { stdout, stderr } = await execAsync(
-      `python3 ${visualizerScript} --job-id ${jobId} --type scatter --results-dir ${SLURM_CONFIG.resultsDir}`
+      `"${SLURM_CONFIG.pythonBin}" ${visualizerScript} --job-id ${jobId} --type scatter --results-dir ${SLURM_CONFIG.resultsDir}`
     );
 
     if (stderr) {

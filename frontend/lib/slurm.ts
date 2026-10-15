@@ -1,26 +1,28 @@
-import { exec } from 'child_process';
-import { promisify } from 'util';
-import { promises as fs } from 'fs';
-import path from 'path';
-import { v4 as uuidv4 } from 'uuid';
-import { ThumbnailManifest } from '@/lib/barcode-utils';
-import { hydrateBarcodeResult } from '@/lib/barcode-result';
-import { requireEnv } from '@/lib/env';
+import { exec } from "child_process";
+import { promisify } from "util";
+import { promises as fs } from "fs";
+import path from "path";
+import { v4 as uuidv4 } from "uuid";
+import { ThumbnailManifest } from "@/lib/barcode-utils";
+import { hydrateBarcodeResult } from "@/lib/barcode-result";
+import { requireEnv } from "@/lib/env";
 
 const execAsync = promisify(exec);
 
 // Configuration - these should match your HPC environment
 export const SLURM_CONFIG = {
-  uploadDir: requireEnv('UPLOAD_DIR'),
-  resultsDir: requireEnv('RESULTS_DIR'),
-  scriptsDir: requireEnv('SCRIPTS_DIR'),
-  pythonEnv: requireEnv('PYTHON_ENV'),
-  kalmusScript: requireEnv('KALMUS_SCRIPT'),
-  emailScript: requireEnv('EMAIL_SCRIPT'),
-  websiteUrl: requireEnv('WEBSITE_URL'),
+  uploadDir: requireEnv("UPLOAD_DIR"),
+  resultsDir: requireEnv("RESULTS_DIR"),
+  scriptsDir: requireEnv("SCRIPTS_DIR"),
+  pythonEnv: requireEnv("PYTHON_ENV"),
+  kalmusScript: requireEnv("KALMUS_SCRIPT"),
+  emailScript: requireEnv("EMAIL_SCRIPT"),
+  // Interpreter for scripts run on the web server (not SLURM nodes). Override locally on Windows.
+  pythonBin: process.env.PYTHON_BIN || "python3",
+  websiteUrl: requireEnv("WEBSITE_URL"),
 };
 
-export type NotificationStatus = 'COMPLETED' | 'FAILED' | 'DUPLICATE';
+export type NotificationStatus = "COMPLETED" | "FAILED" | "DUPLICATE";
 
 export interface JobConfig {
   color_metric: string;
@@ -89,29 +91,38 @@ const FRAME_TYPE_MAX_PROCESSABLE: Partial<Record<string, number>> = {
 async function getVideoFrameCount(videoPath: string): Promise<number | null> {
   try {
     const { stdout } = await execAsync(
-      `ffprobe -v error -select_streams v:0 -show_entries stream=nb_frames -of default=noprint_wrappers=1:nokey=1 ${shellQuote(videoPath)}`
+      `ffprobe -v error -select_streams v:0 -show_entries stream=nb_frames -of default=noprint_wrappers=1:nokey=1 ${shellQuote(videoPath)}`,
     );
     const frames = parseInt(stdout.trim(), 10);
     if (!isNaN(frames) && frames > 0) return frames;
-  } catch { /* fall through to duration-based estimate */ }
+  } catch {
+    /* fall through to duration-based estimate */
+  }
 
   try {
     const { stdout } = await execAsync(
-      `ffprobe -v error -select_streams v:0 -show_entries stream=r_frame_rate,duration -of json ${shellQuote(videoPath)}`
+      `ffprobe -v error -select_streams v:0 -show_entries stream=r_frame_rate,duration -of json ${shellQuote(videoPath)}`,
     );
-    const info = JSON.parse(stdout) as { streams?: { r_frame_rate?: string; duration?: string }[] };
+    const info = JSON.parse(stdout) as {
+      streams?: { r_frame_rate?: string; duration?: string }[];
+    };
     const stream = info.streams?.[0];
     if (stream?.duration && stream?.r_frame_rate) {
-      const [num, den] = stream.r_frame_rate.split('/').map(Number);
+      const [num, den] = stream.r_frame_rate.split("/").map(Number);
       const fps = num / den;
       return Math.ceil(parseFloat(stream.duration) * fps);
     }
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
 
   return null;
 }
 
-function applyFrameTypeConstraints(config: JobConfig, actualFrameCount: number | null): JobConfig {
+function applyFrameTypeConstraints(
+  config: JobConfig,
+  actualFrameCount: number | null,
+): JobConfig {
   let { total_frames, sampled_rate } = config;
 
   if (actualFrameCount !== null) {
@@ -142,21 +153,21 @@ export async function sendJobNotificationEmail({
 }): Promise<void> {
   const emailScript = shellQuote(SLURM_CONFIG.emailScript);
   const argList = [
-    '--email',
+    "--email",
     email,
-    '--status',
+    "--status",
     status,
-    '--results-url',
+    "--results-url",
     resultsUrl,
-    '--video-title',
+    "--video-title",
     videoTitle,
   ];
   if (metadataFile) {
-    argList.push('--metadata-file', metadataFile);
+    argList.push("--metadata-file", metadataFile);
   }
-  const args = argList.map(shellQuote).join(' ');
+  const args = argList.map(shellQuote).join(" ");
 
-  await execAsync(`python3 ${emailScript} ${args}`);
+  await execAsync(`"${SLURM_CONFIG.pythonBin}" ${emailScript} ${args}`);
 }
 
 /**
@@ -166,12 +177,15 @@ export function generateSlurmScript(
   jobId: string,
   videoPath: string,
   videoFilename: string,
-  config: JobConfig
+  config: JobConfig,
 ): string {
   const outputDir = path.join(SLURM_CONFIG.resultsDir, jobId);
-  const partition = config.partition || 'short';
-  const thumbnailArg = config.save_thumbnails !== false ? '  --save-thumbnails \\\n' : '';
-  const forceReprocessArg = config.force_reprocess ? '  --force-reprocess \\\n' : '';
+  const partition = config.partition || "short";
+  const thumbnailArg =
+    config.save_thumbnails !== false ? "  --save-thumbnails \\\n" : "";
+  const forceReprocessArg = config.force_reprocess
+    ? "  --force-reprocess \\\n"
+    : "";
   const notificationScript = SLURM_CONFIG.emailScript;
   const notificationResultsUrl = `${SLURM_CONFIG.websiteUrl}/results/${jobId}`;
   const notificationTitle = config.video_title || videoFilename;
@@ -233,8 +247,8 @@ echo "  - Sampled Rate: ${config.sampled_rate}"
 echo "  - Skip Over: ${config.skip_over}"
 echo "  - Total Frames: ${config.total_frames}"
 echo "  - Frames Per Column: ${config.frames_per_column}"
-echo "  - Save Thumbnails: ${config.save_thumbnails !== false ? 'Yes' : 'No'}"
-echo "  - Force Reprocess: ${config.force_reprocess ? 'Yes' : 'No'}"
+echo "  - Save Thumbnails: ${config.save_thumbnails !== false ? "Yes" : "No"}"
+echo "  - Force Reprocess: ${config.force_reprocess ? "Yes" : "No"}"
 echo ""
 
 python3 ${SLURM_CONFIG.kalmusScript} \\
@@ -332,7 +346,7 @@ export async function submitSlurmJob(
   videoFilename: string,
   config: JobConfig,
   user?: { username?: string; email?: string; fullName?: string },
-  movie?: Record<string, unknown>
+  movie?: Record<string, unknown>,
 ): Promise<{ jobId: string; slurmJobId: string; estimatedTime?: string }> {
   const jobId = uuidv4();
 
@@ -349,7 +363,12 @@ export async function submitSlurmJob(
     const effectiveConfig = applyFrameTypeConstraints(config, actualFrameCount);
 
     // Generate SLURM script
-    const script = generateSlurmScript(jobId, videoPath, videoFilename, effectiveConfig);
+    const script = generateSlurmScript(
+      jobId,
+      videoPath,
+      videoFilename,
+      effectiveConfig,
+    );
     const scriptPath = path.join(SLURM_CONFIG.scriptsDir, `${jobId}.sh`);
 
     // Write script to file
@@ -370,7 +389,7 @@ export async function submitSlurmJob(
     let estimatedTime: string | undefined;
     try {
       const { stdout: timeOutput } = await execAsync(
-        `squeue -j ${slurmJobId} --format="%S" --noheader`
+        `squeue -j ${slurmJobId} --format="%S" --noheader`,
       );
       estimatedTime = normalizeEstimatedTime(timeOutput);
     } catch {
@@ -385,31 +404,33 @@ export async function submitSlurmJob(
       videoFilename,
       config: effectiveConfig,
       submittedAt: new Date().toISOString(),
-      status: 'PENDING',
+      status: "PENDING",
       user: user || undefined,
       movie: movie || undefined,
       estimatedTime,
     };
 
     await fs.writeFile(
-      path.join(outputDir, 'metadata.json'),
-      JSON.stringify(metadata, null, 2)
+      path.join(outputDir, "metadata.json"),
+      JSON.stringify(metadata, null, 2),
     );
 
     console.log(`Job submitted: ${jobId} (SLURM ID: ${slurmJobId})`);
 
     return { jobId, slurmJobId, estimatedTime };
   } catch (error) {
-    console.error('Error submitting SLURM job:', error);
+    console.error("Error submitting SLURM job:", error);
     throw new Error(`Failed to submit SLURM job: ${(error as Error).message}`);
   }
 }
 
-async function readDuplicateMarker(outputDir: string): Promise<DuplicateMarker | null> {
+async function readDuplicateMarker(
+  outputDir: string,
+): Promise<DuplicateMarker | null> {
   try {
     const duplicateContent = await fs.readFile(
-      path.join(outputDir, 'duplicate.json'),
-      'utf-8'
+      path.join(outputDir, "duplicate.json"),
+      "utf-8",
     );
     return JSON.parse(duplicateContent) as DuplicateMarker;
   } catch {
@@ -425,8 +446,8 @@ export async function checkSlurmJobStatus(jobId: string) {
     const outputDir = path.join(SLURM_CONFIG.resultsDir, jobId);
 
     // Read metadata
-    const metadataPath = path.join(outputDir, 'metadata.json');
-    const metadataContent = await fs.readFile(metadataPath, 'utf-8');
+    const metadataPath = path.join(outputDir, "metadata.json");
+    const metadataContent = await fs.readFile(metadataPath, "utf-8");
     const metadata: JobMetadata = JSON.parse(metadataContent);
 
     const slurmJobId = metadata.slurmJobId;
@@ -434,19 +455,19 @@ export async function checkSlurmJobStatus(jobId: string) {
     // Check if job has completed by looking for status file
     try {
       const statusContent = await fs.readFile(
-        path.join(outputDir, 'status.txt'),
-        'utf-8'
+        path.join(outputDir, "status.txt"),
+        "utf-8",
       );
       const jobStatus = statusContent.trim();
       const duplicateMarker =
-        jobStatus === 'DUPLICATE' ? await readDuplicateMarker(outputDir) : null;
+        jobStatus === "DUPLICATE" ? await readDuplicateMarker(outputDir) : null;
 
       return {
         status: jobStatus,
         slurmJobId,
         submittedAt: metadata.submittedAt,
         completed: true,
-        reused: jobStatus === 'DUPLICATE',
+        reused: jobStatus === "DUPLICATE",
         existingJobId: duplicateMarker?.existing_job_id,
         estimatedTime: metadata.estimatedTime,
       };
@@ -457,11 +478,13 @@ export async function checkSlurmJobStatus(jobId: string) {
     // Query SLURM for job status
     try {
       const { stdout } = await execAsync(
-        `squeue -j ${slurmJobId} --format="%T|%M|%L|%r|%S" --noheader`
+        `squeue -j ${slurmJobId} --format="%T|%M|%L|%r|%S" --noheader`,
       );
 
       if (stdout.trim()) {
-        const [state, timeUsed, timeLeft, reason, estimatedStart] = stdout.trim().split('|');
+        const [state, timeUsed, timeLeft, reason, estimatedStart] = stdout
+          .trim()
+          .split("|");
         const estimatedTime =
           normalizeEstimatedTime(estimatedStart) || metadata.estimatedTime;
 
@@ -471,32 +494,32 @@ export async function checkSlurmJobStatus(jobId: string) {
           submittedAt: metadata.submittedAt,
           timeUsed,
           timeLeft,
-          reason: reason !== 'None' ? reason : undefined,
+          reason: reason !== "None" ? reason : undefined,
           completed: false,
           estimatedTime,
         };
       } else {
         // Job not in queue anymore, check if it completed
         const { stdout: sacctOutput } = await execAsync(
-          `sacct -j ${slurmJobId} --format=State,ExitCode --noheader --parsable2`
+          `sacct -j ${slurmJobId} --format=State,ExitCode --noheader --parsable2`,
         );
 
-        const lines = sacctOutput.trim().split('\n');
+        const lines = sacctOutput.trim().split("\n");
         if (lines.length > 0) {
-          const [state, exitCode] = lines[0].split('|');
+          const [state, exitCode] = lines[0].split("|");
 
           return {
             status: state,
             exitCode,
             slurmJobId,
             submittedAt: metadata.submittedAt,
-            completed: state.includes('COMPLETED') || state.includes('FAILED'),
+            completed: state.includes("COMPLETED") || state.includes("FAILED"),
             estimatedTime: metadata.estimatedTime,
           };
         }
 
         return {
-          status: 'UNKNOWN',
+          status: "UNKNOWN",
           slurmJobId,
           submittedAt: metadata.submittedAt,
           completed: false,
@@ -506,9 +529,9 @@ export async function checkSlurmJobStatus(jobId: string) {
     } catch {
       // Job might have completed, check for result files
       try {
-        await fs.access(path.join(outputDir, 'barcode.json'));
+        await fs.access(path.join(outputDir, "barcode.json"));
         return {
-          status: 'COMPLETED',
+          status: "COMPLETED",
           slurmJobId,
           submittedAt: metadata.submittedAt,
           completed: true,
@@ -516,15 +539,13 @@ export async function checkSlurmJobStatus(jobId: string) {
         };
       } catch {
         throw new Error(
-          `Job ${jobId} not found in queue and no results available`
+          `Job ${jobId} not found in queue and no results available`,
         );
       }
     }
   } catch (error) {
-    console.error('Error checking job status:', error);
-    throw new Error(
-      `Failed to check job status: ${(error as Error).message}`
-    );
+    console.error("Error checking job status:", error);
+    throw new Error(`Failed to check job status: ${(error as Error).message}`);
   }
 }
 
@@ -536,17 +557,18 @@ export async function getSlurmJobResult(jobId: string) {
     const outputDir = path.join(SLURM_CONFIG.resultsDir, jobId);
 
     // Check if job is completed
-    const statusPath = path.join(outputDir, 'status.txt');
-    const statusContent = await fs.readFile(statusPath, 'utf-8');
+    const statusPath = path.join(outputDir, "status.txt");
+    const statusContent = await fs.readFile(statusPath, "utf-8");
 
-    if (statusContent.trim() !== 'SUCCESS') {
-      if (statusContent.trim() === 'DUPLICATE') {
+    if (statusContent.trim() !== "SUCCESS") {
+      if (statusContent.trim() === "DUPLICATE") {
         const duplicateMarker = await readDuplicateMarker(outputDir);
 
         if (!duplicateMarker?.existing_job_id) {
           return {
             success: false,
-            error: 'Equivalent analysis exists, but the existing result could not be resolved.',
+            error:
+              "Equivalent analysis exists, but the existing result could not be resolved.",
           };
         }
 
@@ -554,21 +576,23 @@ export async function getSlurmJobResult(jobId: string) {
           success: true,
           duplicate: true,
           existingJobId: duplicateMarker.existing_job_id,
-          message: 'Equivalent analysis already exists',
+          message: "Equivalent analysis already exists",
         };
       }
 
       // Read error log
       const errorFiles = await fs.readdir(outputDir);
-      const stderrFile = errorFiles.find((f) => f.includes('stderr'));
+      const stderrFile = errorFiles.find((f) => f.includes("stderr"));
 
-      let errorMessage = 'Job failed';
+      let errorMessage = "Job failed";
       if (stderrFile) {
         errorMessage = await fs.readFile(
           path.join(outputDir, stderrFile),
-          'utf-8'
+          "utf-8",
         );
       }
+
+      console.log("pain");
 
       return {
         success: false,
@@ -577,21 +601,24 @@ export async function getSlurmJobResult(jobId: string) {
     }
 
     // Read metadata
-    const metadataPath = path.join(outputDir, 'metadata.json');
-    const metadataContent = await fs.readFile(metadataPath, 'utf-8');
+    const metadataPath = path.join(outputDir, "metadata.json");
+    const metadataContent = await fs.readFile(metadataPath, "utf-8");
     const metadata: JobMetadata = JSON.parse(metadataContent);
 
     // Read barcode result
-    const barcodePath = path.join(outputDir, 'barcode.json');
-    const barcodeContent = await fs.readFile(barcodePath, 'utf-8');
-    const rawBarcodeData = JSON.parse(barcodeContent) as Record<string, unknown>;
+    const barcodePath = path.join(outputDir, "barcode.json");
+    const barcodeContent = await fs.readFile(barcodePath, "utf-8");
+    const rawBarcodeData = JSON.parse(barcodeContent) as Record<
+      string,
+      unknown
+    >;
     const barcodeData = hydrateBarcodeResult(rawBarcodeData, metadata.config);
 
     // Read summary if available
-    const summaryPath = path.join(outputDir, 'summary.json');
+    const summaryPath = path.join(outputDir, "summary.json");
     let summaryData = null;
     try {
-      const summaryContent = await fs.readFile(summaryPath, 'utf-8');
+      const summaryContent = await fs.readFile(summaryPath, "utf-8");
       summaryData = JSON.parse(summaryContent);
     } catch {
       // Summary file might not exist
@@ -599,8 +626,8 @@ export async function getSlurmJobResult(jobId: string) {
 
     let thumbnailData: ThumbnailManifest | null = null;
     try {
-      const thumbnailsPath = path.join(outputDir, 'thumbnails.json');
-      const thumbnailsContent = await fs.readFile(thumbnailsPath, 'utf-8');
+      const thumbnailsPath = path.join(outputDir, "thumbnails.json");
+      const thumbnailsContent = await fs.readFile(thumbnailsPath, "utf-8");
       const parsedManifest = JSON.parse(thumbnailsContent) as ThumbnailManifest;
       thumbnailData = {
         ...parsedManifest,
@@ -615,7 +642,7 @@ export async function getSlurmJobResult(jobId: string) {
 
     return {
       success: true,
-      message: 'Barcode generated successfully',
+      message: "Barcode generated successfully",
       barcode: barcodeData,
       summary: summaryData,
       thumbnails: thumbnailData,
@@ -628,10 +655,10 @@ export async function getSlurmJobResult(jobId: string) {
       },
     };
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
       return null; // Result not ready yet
     }
-    console.error('Error getting job result:', error);
+    console.error("Error getting job result:", error);
     throw new Error(`Failed to get job result: ${(error as Error).message}`);
   }
 }
@@ -644,8 +671,8 @@ export async function cancelSlurmJob(jobId: string): Promise<void> {
     const outputDir = path.join(SLURM_CONFIG.resultsDir, jobId);
 
     // Read metadata to get SLURM job ID
-    const metadataPath = path.join(outputDir, 'metadata.json');
-    const metadataContent = await fs.readFile(metadataPath, 'utf-8');
+    const metadataPath = path.join(outputDir, "metadata.json");
+    const metadataContent = await fs.readFile(metadataPath, "utf-8");
     const metadata: JobMetadata = JSON.parse(metadataContent);
 
     const slurmJobId = metadata.slurmJobId;
@@ -655,7 +682,7 @@ export async function cancelSlurmJob(jobId: string): Promise<void> {
 
     console.log(`Job cancelled: ${jobId} (SLURM ID: ${slurmJobId})`);
   } catch (error) {
-    console.error('Error cancelling job:', error);
+    console.error("Error cancelling job:", error);
     throw new Error(`Failed to cancel job: ${(error as Error).message}`);
   }
 }

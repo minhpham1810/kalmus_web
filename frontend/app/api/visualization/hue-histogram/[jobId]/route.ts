@@ -26,7 +26,7 @@ export async function GET(
 
     // Execute the Python script to generate the histogram
     const { stdout, stderr } = await execAsync(
-      `python3 ${visualizerScript} --job-id ${jobId} --type histogram --results-dir ${SLURM_CONFIG.resultsDir} --bin-step ${binStep} --saturation-threshold ${saturationThreshold}`
+      `"${SLURM_CONFIG.pythonBin}" ${visualizerScript} --job-id ${jobId} --type histogram --results-dir ${SLURM_CONFIG.resultsDir} --bin-step ${binStep} --saturation-threshold ${saturationThreshold}`
     );
 
     if (stderr) {
