@@ -58,6 +58,8 @@ export default function BarcodeComparison({
         const searchParams = new URLSearchParams({
           jobId1,
           jobId2,
+          title1,
+          title2,
         });
 
         if (range1) {
@@ -244,7 +246,6 @@ export default function BarcodeComparison({
               </div>
               <p className="text-xs kalmus-text-muted mb-4">
                 Palette, lightness and editing compared regardless of order.
-                Film A = {title1}, Film B = {title2}.
               </p>
               {film.error && (
                 <p className="text-xs kalmus-text-secondary">{film.error}</p>

@@ -1,32 +1,34 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { exec } from 'child_process';
-import { promisify } from 'util';
-import path from 'path';
-import { SLURM_CONFIG } from '@/lib/slurm';
+import { NextRequest, NextResponse } from "next/server";
+import { exec } from "child_process";
+import { promisify } from "util";
+import path from "path";
+import { SLURM_CONFIG } from "@/lib/slurm";
 
 const execAsync = promisify(exec);
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const jobId1 = searchParams.get('jobId1');
-    const jobId2 = searchParams.get('jobId2');
-    const start1 = searchParams.get('start1');
-    const end1 = searchParams.get('end1');
-    const start2 = searchParams.get('start2');
-    const end2 = searchParams.get('end2');
+    const jobId1 = searchParams.get("jobId1");
+    const jobId2 = searchParams.get("jobId2");
+    const title1 = searchParams.get("title1");
+    const title2 = searchParams.get("title2");
+    const start1 = searchParams.get("start1");
+    const end1 = searchParams.get("end1");
+    const start2 = searchParams.get("start2");
+    const end2 = searchParams.get("end2");
 
     if (!jobId1 || !jobId2) {
       return NextResponse.json(
-        { error: 'Both jobId1 and jobId2 are required' },
-        { status: 400 }
+        { error: "Both jobId1 and jobId2 are required" },
+        { status: 400 },
       );
     }
 
     const parseOptionalRange = (
       startValue: string | null,
       endValue: string | null,
-      label: string
+      label: string,
     ) => {
       if (startValue === null && endValue === null) {
         return null;
@@ -50,22 +52,22 @@ export async function GET(request: NextRequest) {
     let range2: { start: number; end: number } | null;
 
     try {
-      range1 = parseOptionalRange(start1, end1, 'barcode 1');
-      range2 = parseOptionalRange(start2, end2, 'barcode 2');
+      range1 = parseOptionalRange(start1, end1, "barcode 1");
+      range2 = parseOptionalRange(start2, end2, "barcode 2");
     } catch (error) {
       return NextResponse.json(
         { error: (error as Error).message },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     // Path to the comparison script
-    const compareScript = path.join(process.cwd(), 'lib', 'kalmus_compare.py');
+    const compareScript = path.join(process.cwd(), "lib", "kalmus_compare.py");
 
     const rangeArgs = [
-      range1 ? ` --start-1 ${range1.start} --end-1 ${range1.end}` : '',
-      range2 ? ` --start-2 ${range2.start} --end-2 ${range2.end}` : '',
-    ].join('');
+      range1 ? ` --start-1 ${range1.start} --end-1 ${range1.end}` : "",
+      range2 ? ` --start-2 ${range2.start} --end-2 ${range2.end}` : "",
+    ].join("");
 
     // Execute the Python script to compare barcodes
     const { stdout, stderr } = await execAsync(
@@ -73,8 +75,8 @@ export async function GET(request: NextRequest) {
         `"${SLURM_CONFIG.pythonBin}" ${compareScript} --job-id-1 ${jobId1} --job-id-2 ${jobId2} --title-1 "${title1}" --title-2 "${title2}" --results-dir ${SLURM_CONFIG.resultsDir}${rangeArgs}`,
     );
 
-    if (stderr && !stderr.includes('UserWarning')) {
-      console.error('Python script error:', stderr);
+    if (stderr && !stderr.includes("UserWarning")) {
+      console.error("Python script error:", stderr);
     }
 
     // Parse the JSON output from the Python script
@@ -83,17 +85,16 @@ export async function GET(request: NextRequest) {
     // Return the comparison metrics
     return NextResponse.json({
       success: true,
-      metrics: metrics
+      metrics: metrics,
     });
-
   } catch (error) {
-    console.error('Error comparing barcodes:', error);
+    console.error("Error comparing barcodes:", error);
     return NextResponse.json(
       {
-        error: 'Failed to compare barcodes',
-        details: (error as Error).message
+        error: "Failed to compare barcodes",
+        details: (error as Error).message,
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

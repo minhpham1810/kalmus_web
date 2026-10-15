@@ -14,14 +14,13 @@ import kalmus_visualizer as visualizer
 from film_compare import FilmProfile, compare
 
 
-def film_report(barcode_1, barcode_2):
+def film_report(barcode_1, barcode_2, title_1, title_2):
     """Palette, lightness and editing comparison (film_compare.py). Colour barcodes only."""
     if barcode_1.barcode_type != 'color':
         return None
     try:
-        # ponytail: no credit trimming or letterbox correction; add trim_end_s once films carry credit times
         profiles = [FilmProfile.from_frames(b.colors, b.fps / b.sampled_frame_rate, name=name)
-                    for b, name in ((barcode_1, 'Film A'), (barcode_2, 'Film B'))]
+                    for b, name in ((barcode_1, title_1), (barcode_2, title_2))]
     except ValueError as e:   # range too short to profile
         return {'error': str(e)}
     return compare(*profiles).to_dict()
@@ -33,6 +32,8 @@ def main():
     parser = argparse.ArgumentParser(description='Compare two KALMUS barcodes')
     parser.add_argument('--job-id-1', required=True, help='First job ID')
     parser.add_argument('--job-id-2', required=True, help='Second job ID')
+    parser.add_argument('--title-1', required=True, help='First barcode title')
+    parser.add_argument('--title-2', required=True, help='Second barcode title')
     parser.add_argument('--start-1', type=int,
                         help='Start frame index for the first barcode')
     parser.add_argument('--end-1', type=int,
@@ -63,7 +64,7 @@ def main():
 
     # Generate comparison metrics
     metrics = visualizer.generate_comparison_metrics(barcode_1, barcode_2)
-    metrics['film'] = film_report(barcode_1, barcode_2)
+    metrics['film'] = film_report(barcode_1, barcode_2, args.title_1, args.title_2)
 
     # Output as JSON
     print(json.dumps(metrics, indent=2))
