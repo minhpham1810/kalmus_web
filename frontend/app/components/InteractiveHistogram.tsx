@@ -85,7 +85,7 @@ export default function InteractiveHistogram({
         x: binCenters,
         y: counts,
         colors: barColors,
-        xLabel: "Color Hue (0 - 360)",
+        xLabel: "Hue",
         yLabel: "Number of frames",
         xTicks: Array.from({ length: 13 }, (_, i) => i * 30), // 0, 30, 60, ..., 360
         maxX: 360,
@@ -346,7 +346,7 @@ export default function InteractiveHistogram({
       <p className="text-xs text-neutral-500 dark:text-neutral-400">
         {barcodeType === "Color"
           ? histogramData.hueMode === "perceptual"
-            ? `Distribution of visible hue values (0-360°). Colors with OKLCH perceptual chroma below ${histogramData.chromaThreshold} are counted as low-chroma / non-hue.${satThreshold > 0 ? ` Hue samples also require saturation > ${satThreshold}.` : ""}`
+            ? `Distribution of visible hue values (0-360°). Frames with OKLCH perceptual chroma below ${histogramData.chromaThreshold} are counted as low-chroma / non-hue.${satThreshold > 0 ? ` Hue samples also require saturation > ${satThreshold}.` : ""}`
             : `Raw KALMUS/HSV hue distribution (0-360°) across all sampled frames. Near-black and gray colors can collapse to hue 0.${satThreshold > 0 ? ` Hue samples also require saturation > ${satThreshold}.` : ""}`
           : "Distribution of brightness values (0-255) across all sampled frames."}
       </p>

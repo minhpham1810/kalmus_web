@@ -17,7 +17,7 @@ import BarcodeImagePreview, {
  */
 export default function AdminPage() {
 
-  // --- search + selection state -------------------------------------------
+  // search + selection state
   const helpRef = useRef<HTMLDivElement>(null);
   const [showHelp, setShowHelp] = useState(false);
 
@@ -29,14 +29,14 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // --- film of the day  states ----------------------------------------------
+  // film of the day  states
   const [filmOfDayResults, setFilmOfDayResults] = useState<FilmSearchResult[]>([]);
   const [filmOfDayBarcode, setFilmOfDayBarcode] =
     useState<FilmOfDayBarcode | null>(null);
   const [filmOfDayLoading, setFilmOfDayLoading] = useState(true);
   const [filmOfDayBarcodeLoading, setFilmOfDayBarcodeLoading] = useState(false);
 
-  // --- admin editing state -------------------------------------------------
+  // admin editing states
   const [editingFilm, setEditingFilm] = useState<FilmRecord | null>(null);
 
   const getSelectionButtonStyle = (isActive: boolean) => ({

@@ -222,7 +222,7 @@ export default function InteractiveHueLight3DBar({
             title: { text: title, font: { size: 14 } },
             scene: {
               xaxis: {
-                title: { text: "Hue (0-360°)" },
+                title: { text: "Hue" },
                 range: [0, 360],
                 tickvals: [0, 60, 120, 180, 240, 300, 360],
                 showgrid: showGrid,
@@ -230,7 +230,7 @@ export default function InteractiveHueLight3DBar({
                 gridcolor: "rgba(128,128,128,0.3)",
               },
               yaxis: {
-                title: { text: "Light (0-1)" },
+                title: { text: "Lightness" },
                 range: [0, 1],
                 tickvals: [0, 0.25, 0.5, 0.75, 1],
                 showgrid: showGrid,
@@ -238,7 +238,7 @@ export default function InteractiveHueLight3DBar({
                 gridcolor: "rgba(128,128,128,0.3)",
               },
               zaxis: {
-                title: { text: "Count" },
+                title: { text: "Number of Frames" },
                 showgrid: showGrid,
                 visible: showAxis,
                 gridcolor: "rgba(128,128,128,0.3)",
@@ -447,7 +447,7 @@ export default function InteractiveHueLight3DBar({
 
       <p className="text-xs text-neutral-500 dark:text-neutral-400">
         3D visualization showing color distribution by Hue (x-axis), Lightness
-        (y-axis), and frequency (z-axis/size). Marker size represents the count of
+        (y-axis), and Number of Frames (z-axis/size). Marker size represents the count of
         colors in each bin. Drag to rotate, scroll to zoom.
       </p>
     </div>

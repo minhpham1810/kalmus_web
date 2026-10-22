@@ -70,13 +70,13 @@ export default function InteractiveHueLightScatter({
               font: { size: 14 },
             },
             xaxis: {
-              title: { text: "Hue (0 - 360°)" },
+              title: { text: "Hue" },
               range: [0, 360],
               tickvals: [0, 60, 120, 180, 240, 300, 360],
               gridcolor: "rgba(128,128,128,0.2)",
             },
             yaxis: {
-              title: { text: "Lightness (Value) (0 - 1)" },
+              title: { text: "Lightness" },
               range: [0, 1],
               tickvals: [0, 0.25, 0.5, 0.75, 1],
               gridcolor: "rgba(128,128,128,0.2)",
@@ -171,8 +171,7 @@ export default function InteractiveHueLightScatter({
 
       {!hideControls && (
       <p className="text-xs text-neutral-500 dark:text-neutral-400">
-        Scatter plot showing the distribution of colors by Hue (x-axis) and Lightness/Value (y-axis).
-        Each point is colored with its original RGB color.
+        Scatter plot showing the distribution of colors by Hue (x-axis) and Lightness (y-axis).
         {saturationThreshold > 0 && ` Only colors with saturation > ${saturationThreshold} are included.`}
       </p>
       )}
