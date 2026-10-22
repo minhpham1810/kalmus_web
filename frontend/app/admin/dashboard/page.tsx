@@ -4,10 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 
-/**
- * One job row as returned by the /api/admin/jobs endpoint: a single analysis
- * joined with its film's metadata.
- */
 interface Job {
   job_id: string;
   title: string | null;
@@ -28,10 +24,9 @@ interface Job {
   country: string | null;
 }
 
-type SortKey = "process_date" | "title" | "uploader" | "resolution";
+type SortKey = "process_date" | "title" | "uploader";
 type SortDir = "asc" | "desc";
 
-/** Faint divider colour used for the table borders. Lower the alpha for fainter lines. */
 const BORDER = "border-[rgba(128,128,128,0.12)]";
 
 /**
@@ -100,10 +95,10 @@ export default function AdminDashboardPage() {
           av = (a.uploader ?? "").toLowerCase();
           bv = (b.uploader ?? "").toLowerCase();
           break;
-        case "resolution":
-          av = (a.source_width ?? 0) * (a.source_height ?? 0);
-          bv = (b.source_width ?? 0) * (b.source_height ?? 0);
-          break;
+        // case "resolution":
+        //   av = (a.source_width ?? 0) * (a.source_height ?? 0);
+        //   bv = (b.source_width ?? 0) * (b.source_height ?? 0);
+        //   break;
         case "process_date":
         default:
           av = a.process_date ?? "";
@@ -195,6 +190,9 @@ export default function AdminDashboardPage() {
                     >
                       Requested by{sortIndicator("uploader")}
                     </th>
+                    <th className="text-left px-3 py-3 font-mono text-xs uppercase tracking-wider kalmus-text-secondary">
+                      Job ID
+                    </th>
                     <th
                       className="text-left px-3 py-3 font-mono text-xs uppercase tracking-wider kalmus-text-secondary cursor-pointer select-none"
                       onClick={() => handleSort("process_date")}
@@ -203,9 +201,8 @@ export default function AdminDashboardPage() {
                     </th>
                     <th
                       className="text-left px-3 py-3 font-mono text-xs uppercase tracking-wider kalmus-text-secondary cursor-pointer select-none"
-                      onClick={() => handleSort("resolution")}
-                    >
-                      Resolution{sortIndicator("resolution")}
+                      >
+                      Resolution
                     </th>
                     <th className="text-left px-3 py-3 font-mono text-xs uppercase tracking-wider kalmus-text-secondary">
                       FPS
@@ -243,6 +240,9 @@ export default function AdminDashboardPage() {
                       </td>
                       <td className="px-3 py-5 align-top font-mono text-xs kalmus-text-secondary">
                         {j.uploader ?? "—"}
+                      </td>
+                      <td className="px-3 py-5 align-top font-mono text-xs kalmus-text-secondary whitespace-nowrap select-all">
+                       {j.job_id ?? "—"}
                       </td>
                       <td className="px-3 py-5 align-top font-mono text-xs kalmus-text-secondary whitespace-nowrap">
                         {j.process_date ?? "—"}
