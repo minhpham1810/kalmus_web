@@ -96,10 +96,10 @@ export default async function AboutPage({
               <p>
                 KALMUS starts by generating a color barcode of a film. A
                 barcode typically captures each frame&apos;s color and then
-                stitches it into a mosaic. While film barcodes have long
-                existed (ETSY is filled with vendors happy to sell you a
-                barcode of your favorite film!), they often suffer from two
-                problems.
+                stitches it into a mosaic. Movie barcodes began popping up on
+                Reddit and various online shops (Etsy, Redbubble, etc.) around 2011
+                along with a slew of programs to generate the barcodes.
+                However, all of these generators suffer from two problems.
               </p>
               <p>
                 First, many programs simply reduce a film frame to a single
