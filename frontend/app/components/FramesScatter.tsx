@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { toPng } from "html-to-image";
+import { downloadBlob, toWatermarkedPng } from "@/lib/watermark";
 import {
   RGB,
   rgbToHsv,
@@ -177,13 +178,14 @@ export default function FramesScatter({
         fetchRequestInit: {mode: "cors", credentials: "same-origin"},
         backgroundColor: getComputedStyle(document.body).backgroundColor || "#ffffff",
       });
-      const link = document.createElement("a");
-      link.download = `${title
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "_")
-        .replace(/^_|_$/g, "")}.png`;
-      link.href = dataUrl;
-      link.click();
+      const png = await toWatermarkedPng(dataUrl);
+      downloadBlob(
+        png,
+        `${title
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "_")
+          .replace(/^_|_$/g, "")}.png`
+      );
       setExportState("done");
       setTimeout(() => setExportState("idle"), 2500);
     } catch (e) {

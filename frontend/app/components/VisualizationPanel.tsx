@@ -9,6 +9,7 @@ import CanvasZoomScatter from "./CanvasZoomScatter";
 import BarcodeComparison from "./BarcodeComparison";
 import ColorStatsDashboard from "./ColorStatsDashboard";
 import CSVExportButton from "./CSVExportButton";
+import { drawWatermark, isWatermarkExempt } from "@/lib/watermark";
 import BarcodePreview, { type BarcodePreviewMovie } from "./BarcodePreview";
 import {
   buildPreviewFromFrameIndex,
@@ -368,6 +369,10 @@ async function exportPinnedFramePreview(preview: BarcodePreviewData): Promise<vo
   context.strokeStyle = "rgba(255, 255, 255, 0.18)";
   context.lineWidth = 1;
   context.strokeRect(0.5, 0.5, canvas.width - 1, canvas.height - 1);
+
+  if (!isWatermarkExempt()) {
+    await drawWatermark(context, canvas.width, canvas.height);
+  }
 
   const blob = await new Promise<Blob>((resolve, reject) => {
     canvas.toBlob((result) => {

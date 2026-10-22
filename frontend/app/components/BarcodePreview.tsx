@@ -14,6 +14,7 @@ import {
   PRINT_WIDTH_INCHES,
   type DownloadVariant,
 } from "@/lib/barcode-download";
+import { drawWatermark, isWatermarkExempt } from "@/lib/watermark";
 
 export interface BarcodePreviewMovie {
   title: string;
@@ -529,7 +530,7 @@ useEffect(() => {
   skipOver,
 ]);
 
-  const handleDownload = (variant: DownloadVariant) => {
+  const handleDownload = async (variant: DownloadVariant) => {
     setDownloadMenuOpen(false);
     if (!canvasRef.current) return;
     const slug = downloadTitle
@@ -547,6 +548,15 @@ useEffect(() => {
     if (!ctx) return;
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(source, 0, 0, out.width, out.height);
+    if (!isWatermarkExempt()) {
+      try {
+        await drawWatermark(ctx, out.width, out.height);
+      } catch (error) {
+        // Never hand out an unwatermarked image outside the admin flow.
+        console.error("Barcode watermark failed:", error);
+        return;
+      }
+    }
     // Blob URL rather than a data URL: the print version is too large for the latter.
     out.toBlob(async (blob) => {
       if (!blob) return;
@@ -656,7 +666,7 @@ useEffect(() => {
     !!totalColorFrames &&
     totalColorFrames > 1;
 
-  const zoomLevels = [1, 2, 4, 8];
+  const zoomLevels = [1, 2];
 
   const isAtFullRange =
     !showRange ||

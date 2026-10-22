@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { isWatermarkExempt } from "@/lib/watermark";
 interface CanvasZoomScatterProps {
   jobId: string;
   title?: string;
@@ -16,6 +17,7 @@ export default function CanvasZoomScatter({
 }: CanvasZoomScatterProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<OSDViewer | null>(null);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
   const [status, setStatus] = useState<Status>("loading");
   useEffect(() => {
     let cancelled = false;
@@ -32,9 +34,8 @@ export default function CanvasZoomScatter({
       const totalToLoad = 2; // frames + axis
       viewer = OpenSeadragon({
         element: containerRef.current,
-        prefixUrl: "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/images/",
+        prefixUrl: "https://cdn.jsdelivr.net/gh/Benomrans/openseadragon-icons@main/images/",
         showNavigator: true,
-
         // OSD min + max zoom on canvas
         minZoomLevel: 0.98,
         maxZoomLevel: 40,
@@ -85,18 +86,32 @@ export default function CanvasZoomScatter({
       }
     };
   }, [jobId]);
-  const handleCapture = () => {
-    const viewer = viewerRef.current;
-    if (!viewer) return;
+  const handleDownload = async () => {
+    setDownloadError(null);
+    // The canvas is too large to watermark in the browser, so generate_layers.py
+    // writes a watermarked copy next to it.
+    const file = isWatermarkExempt() ? "canvas.png" : "canvas_watermarked.png";
+    const url = `/api/frame-scatter-tiles/${jobId}/frames/${file}`;
+    console.log("Download URL: ", url);
+
     try {
-      const canvas = viewer.drawer.canvas;
-      const dataUrl = canvas.toDataURL("image/png");
+      const res = await fetch(url, {method: "HEAD"});
+      if (!res.ok) {
+        console.error(`Download failed: server returned ${res.status} for ${url}`);
+        setDownloadError("Couldn't download canvas. Please try again");
+        return
+      }
+
+      const filmTitle = title.replace(/^Canvas Zoom\s*-\s*/i, "");
+      const safeTitle = filmTitle.replace(/[\\/:*?"<>|]/g, "").trim() || jobId;
+
       const link = document.createElement("a");
-      link.download = `${jobId}-canvas-zoom-view.png`;
-      link.href = dataUrl;
+      link.href = url;
+      link.download = `${safeTitle}-canvas_zoom.png`;
       link.click();
     } catch (err) {
-      console.error("Capture failed", err);
+      console.error("Download failed", err);
+      setDownloadError("Couldn't download canvas. Please try again");
     }
   };
   return (
@@ -107,14 +122,24 @@ export default function CanvasZoomScatter({
             {title}
           </p>
           {status === "ready" && (
+            <>
             <button
-              onClick={handleCapture}
+              onClick={handleDownload}
               className="absolute right-0 px-2.5 py-1 font-mono text-xs uppercase tracking-wider border border-[var(--input-border)] hover:border-[var(--accent-amber)] hover:text-[var(--text-primary)] transition-colors"
             >
               Download
             </button>
-          )}
-        </div>
+            {downloadError && (
+              <p
+                role = "alert"
+                className="max-w-xs text-right font-mono text-xs kalmus-text-secondary"
+              >
+                {downloadError}
+              </p>
+            )}
+          </>
+        )}
+      </div>
         {status === "missing" && (
           <div className="py-16 text-center">
             <p className="font-mono text-xs kalmus-text-secondary">
