@@ -361,6 +361,25 @@ class FilmsDb(Db):
                 if col not in film_map_cols:
                     cur.execute(f"ALTER TABLE film_map ADD COLUMN {col} {type_}")
 
+            # One row per failed run (non-zero exit or SLURM timeout), with the configuration it was submitted with
+            cur.execute(
+                """
+              CREATE TABLE IF NOT EXISTS failed_runs (
+                  job_id TEXT PRIMARY KEY,
+                  slurm_job_id TEXT,
+                  status TEXT NOT NULL,
+                  exit_code INTEGER,
+                  failed_at TEXT NOT NULL,
+                  submitted_at TEXT,
+                  uploader TEXT,
+                  title TEXT,
+                  imdb_id TEXT,
+                  video_filename TEXT,
+                  config TEXT NOT NULL
+              )
+              """
+            )
+
             # Search table, one row per film. edition holds the editions of all the film's analyses.
             # Migration: FTS columns cannot be added, so an older search table is rebuilt
             rebuild_search = (
@@ -625,6 +644,34 @@ class FilmsDb(Db):
         """Delete a job. Its film (with links and search row) is removed by triggers once no other job uses it."""
         with self.connect(con=con) as con:
             con.execute("DELETE FROM analyzed_files WHERE job_id = ?", (job_id,))
+
+    def record_failure(self, job_id: str, status: str, exit_code: int | None = None, failed_at: datetime | None = None, con: sqlite3.Connection | None = None):
+        """Record a failed run (status FAILED or TIMEOUT, failed now unless failed_at is given) with the configuration from its metadata.json. A rerun of the same job replaces its row."""
+        data = self.get_job_metadata(job_id)
+        movie = data.get("movie", {})
+        with self.connect(con=con) as con:
+            self.create_db(con)  # the run may have failed before command_line_generator created the schema
+            con.execute(
+                """
+              INSERT OR REPLACE INTO failed_runs
+                  (job_id, slurm_job_id, status, exit_code, failed_at, submitted_at, uploader, title, imdb_id, video_filename, config)
+              VALUES
+                  (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              """,
+                (
+                    job_id,
+                    data.get("slurmJobId"),
+                    status,
+                    exit_code,
+                    (failed_at or datetime.now()).isoformat(timespec="seconds"),
+                    data.get("submittedAt"),
+                    data.get("config", {}).get("email", "").lower(),
+                    movie.get("title"),
+                    movie.get("imdb_id") or None,
+                    data.get("videoFilename"),
+                    json.dumps(data.get("config", {})),
+                )
+            )
 
 
 class AdminDb(Db):

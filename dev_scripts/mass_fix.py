@@ -8,7 +8,8 @@ WARNING
 This file should only be used in the event that a full database regeneration is required. This
 should only be used if things have gone terribly wrong and the database is in an unrecoverable state
 and there are no good backups. This will parse all files in the /home/kalmus/kalmus/results
-directory, adding all entries where there is a status.txt file with the content "SUCCESS".
+directory, adding all entries where there is a status.txt file with the content "SUCCESS", and
+recording those with "FAILED" or "TIMEOUT" in failed_runs.
 
 This program WILL NOT overwrite the films.db file; instead, it will create a fresh films-fix.db file
 (replacing any previous films-fix.db). If
@@ -33,6 +34,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
 
 from database import FilmsDb
+from backfill_failed_runs import backfill_failed_runs
 
 FILMS_DB = FilmsDb().path.with_name("films-fix.db")
 fix_db = FilmsDb(FILMS_DB)
@@ -83,6 +85,8 @@ def main():
 
         # Save to database (also updates the search table)
         fix_db.upsert_job(job_id, film_metadata, upload_metadata, str(job_dir / "barcode.json"), poster_file)
+
+    print(f"Recorded {backfill_failed_runs(fix_db)} failed runs")
 
 if __name__ == "__main__":
     main()

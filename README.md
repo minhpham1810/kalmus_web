@@ -84,7 +84,7 @@ Each job lives in `RESULTS_DIR/[jobId]/`:
 | `barcode.png` | Rendered color barcode |
 
 ### Film catalog (SQLite)
-Located at `FILMS_DB_PATH` and shared by the Node (`lib/db.ts`) and Python (`backend/database/db.py`) sides. It stores films and their metadata, analyzed files (editions) keyed by `job_id`, and per-job primary hue and lightness (`film_map`). It powers search, film of the day, admin curation and duplicate detection. Database files are git-ignored.
+Located at `FILMS_DB_PATH` and shared by the Node (`lib/db.ts`) and Python (`backend/database/db.py`) sides. It stores films and their metadata, analyzed files (editions) keyed by `job_id`, per-job primary hue and lightness (`film_map`), and failed and timed-out runs with their submitted config (`failed_runs`, written by the SLURM script). It powers search, film of the day, admin curation and duplicate detection. Database files are git-ignored.
 
 ### Admins (SQLite)
 Located at `ADMIN_DB_PATH`: one `admins` table of Bucknell usernames, checked by `proxy.ts` for the admin, upload and editing routes. Create it (seeded with the initial admins) from `backend/` with `python -c "from database import AdminDb; AdminDb().create_db()"`, then manage it with `AdminDb().add_admin(...)` / `remove_admin(...)`.

@@ -193,6 +193,9 @@ export function generateSlurmScript(
   const notificationScript = SLURM_CONFIG.emailScript;
   const notificationResultsUrl = `${SLURM_CONFIG.websiteUrl}/results/${jobId}`;
   const notificationTitle = config.video_title || videoFilename;
+  // Adds the run to films.db's failed_runs table (FilmsDb.record_failure), run from the backend dir so `database` imports
+  const recordFailure = (status: string, exitCode = "") =>
+    `(cd "${path.dirname(SLURM_CONFIG.kalmusScript)}" && python3 -c 'import sys; from database import FilmsDb; FilmsDb().record_failure(sys.argv[1], sys.argv[2], int(sys.argv[3]) if sys.argv[3:] else None)' "${jobId}" ${status} ${exitCode}) || echo "Warning: could not record failed run in the database"`;
 
   return `#!/bin/bash
 #SBATCH --job-name=kalmus_${jobId.substring(0, 8)}
@@ -223,6 +226,7 @@ timeout_handler() {
   echo ""
   echo "Job killed by SLURM time limit at: $(date)"
   echo "TIMEOUT" > ${outputDir}/status.txt
+  ${recordFailure("TIMEOUT")}
   if [ -n "${config.email}" ]; then
     python3 ${notificationScript} \\
       --email "${config.email}" \\
@@ -313,6 +317,7 @@ if [ $EXIT_CODE -eq 0 ]; then
   fi
 else
   echo "FAILED" > ${outputDir}/status.txt
+  ${recordFailure("FAILED", "$EXIT_CODE")}
 
   if [ -n "${config.email}" ]; then
     echo ""
