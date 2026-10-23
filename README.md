@@ -86,6 +86,9 @@ Each job lives in `RESULTS_DIR/[jobId]/`:
 ### Film catalog (SQLite)
 Located at `FILMS_DB_PATH` and shared by the Node (`lib/db.ts`) and Python (`backend/database/db.py`) sides. It stores films and their metadata, analyzed files (editions) keyed by `job_id`, and per-job primary hue and lightness (`film_map`). It powers search, film of the day, admin curation and duplicate detection. Database files are git-ignored.
 
+### Admins (SQLite)
+Located at `ADMIN_DB_PATH`: one `admins` table of Bucknell usernames, checked by `proxy.ts` for the admin, upload and editing routes. Create it (seeded with the initial admins) from `backend/` with `python -c "from database import AdminDb; AdminDb().create_db()"`, then manage it with `AdminDb().add_admin(...)` / `remove_admin(...)`.
+
 ---
 
 ## 6. Features
@@ -133,7 +136,7 @@ npm run dev       # dev server
 npm run build && npm run start
 npm run lint
 ```
-The server refuses to start if a required variable is missing (`lib/env.ts`): `FILMS_DB_PATH`, `RESULTS_DIR`, `UPLOAD_DIR`, `SCRIPTS_DIR`, `PYTHON_ENV`, `KALMUS_SCRIPT`, `EMAIL_SCRIPT`, `WEBSITE_URL`, `OMDB_KEY`. Optional: `NEXT_PUBLIC_API_BASE_URL`, `SUBMISSION_BATCH_DIR`, `PYTHON_BIN`, and the `HPC_*` SSH/SFTP settings. See `.env.local.example`.
+The server refuses to start if a required variable is missing (`lib/env.ts`): `FILMS_DB_PATH`, `ADMIN_DB_PATH`, `RESULTS_DIR`, `UPLOAD_DIR`, `SCRIPTS_DIR`, `PYTHON_ENV`, `KALMUS_SCRIPT`, `EMAIL_SCRIPT`, `WEBSITE_URL`, `OMDB_KEY`. Optional: `NEXT_PUBLIC_API_BASE_URL`, `SUBMISSION_BATCH_DIR`, `PYTHON_BIN`, and the `HPC_*` SSH/SFTP settings. See `.env.local.example`.
 
 ### Tests
 ```bash

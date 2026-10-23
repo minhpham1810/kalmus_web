@@ -1,6 +1,7 @@
 // Server env vars with no safe default. instrumentation.ts checks them all at startup.
 export const REQUIRED_ENV = [
   "FILMS_DB_PATH",
+  "ADMIN_DB_PATH",
   "RESULTS_DIR",
   "UPLOAD_DIR",
   "SCRIPTS_DIR",

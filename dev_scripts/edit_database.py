@@ -5,14 +5,15 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
 
-from database import *  # noqa: F401, F403
+from database import FilmsDb, require_env
 
+films = FilmsDb()
 OMDB_KEY = require_env("OMDB_KEY")
 OMDB_URL = "https://www.omdbapi.com/"
 
 
 def list_recent_jobs(count: int = 10):
-    jobs = get_recent_jobs(count)
+    jobs = films.get_recent_jobs(count)
     print("Job ID | Title | Date | Uploader")
     for job in jobs:
         print(
@@ -27,7 +28,7 @@ def format_date_safe(date_str: str) -> str | None:
 
 
 def edit_job(job_id: str):
-    film = get_job(job_id)
+    film = films.get_job(job_id)
     if not film:
         print("Film not found")
         return
@@ -71,8 +72,8 @@ def edit_job(job_id: str):
         f"New runtime in minutes (leave blank to keep '{new_runtime}'): ").strip() or new_runtime
 
     # Films are shared, so this edits every analysis of this film
-    update_film(film["film_id"], new_title, new_released, new_type,
-                int(new_runtime) if str(new_runtime).isdigit() else None)
+    films.update_film(film["film_id"], new_title, new_released, new_type,
+                      int(new_runtime) if str(new_runtime).isdigit() else None)
 
     print("Film updated!")
 
@@ -91,7 +92,7 @@ def main():
 
     def cmd_delete():
         job_id = input("Enter job ID to delete: ").strip()
-        delete_job(job_id)
+        films.delete_job(job_id)
         print("Job deleted!")
 
     options = [

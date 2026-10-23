@@ -13,11 +13,13 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
 
-from database import *
+from database import FilmsDb
+
+films = FilmsDb()
 
 
 def get_upload_metadata(job_id: str) -> dict:
-    barcode_path = RESULTS_DIR / job_id / "barcode.json"
+    barcode_path = films.results_dir / job_id / "barcode.json"
     try:
         with open(barcode_path, "r") as f:
             data = json.load(f)
@@ -35,16 +37,16 @@ def get_upload_metadata(job_id: str) -> dict:
 
 def main():
     job_id = input("Job ID: ")
-    if not (RESULTS_DIR / job_id).exists():
+    if not (films.results_dir / job_id).exists():
         print("Job not found. Make sure the ID is correct and the job is in the results directory.")
         return
 
-    film_metadata = get_job_metadata(job_id)
+    film_metadata = films.get_job_metadata(job_id)
     upload_metadata = get_upload_metadata(job_id)
-    poster = RESULTS_DIR / job_id / "poster.jpg"
+    poster = films.results_dir / job_id / "poster.jpg"
 
     # Save to database (also updates the search table)
-    upsert_job(job_id, film_metadata, upload_metadata, str(RESULTS_DIR / job_id / "barcode.json"), str(poster) if poster.exists() else None)
+    films.upsert_job(job_id, film_metadata, upload_metadata, str(films.results_dir / job_id / "barcode.json"), str(poster) if poster.exists() else None)
 
 if __name__ == "__main__":
     main()

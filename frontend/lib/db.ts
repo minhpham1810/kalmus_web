@@ -44,8 +44,8 @@ function normalizeAnalysisValue(value: string | null | undefined): string {
   return (value || "").trim().toLowerCase();
 }
 
-export function withDb<T>(fn: (db: Database.Database) => T): T {
-  const db = getDb();
+export function withDb<T>(fn: (db: Database.Database) => T, dbPath: string = DB_PATH): T {
+  const db = getDb(dbPath);
   try {
     return fn(db);
   } finally {
@@ -53,8 +53,16 @@ export function withDb<T>(fn: (db: Database.Database) => T): T {
   }
 }
 
-export function getDb(): Database.Database {
-  const db = new Database(DB_PATH, {
+/** Whether the username is in the admin database (created by the backend's AdminDb.create_db). */
+export function isAdmin(username: string): boolean {
+  return withDb(
+    (db) => db.prepare("SELECT 1 FROM admins WHERE username = ?").get(username) !== undefined,
+    requireEnv("ADMIN_DB_PATH"),
+  );
+}
+
+export function getDb(dbPath: string = DB_PATH): Database.Database {
+  const db = new Database(dbPath, {
     // This can be enabled, but due to concurrent writes to the database from the backend, it can cause disk I/O errors.
     // Enabling will not cause any crashes, but it will flood the logs.
     // For all purposes, the database is read-only from the frontend, so this should not cause any issues.

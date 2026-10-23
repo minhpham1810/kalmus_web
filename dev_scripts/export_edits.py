@@ -16,7 +16,9 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
 
-from database import films_db, RESULTS_DIR
+from database import FilmsDb
+
+films = FilmsDb()
 
 # DB entity table -> OMDb raw key
 LISTS = {
@@ -31,7 +33,7 @@ LISTS = {
 
 def expected_from_metadata(job_id: str) -> dict:
     """Mirror of upsert_job's parsing, so a rebuild would produce exactly these values."""
-    metadata = json.loads((RESULTS_DIR / job_id / "metadata.json").read_text(encoding="utf-8"))
+    metadata = json.loads((films.results_dir / job_id / "metadata.json").read_text(encoding="utf-8"))
     movie = metadata.get("movie", {})
     raw = movie.get("raw") or {}
 
@@ -79,9 +81,9 @@ def actual_from_db(cur: sqlite3.Cursor, job_id: str) -> dict:
 
 
 def main():
-    out_path = Path(sys.argv[1]) if len(sys.argv) > 1 else films_db.with_name("film_edits.json")
+    out_path = Path(sys.argv[1]) if len(sys.argv) > 1 else films.path.with_name("film_edits.json")
 
-    con = sqlite3.connect(f"file:{films_db}?mode=ro", uri=True)
+    con = sqlite3.connect(f"file:{films.path}?mode=ro", uri=True)
     cur = con.cursor()
     job_ids = [r[0] for r in cur.execute("SELECT job_id FROM films").fetchall()]
 

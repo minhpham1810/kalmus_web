@@ -32,12 +32,13 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
 
-from database import *
+from database import FilmsDb
 
-FILMS_DB = Path(films_db).with_name("films-fix.db")
+FILMS_DB = FilmsDb().path.with_name("films-fix.db")
+fix_db = FilmsDb(FILMS_DB)
 
 def get_upload_metadata(job_id: str) -> dict:
-    barcode_path = RESULTS_DIR / job_id / "barcode.json"
+    barcode_path = fix_db.results_dir / job_id / "barcode.json"
     try:
         with open(barcode_path, "r") as f:
             data = json.load(f)
@@ -59,13 +60,13 @@ def main():
         if path.exists():
             print(f"Removing previous {path.name}")
             path.unlink()
-    create_db(FILMS_DB)
+    fix_db.create_db()
 
     successful = [
-        job_dir.name for job_dir in RESULTS_DIR.iterdir()
+        job_dir.name for job_dir in fix_db.results_dir.iterdir()
         if (job_dir / "status.txt").exists() and (job_dir / "status.txt").read_text().strip() == "SUCCESS"
     ]
-    jobs = {job_id: get_job_metadata(job_id) for job_id in successful}
+    jobs = {job_id: fix_db.get_job_metadata(job_id) for job_id in successful}
 
     # Newest first: the first job of a film creates it, so the newest metadata wins
     first_by_imdb: dict[str, str] = {}
@@ -76,12 +77,12 @@ def main():
             if kept != job_id and jobs[kept]["movie"] != film_metadata["movie"]:
                 print(f"Film metadata differs for {imdb_id}: kept job {kept}, ignored job {job_id}")
 
-        job_dir = RESULTS_DIR / job_id
+        job_dir = fix_db.results_dir / job_id
         poster_file = str(job_dir / "poster.jpg") if (job_dir / "poster.jpg").exists() else None
         upload_metadata = get_upload_metadata(job_id)
 
         # Save to database (also updates the search table)
-        upsert_job(job_id, film_metadata, upload_metadata, str(job_dir / "barcode.json"), poster_file, FILMS_DB)
+        fix_db.upsert_job(job_id, film_metadata, upload_metadata, str(job_dir / "barcode.json"), poster_file)
 
 if __name__ == "__main__":
     main()

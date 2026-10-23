@@ -1,4 +1,5 @@
 from typing import TypedDict
+from typing_extensions import NotRequired
 
 import os
 import argparse
@@ -12,7 +13,7 @@ import cv2 as cv
 from datetime import datetime
 from pathlib import Path
 
-from database import *
+from database import FilmsDb
 
 try:
     from kalmus.barcodes.BarcodeGenerator import BarcodeGenerator
@@ -20,6 +21,8 @@ try:
 except ImportError:
     print("ERROR: KALMUS library not found. Please ensure it is installed in the Python environment.")
     sys.exit(1)
+
+films = FilmsDb()
 
 THUMBNAIL_CAPTURE_INTERVAL_FRAMES = 24
 THUMBNAIL_HEIGHT = 200
@@ -153,7 +156,7 @@ def download_poster(url: str | None, save_dir: str) -> str:
     return output_path
 
 
-def get_upload_metadata(video_path: str) -> UploadMetadata:
+def get_upload_metadata(video_path: str) -> FilmsDb.UploadMetadata:
     """Helper function to extract metadata from the uploaded video file, such as width, height, fps, and frame count. This information can be used for validation and stored in the database."""
     cap = cv.VideoCapture(video_path)
     width = int(cap.get(cv.CAP_PROP_FRAME_WIDTH))
@@ -162,7 +165,7 @@ def get_upload_metadata(video_path: str) -> UploadMetadata:
     frame_count = int(cap.get(cv.CAP_PROP_FRAME_COUNT))
     cap.release()
 
-    return UploadMetadata(
+    return FilmsDb.UploadMetadata(
         width=width,
         height=height,
         fps=fps,
@@ -170,7 +173,7 @@ def get_upload_metadata(video_path: str) -> UploadMetadata:
     )
 
 
-def verify_upload_metadata(upload_metadata: UploadMetadata, expected_fps: float = 24, expected_runtime_min: int = 120):
+def verify_upload_metadata(upload_metadata: FilmsDb.UploadMetadata, expected_fps: float = 24, expected_runtime_min: int = 120):
     """
     Helper function to verify that the uploaded video metadata matches expected values based on the film's known properties.
 
@@ -388,7 +391,7 @@ def check_should_process(
     force_reprocess: bool,
     output_dir: str,
 ) -> bool:
-    existing_job_id = find_existing_analysis(
+    existing_job_id = films.find_existing_analysis(
         imdb_id, barcode_type, frame_type, metric, edition)
     if existing_job_id and not force_reprocess:
         # NOTE: This prevents rerunning a film with the same parameters
@@ -436,7 +439,7 @@ def generate_barcode(args: argparse.Namespace) -> Barcode:
     return barcode_obj  # type: ignore
 
 
-def save_barcode(barcode_obj: Barcode, args: argparse.Namespace, film_metadata: Job, upload_metadata: UploadMetadata):
+def save_barcode(barcode_obj: Barcode, args: argparse.Namespace, film_metadata: FilmsDb.Job, upload_metadata: FilmsDb.UploadMetadata):
     # Save as JSON
     json_path = os.path.join(args.output_dir, 'barcode.json')
     print(f"Saving barcode to {json_path}...")
@@ -501,11 +504,11 @@ def save_barcode(barcode_obj: Barcode, args: argparse.Namespace, film_metadata: 
         movie_metadata.get("poster_url"), args.output_dir)
 
     # Save to database (also updates the search table)
-    upsert_job(args.job_id, film_metadata,
-               upload_metadata, json_path, poster_path)
+    films.upsert_job(args.job_id, film_metadata,
+                     upload_metadata, json_path, poster_path)
 
 
-def validate_video(film_metadata: Job, upload_metadata: UploadMetadata):
+def validate_video(film_metadata: FilmsDb.Job, upload_metadata: FilmsDb.UploadMetadata):
     movie = film_metadata.get("movie")
     raw = movie.get("raw")
     if not raw:
@@ -525,12 +528,12 @@ def main(args: list[str] = sys.argv[1:]) -> int:
         sys.exit(1)
 
     # Create directories
-    os.makedirs(films_db.parent, exist_ok=True)
+    os.makedirs(films.path.parent, exist_ok=True)
     os.makedirs(parsed.output_dir, exist_ok=True)
 
-    create_db()
+    films.create_db()
 
-    film_metadata = get_job_metadata(parsed.job_id)
+    film_metadata = films.get_job_metadata(parsed.job_id)
     upload_metadata = get_upload_metadata(parsed.video_path)
 
     if not check_should_process(film_metadata.get("movie").get("imdb_id"),

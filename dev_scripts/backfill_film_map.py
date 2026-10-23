@@ -9,13 +9,15 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
 
-from database import *
+from database import FilmsDb
 from film_map import INSERT_FILM_MAP, film_map_row, map_point
+
+films = FilmsDb()
 
 
 def main():
-    create_db()  # adds the film_map table and its palette columns to older databases
-    with DbConnection(readonly=True) as con:
+    films.create_db()  # adds the film_map table and its palette columns to older databases
+    with films.connect(readonly=True) as con:
         jobs = con.execute(
             "SELECT job_id, json, barcode_type, metric, frame_type FROM analyzed_files af "
             "WHERE barcode_type = 'color' AND metric = 'average' AND frame_type = 'whole_frame' AND json IS NOT NULL "
@@ -27,7 +29,7 @@ def main():
     points = []
     for job_id, json_rel, barcode_type, metric, frame_type in jobs:
         try:
-            features = map_point(str(RESULTS_DIR / json_rel), barcode_type, metric, frame_type)
+            features = map_point(str(films.results_dir / json_rel), barcode_type, metric, frame_type)
         except ValueError as e:  # includes JSONDecodeError
             print(f"Skipping {job_id}: {e}")
             continue
@@ -36,7 +38,7 @@ def main():
             continue
         points.append(film_map_row(job_id, features))
 
-    with DbConnection() as con:
+    with films.connect() as con:
         con.executemany(INSERT_FILM_MAP, points)
     print(f"Updated {len(points)} jobs")
 
