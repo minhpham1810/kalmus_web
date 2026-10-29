@@ -18,7 +18,7 @@ export const VARIANTS = {
   },
   "palette-links": {
     label: "Palette links",
-    blurb: "Angle = dominant hue, but links join films whose whole palettes and lightness match best.",
+    blurb: "Angle = dominant hue, distance from center = brightness (darker films sit nearer the middle). Links join films whose whole palettes and lightness match best.",
   },
   "mean-hue": {
     label: "Mean hue",
@@ -30,7 +30,7 @@ export const VARIANTS = {
   },
   glyphs: {
     label: "Palette glyphs",
-    blurb: "Angle = dominant hue; each film is drawn as its hue histogram. Links join matching palettes.",
+    blurb: "Angle = dominant hue, distance from center = brightness (darker films sit nearer the middle); each film is drawn as its hue histogram. Links join matching palettes.",
   },
 } as const;
 

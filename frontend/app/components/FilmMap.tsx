@@ -2,7 +2,13 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { HUE_BINS, histOf, paletteDistance, type MapFilm, type Variant } from "@/lib/film-map";
+import {
+  HUE_BINS,
+  histOf,
+  paletteDistance,
+  type MapFilm,
+  type Variant,
+} from "@/lib/film-map";
 
 interface Node extends MapFilm {
   x: number;
@@ -10,36 +16,37 @@ interface Node extends MapFilm {
   color: string;
 }
 
-const R = 320; // colour universe radius
-const R_INNER = 30; // keeps the darkest films off the exact centre
+const R = 320; // color universe radius
+const R_INNER = 30; // keeps the darkest films off the exact center
 const BW_R = 130; // black-and-white universe radius
 const BW_CX = R * 2 + 60 + BW_R; // B/W universe sits to the right
-const SIZE = { w: BW_CX + BW_R + 40, h: R * 2 + 40 };
+const SHOW_BW = false; // B/W universe hidden for now; flip to bring it back
+const SIZE = { w: SHOW_BW ? BW_CX + BW_R + 40 : R * 2 + 40, h: R * 2 + 8 }; // 4 above and below the wheel; the "Color" label sits over its bottom edge
 const CX = R + 20;
-const CY = R + 20;
+const CY = R + 4;
 const NEIGHBOURS = 2;
 const GOLDEN_ANGLE = 2.39996;
 
-// Log scale from the darkest to the brightest film: log(1 + k·t) / log(1 + k).
-// k = 0 is linear; larger k spreads the dark end and squeezes the bright end.
+// Linear scale from the darkest to the brightest film
 function radius(
   l: number,
   lo: number,
   hi: number,
   inner: number,
   outer: number,
-  k: number,
 ) {
   const t = hi > lo ? (l - lo) / (hi - lo) : 0.5;
-  const s = k > 0 ? Math.log1p(k * t) / Math.log1p(k) : t;
-  return inner + s * (outer - inner);
+  return inner + t * (outer - inner);
 }
 
 const r2 = (n: number) => Math.round(n * 100) / 100; // same on server and client, see hue wheel
 const onScreen = (a: Node, b: Node) => Math.hypot(a.x - b.x, a.y - b.y);
 
 // ponytail: O(n²) nearest-neighbour scan, fine to a few thousand films; use a k-d tree past that
-function links(nodes: Node[], dist: (a: Node, b: Node) => number): [Node, Node][] {
+function links(
+  nodes: Node[],
+  dist: (a: Node, b: Node) => number,
+): [Node, Node][] {
   const seen = new Set<string>();
   const out: [Node, Node][] = [];
   for (const a of nodes) {
@@ -59,12 +66,16 @@ function links(nodes: Node[], dist: (a: Node, b: Node) => number): [Node, Node][
 }
 
 // Force layout for the similarity variant: linked films (most similar palettes) pull together with a rest
-// length that grows with their palette distance, every pair pushes apart, and gravity keeps it centred.
+// length that grows with their palette distance, every pair pushes apart, and gravity keeps it centered.
 // Only + - * / and sqrt, so server and client agree exactly and hydration holds.
 // ponytail: O(n²) per tick, fine to a few hundred films; use d3-force (Barnes-Hut) past that
 function similarityLayout(nodes: Node[], edges: [Node, Node][]) {
   const idx = new Map(nodes.map((n, i) => [n.job_id, i]));
-  const springs = edges.map(([a, b]) => [idx.get(a.job_id)!, idx.get(b.job_id)!, 15 + 20 * paletteDistance(a, b)]);
+  const springs = edges.map(([a, b]) => [
+    idx.get(a.job_id)!,
+    idx.get(b.job_id)!,
+    15 + 20 * paletteDistance(a, b),
+  ]);
   const p = nodes.map((n) => ({ x: n.x, y: n.y }));
   const TICKS = 300;
   for (let t = 0; t < TICKS; t++) {
@@ -101,10 +112,13 @@ function similarityLayout(nodes: Node[], edges: [Node, Node][]) {
       p[i].y += f[i].y * s;
     }
   }
-  // Fit into the colour universe's circle
+  // Fit into the color universe's circle
   const mx = p.reduce((s, q) => s + q.x, 0) / p.length;
   const my = p.reduce((s, q) => s + q.y, 0) / p.length;
-  const far = Math.max(...p.map((q) => Math.sqrt((q.x - mx) ** 2 + (q.y - my) ** 2)), 1);
+  const far = Math.max(
+    ...p.map((q) => Math.sqrt((q.x - mx) ** 2 + (q.y - my) ** 2)),
+    1,
+  );
   const scale = (R - 20) / far;
   nodes.forEach((n, i) => {
     n.x = r2(CX + (p[i].x - mx) * scale);
@@ -118,11 +132,17 @@ function petals(n: Node, k: number) {
   const step = (2 * Math.PI) / HUE_BINS;
   return hist.flatMap((s, i) => {
     if (s < 0.005) return [];
-    const len = (5 + 28 * Math.sqrt(s)) / k; // sqrt so minor colours still show
-    const a0 = i * step;
-    const a1 = a0 + step;
-    const pt = (a: number) => `${r2(n.x + len * Math.cos(a))},${r2(n.y - len * Math.sin(a))}`;
-    return [{ d: `M${n.x},${n.y} L${pt(a0)} L${pt(a1)} Z`, fill: `oklch(0.7 0.14 ${(i + 0.5) * (360 / HUE_BINS)})` }];
+    const len = (5 + 28 * Math.sqrt(s)) / k; // sqrt so minor colors still show
+    const a0 = Math.PI / 2 - i * step; // red at the top, clockwise, matching the wheel
+    const a1 = a0 - step;
+    const pt = (a: number) =>
+      `${r2(n.x + len * Math.cos(a))},${r2(n.y - len * Math.sin(a))}`;
+    return [
+      {
+        d: `M${n.x},${n.y} L${pt(a0)} L${pt(a1)} Z`,
+        fill: `oklch(0.7 0.14 ${(i + 0.5) * (360 / HUE_BINS)})`,
+      },
+    ];
   });
 }
 
@@ -145,7 +165,12 @@ function placeLabels(nodes: Node[], hover: Node, k: number) {
       const dy = (t % 2 === 1 ? -1 : 1) * Math.ceil(t / 2) * h;
       const x0 = side > 0 ? sx + 11 : sx - 11 - w;
       const box = { x0, x1: x0 + w, y0: sy + dy - h / 2, y1: sy + dy + h / 2 };
-      if (boxes.every((b) => box.x1 < b.x0 || box.x0 > b.x1 || box.y1 < b.y0 || box.y0 > b.y1)) {
+      if (
+        boxes.every(
+          (b) =>
+            box.x1 < b.x0 || box.x0 > b.x1 || box.y1 < b.y0 || box.y0 > b.y1,
+        )
+      ) {
         boxes.push(box);
         return {
           n,
@@ -158,27 +183,69 @@ function placeLabels(nodes: Node[], hover: Node, k: number) {
         };
       }
     }
-    return { n, text, size: px / k, x: (sx + 11) / k, y: (sy + px * 0.35) / k, anchor: "start" as const, moved: false };
+    return {
+      n,
+      text,
+      size: px / k,
+      x: (sx + 11) / k,
+      y: (sy + px * 0.35) / k,
+      anchor: "start" as const,
+      moved: false,
+    };
   });
 }
 
-export function FilmMap({ films, variant }: { films: MapFilm[]; variant: Variant }) {
-  const byPalette = variant === "palette-links" || variant === "similarity" || variant === "glyphs";
+type View = { x: number; y: number; k: number };
+
+// Client pixels -> viewBox units
+const toViewBox = (svg: SVGSVGElement, x: number, y: number) =>
+  new DOMPoint(x, y).matrixTransform(svg.getScreenCTM()!.inverse());
+
+// Keep the map on screen: an axis it fits on stays centered, otherwise its edges can't come inside the screen's
+function clampView(svg: SVGSVGElement, v: View): View {
+  const r = svg.getBoundingClientRect();
+  const a = toViewBox(svg, r.left, r.top);
+  const b = toViewBox(svg, r.right, r.bottom);
+  const axis = (pos: number, size: number, lo: number, hi: number) =>
+    size * v.k <= hi - lo
+      ? (lo + hi - size * v.k) / 2
+      : Math.min(lo, Math.max(hi - size * v.k, pos));
+  return {
+    k: v.k,
+    x: axis(v.x, SIZE.w, a.x, b.x),
+    y: axis(v.y, SIZE.h, a.y, b.y),
+  };
+}
+
+export function FilmMap({
+  films: allFilms,
+  variant,
+}: {
+  films: MapFilm[];
+  variant: Variant;
+}) {
+  const byPalette =
+    variant === "palette-links" ||
+    variant === "similarity" ||
+    variant === "glyphs";
   const wheel = variant !== "similarity"; // similarity positions have no hue/lightness axes
   const router = useRouter();
   // Keyed by job_id: nodes are rebuilt with each layout, so object identity isn't stable
   const [hoverId, setHoverId] = useState<string | null>(null);
-  const [logK, setLogK] = useState(20);
   const [view, setView] = useState({ x: 0, y: 0, k: 1 });
   const svgRef = useRef<SVGSVGElement>(null);
   const drag = useRef<{ x: number; y: number; moved: boolean } | null>(null);
 
+  const films = useMemo(
+    () => (SHOW_BW ? allFilms : allFilms.filter((f) => f.hue !== null)),
+    [allFilms],
+  );
   const ls = films.map((f) => f.lightness);
   const lo = Math.min(...ls);
   const hi = Math.max(...ls);
 
-  const { colour, mono, edges } = useMemo(() => {
-    const colour: Node[] = [];
+  const { color, mono, edges } = useMemo(() => {
+    const color: Node[] = [];
     const mono: Node[] = [];
     // Identical analyses land on the same spot; ring them round it so each stays reachable
     const stacked = new Map<string, number>();
@@ -195,7 +262,7 @@ export function FilmMap({ films, variant }: { films: MapFilm[]; variant: Variant
       if (f.hue === null) {
         // No hue to place by, so spread B/W films round their disc with the golden angle
         const a = mono.length * GOLDEN_ANGLE;
-        const r = radius(f.lightness, lo, hi, 10, BW_R - 10, logK);
+        const r = radius(f.lightness, lo, hi, 10, BW_R - 10);
         mono.push({
           ...f,
           ...unstack(BW_CX + r * Math.cos(a), CY + r * Math.sin(a)),
@@ -203,44 +270,51 @@ export function FilmMap({ films, variant }: { films: MapFilm[]; variant: Variant
         });
       } else {
         const angle = variant === "mean-hue" ? (f.mean_hue ?? f.hue) : f.hue;
-        const a = (angle * Math.PI) / 180;
-        const r = radius(f.lightness, lo, hi, R_INNER, R - 10, logK);
-        // SVG y points down, so negate it to run hue counter-clockwise like a colour wheel
-        colour.push({
+        const a = ((90 - angle) * Math.PI) / 180; // red (0°) at the top, hue running clockwise
+        const r = radius(f.lightness, lo, hi, R_INNER, R - 10);
+        // SVG y points down, so negate it to keep maths angles
+        color.push({
           ...f,
           ...unstack(CX + r * Math.cos(a), CY - r * Math.sin(a)),
           color: `oklch(${f.lightness} 0.12 ${f.hue})`,
         });
       }
     }
-    const colourEdges = links(colour, byPalette ? paletteDistance : onScreen);
-    if (!wheel) similarityLayout(colour, colourEdges);
-    return { colour, mono, edges: [...colourEdges, ...links(mono, onScreen)] };
-  }, [films, lo, hi, logK, variant, byPalette, wheel]);
+    const colorEdges = links(color, byPalette ? paletteDistance : onScreen);
+    if (!wheel) similarityLayout(color, colorEdges);
+    return { color, mono, edges: [...colorEdges, ...links(mono, onScreen)] };
+  }, [films, lo, hi, variant, byPalette, wheel]);
 
-  const all = [...colour, ...mono];
+  const all = [...color, ...mono];
   const hover = all.find((n) => n.job_id === hoverId) ?? null;
   const near = new Set(
     edges.flatMap(([a, b]) =>
-      a.job_id === hoverId ? [b.job_id] : b.job_id === hoverId ? [a.job_id] : [],
+      a.job_id === hoverId
+        ? [b.job_id]
+        : b.job_id === hoverId
+          ? [a.job_id]
+          : [],
     ),
   );
 
-  // Client pixels -> viewBox units
-  const toSvg = (x: number, y: number) =>
-    new DOMPoint(x, y).matrixTransform(svgRef.current!.getScreenCTM()!.inverse());
+  const toSvg = (x: number, y: number) => toViewBox(svgRef.current!, x, y);
+  const clamp = (v: View) => clampView(svgRef.current!, v);
 
   // Wheel zoom about the cursor. React's onWheel is passive, so it can't stop the page scrolling.
   useEffect(() => {
     const svg = svgRef.current!;
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
-      const p = new DOMPoint(e.clientX, e.clientY).matrixTransform(svg.getScreenCTM()!.inverse());
+      const p = toViewBox(svg, e.clientX, e.clientY);
       const f = Math.exp(-e.deltaY * 0.0015);
       setView((v) => {
-        const k = Math.min(20, Math.max(0.5, v.k * f));
+        const k = Math.min(20, Math.max(1, v.k * f)); // 1 = whole map in view
         const g = k / v.k;
-        return { k, x: p.x - (p.x - v.x) * g, y: p.y - (p.y - v.y) * g };
+        return clampView(svg, {
+          k,
+          x: p.x - (p.x - v.x) * g,
+          y: p.y - (p.y - v.y) * g,
+        });
       });
     };
     svg.addEventListener("wheel", onWheel, { passive: false });
@@ -248,15 +322,18 @@ export function FilmMap({ films, variant }: { films: MapFilm[]; variant: Variant
   }, []);
 
   const k = view.k; // dots, lines and text divide by k to stay the same size on screen
-  const ringR = (l: number) => radius(l, lo, hi, R_INNER, R - 10, logK);
-  const rings = [0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5].filter((l) => l >= lo && l <= hi);
+  const ringR = (l: number) => radius(l, lo, hi, R_INNER, R - 10);
+  const rings = [0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5].filter(
+    (l) => l >= lo && l <= hi,
+  );
 
   return (
     <>
       <svg
         ref={svgRef}
         viewBox={`0 0 ${SIZE.w} ${SIZE.h}`}
-        className="fixed inset-0 w-screen h-screen touch-none select-none cursor-grab active:cursor-grabbing"
+        // Inset below the variant switcher text and above the bottom controls; overflow shows the map behind them when zoomed
+        className="fixed inset-x-0 top-20 bottom-6 w-screen h-[calc(100vh-6.5rem)] overflow-visible touch-none select-none cursor-grab active:cursor-grabbing"
         role="img"
         aria-label="Map of films by primary hue and lightness"
         onPointerDown={(e) => {
@@ -270,7 +347,7 @@ export function FilmMap({ films, variant }: { films: MapFilm[]; variant: Variant
           const dy = p.y - drag.current.y;
           if (Math.hypot(dx, dy) < 2 && !drag.current.moved) return; // let clicks be clicks
           drag.current = { x: p.x, y: p.y, moved: true };
-          setView((v) => ({ ...v, x: v.x + dx, y: v.y + dy }));
+          setView((v) => clamp({ ...v, x: v.x + dx, y: v.y + dy }));
         }}
         // Cleared after the click event so a drag that ends on a dot doesn't open it
         onPointerUp={() => setTimeout(() => (drag.current = null))}
@@ -284,7 +361,7 @@ export function FilmMap({ films, variant }: { films: MapFilm[]; variant: Variant
               <feMergeNode in="SourceGraphic" />
             </feMerge>
           </filter>
-          {/* Faint hue wheel behind the colour universe */}
+          {/* Faint hue wheel behind the color universe */}
           <radialGradient id="fade">
             <stop offset="0%" stopColor="#000" stopOpacity="0.9" />
             <stop offset="100%" stopColor="#000" stopOpacity="0" />
@@ -292,33 +369,37 @@ export function FilmMap({ films, variant }: { films: MapFilm[]; variant: Variant
         </defs>
 
         <g transform={`translate(${view.x} ${view.y}) scale(${k})`}>
-          {wheel && Array.from({ length: 72 }, (_, i) => {
-            // Rounded: server and browser Math.cos can differ in the last digit, breaking hydration
-            const pt = (deg: number) =>
-              `${(CX + R * Math.cos((deg * Math.PI) / 180)).toFixed(2)},${(CY - R * Math.sin((deg * Math.PI) / 180)).toFixed(2)}`;
-            return (
-              <path
-                key={i}
-                d={`M${CX},${CY} L${pt(i * 5)} A${R},${R} 0 0 0 ${pt(i * 5 + 5)} Z`}
-                fill={`oklch(0.45 0.1 ${i * 5 + 2.5})`}
-                opacity={0.12}
-              />
-            );
-          })}
+          {wheel &&
+            Array.from({ length: 72 }, (_, i) => {
+              // Rounded: server and browser Math.cos can differ in the last digit, breaking hydration
+              const pt = (deg: number) =>
+                `${(CX + R * Math.cos((deg * Math.PI) / 180)).toFixed(2)},${(CY - R * Math.sin((deg * Math.PI) / 180)).toFixed(2)}`;
+              return (
+                <path
+                  key={i}
+                  d={`M${CX},${CY} L${pt(90 - i * 5)} A${R},${R} 0 0 1 ${pt(85 - i * 5)} Z`}
+                  fill={`oklch(0.45 0.1 ${i * 5 + 2.5})`}
+                  opacity={0.12}
+                />
+              );
+            })}
           <circle cx={CX} cy={CY} r={R} fill="url(#fade)" />
-          <circle
-            cx={BW_CX}
-            cy={CY}
-            r={BW_R}
-            fill="#888"
-            opacity={0.08}
-            stroke="#888"
-            strokeOpacity={0.3}
-          />
+          {SHOW_BW && (
+            <circle
+              cx={BW_CX}
+              cy={CY}
+              r={BW_R}
+              fill="#888"
+              opacity={0.08}
+              stroke="#888"
+              strokeOpacity={0.3}
+            />
+          )}
 
-          {wheel && rings.map((l) => (
-            <g key={l} className="kalmus-text-muted">
+          {wheel &&
+            rings.map((l) => (
               <circle
+                key={l}
                 cx={CX}
                 cy={CY}
                 r={ringR(l)}
@@ -328,37 +409,29 @@ export function FilmMap({ films, variant }: { films: MapFilm[]; variant: Variant
                 strokeWidth={1 / k}
                 strokeDasharray={`${2 / k} ${4 / k}`}
               />
-              <text
-                x={CX + ringR(l) * Math.SQRT1_2 + 4 / k}
-                y={CY + ringR(l) * Math.SQRT1_2 + 4 / k}
-                fontSize={10 / k}
-                fill="currentColor"
-                opacity={0.6}
-              >
-                L {l}
-              </text>
-            </g>
-          ))}
+            ))}
           <text
             x={CX}
             y={SIZE.h - 2}
             textAnchor="middle"
-            fontSize={12}
+            fontSize={20}
             fill="currentColor"
             className="kalmus-text-secondary"
           >
-            Colour
+            Color
           </text>
-          <text
-            x={BW_CX}
-            y={CY + BW_R + 20}
-            textAnchor="middle"
-            fontSize={12}
-            fill="currentColor"
-            className="kalmus-text-secondary"
-          >
-            Black &amp; white
-          </text>
+          {SHOW_BW && (
+            <text
+              x={BW_CX}
+              y={CY + BW_R + 20}
+              textAnchor="middle"
+              fontSize={12}
+              fill="currentColor"
+              className="kalmus-text-secondary"
+            >
+              Black &amp; white
+            </text>
+          )}
 
           {edges.map(([a, b]) => {
             const lit = a.job_id === hoverId || b.job_id === hoverId;
@@ -408,7 +481,9 @@ export function FilmMap({ films, variant }: { films: MapFilm[]; variant: Variant
                   filter={glyph ? undefined : "url(#glow)"}
                 />
                 {/* Invisible hit area, so the gaps between petals still hover */}
-                {glyph && <circle cx={n.x} cy={n.y} r={14 / k} fill="transparent" />}
+                {glyph && (
+                  <circle cx={n.x} cy={n.y} r={14 / k} fill="transparent" />
+                )}
               </g>
             );
           })}
@@ -438,7 +513,9 @@ export function FilmMap({ films, variant }: { films: MapFilm[]; variant: Variant
                   fontSize={size}
                   fill="currentColor"
                   className={
-                    n === hover ? "kalmus-text-primary" : "kalmus-text-secondary"
+                    n === hover
+                      ? "kalmus-text-primary"
+                      : "kalmus-text-secondary"
                   }
                   style={{
                     paintOrder: "stroke",
@@ -452,29 +529,6 @@ export function FilmMap({ films, variant }: { films: MapFilm[]; variant: Variant
             ))}
         </g>
       </svg>
-      <div className="fixed bottom-5 left-6 right-6 z-50 flex flex-wrap items-center justify-end gap-4 text-xs font-mono kalmus-text-secondary pointer-events-none *:pointer-events-auto">
-        {/* Similarity positions ignore the lightness scale */}
-        {wheel && (
-        <label className="flex items-center gap-2">
-          Log strength
-          <input
-            type="range"
-            min={0}
-            max={200}
-            value={logK}
-            onChange={(e) => setLogK(Number(e.target.value))}
-          />
-          <span className="w-8">{logK}</span>
-        </label>
-        )}
-        <button
-          className="uppercase tracking-[0.22em] hover:text-[var(--text-primary)]"
-          onClick={() => setView({ x: 0, y: 0, k: 1 })}
-        >
-          Reset view
-        </button>
-        <span>Scroll to zoom · drag to pan</span>
-      </div>
     </>
   );
 }
