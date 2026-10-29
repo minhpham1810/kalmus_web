@@ -350,14 +350,15 @@ class FilmsDb(Db):
                   lightness REAL NOT NULL,
                   mean_hue REAL,
                   hue_hist TEXT,
+                  display_hist TEXT,
                   FOREIGN KEY (job_id) REFERENCES analyzed_files(job_id) ON DELETE CASCADE
               )
               """
             )
 
-            # Migration: film maps created before the palette features (mean_hue, hue_hist JSON) existed
+            # Migration: film maps created before the palette features (mean_hue, hue_hist JSON) or display_hist existed
             film_map_cols = {r[1] for r in cur.execute("PRAGMA table_info(film_map)")}
-            for col, type_ in (("mean_hue", "REAL"), ("hue_hist", "TEXT")):
+            for col, type_ in (("mean_hue", "REAL"), ("hue_hist", "TEXT"), ("display_hist", "TEXT")):
                 if col not in film_map_cols:
                     cur.execute(f"ALTER TABLE film_map ADD COLUMN {col} {type_}")
 

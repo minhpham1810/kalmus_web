@@ -24,6 +24,6 @@ def test_film_map_has_one_point_per_film_and_edition(tmp_path, monkeypatch):
 
     with db.connect() as con:
         for job in "abcda":  # "a" again: re-processing a job already on the map still updates it
-            con.execute(INSERT_FILM_MAP, (job, 120.0, 0.5, None, None))
+            con.execute(INSERT_FILM_MAP, (job, 120.0, 0.5, None, None, None))
     with db.connect(readonly=True) as con:
         assert con.execute("SELECT GROUP_CONCAT(job_id) FROM film_map ORDER BY job_id").fetchone()[0] == "a,c"
