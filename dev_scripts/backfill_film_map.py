@@ -1,5 +1,5 @@
 """
-Fill in the film_map table for average, whole-frame colour-barcode jobs processed before it (or its palette
+Fill in the film_map table for average, whole-frame color-barcode jobs processed before it (or its palette
 columns) existed. Safe to re-run: only jobs without a row, or without palette features, are computed.
 """
 
@@ -34,7 +34,7 @@ def main():
             print(f"Skipping {job_id}: {e}")
             continue
         if features is None:
-            print(f"Skipping {job_id}: no barcode colours")
+            print(f"Skipping {job_id}: no barcode colors")
             continue
         points.append(film_map_row(job_id, features))
 

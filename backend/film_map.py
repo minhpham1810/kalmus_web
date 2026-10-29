@@ -1,5 +1,5 @@
 """
-Film map: each average, whole-frame colour barcode becomes a point (primary hue, lightness), plus the
+Film map: each average, whole-frame color barcode becomes a point (primary hue, lightness), plus the
 whole-palette features (mean hue, hue histogram) the palette-aware map variants use.
 Computed when a job is saved to the database (database.upsert_job) and stored in film_map.
 """
@@ -18,7 +18,7 @@ from film_compare import MONO_CHROMA, N_HUE_BINS, srgb_to_oklab
 def map_features(rgb) -> dict:
     """Film-map features from per-frame sRGB (0-255 or 0-1):
     primary_hue: peak of the chroma-weighted hue histogram, OKLab degrees, 1-degree resolution, lightly smoothed
-    mean_hue: angle of the mean OKLab (a, b), i.e. the overall colour cast, in degrees
+    mean_hue: angle of the mean OKLab (a, b), i.e. the overall color cast, in degrees
     hue_hist: chroma-weighted N_HUE_BINS histogram summing to 1, as in the comparison
     lightness: median OKLab lightness, 0-1
     Hue features are None for black-and-white films."""
@@ -42,7 +42,7 @@ def map_features(rgb) -> dict:
 
 
 def map_point(json_loc: str, barcode_type: str, metric: str, frame_type: str) -> dict | None:
-    """Film-map features of an average, whole-frame colour barcode; None for other barcodes."""
+    """Film-map features of an average, whole-frame color barcode; None for other barcodes."""
     if (barcode_type.lower(), metric.lower(), frame_type.lower()) != ("color", "average", "whole_frame") or not Path(json_loc).exists():
         return None
     colors = json.loads(Path(json_loc).read_text()).get("colors")

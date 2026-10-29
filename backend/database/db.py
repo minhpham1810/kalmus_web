@@ -341,7 +341,7 @@ class FilmsDb(Db):
             if "edition" not in {r[1] for r in cur.execute("PRAGMA table_info(analyzed_files)")}:
                 cur.execute("ALTER TABLE analyzed_files ADD COLUMN edition TEXT")
 
-            # Film-map position of each colour-barcode job. primary_hue is NULL for black-and-white films
+            # Film-map position of each color-barcode job. primary_hue is NULL for black-and-white films
             cur.execute(
                 """
               CREATE TABLE IF NOT EXISTS film_map (

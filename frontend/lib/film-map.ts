@@ -3,7 +3,7 @@
 export interface MapFilm {
   job_id: string;
   hue: number | null; // dominant OKLab hue in degrees; null for black-and-white films
-  mean_hue: number | null; // angle of the mean OKLab (a, b): the overall colour cast
+  mean_hue: number | null; // angle of the mean OKLab (a, b): the overall color cast
   hue_hist: number[] | null; // chroma-weighted 36-bin hue histogram summing to 1 (film_compare.py)
   lightness: number; // median OKLab L, 0-1
   title: string;
@@ -22,11 +22,11 @@ export const VARIANTS = {
   },
   "mean-hue": {
     label: "Mean hue",
-    blurb: "Angle = the overall colour cast (average of every frame's colour). Links join nearest films.",
+    blurb: "Angle = the overall color cast (average of every frame's color). Links join nearest films.",
   },
   similarity: {
     label: "Similarity",
-    blurb: "No axes: films with similar whole palettes and lightness pull together. Dot colour = dominant hue.",
+    blurb: "No axes: films with similar whole palettes and lightness pull together. Dot color = dominant hue.",
   },
   glyphs: {
     label: "Palette glyphs",
