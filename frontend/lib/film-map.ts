@@ -36,6 +36,9 @@ export const VARIANTS = {
 
 export type Variant = keyof typeof VARIANTS;
 
+// Variants on offer for now; the first is the default served at /map. The rest 404 but stay in the code.
+export const SHOWN_VARIANTS: Variant[] = ["palette-links", "glyphs"];
+
 export const HUE_BINS = 36;
 
 /** Earth mover's distance between two hue histograms on the circle, in degrees (as film_compare.circular_emd). */

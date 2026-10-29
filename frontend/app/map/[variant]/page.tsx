@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { withDb } from "@/lib/db";
-import { VARIANTS, type MapFilm, type Variant } from "@/lib/film-map";
+import { SHOWN_VARIANTS, VARIANTS, type MapFilm, type Variant } from "@/lib/film-map";
 import { FilmMap } from "../../components/FilmMap";
 
 export const dynamic = "force-dynamic";
@@ -12,7 +12,7 @@ export default async function MapVariantPage({
   params: Promise<{ variant: string }>;
 }) {
   const { variant } = await params;
-  if (!(variant in VARIANTS)) notFound();
+  if (!SHOWN_VARIANTS.includes(variant as Variant)) notFound();
 
   const films = withDb((db) =>
     (
@@ -41,10 +41,10 @@ export default async function MapVariantPage({
       {/* Variant switcher, for A/B comparing the map designs */}
       <nav className="fixed top-5 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-1 pointer-events-none">
         <div className="flex flex-wrap justify-center gap-4 pointer-events-auto">
-          {(Object.keys(VARIANTS) as Variant[]).map((v) => (
+          {SHOWN_VARIANTS.map((v) => (
             <Link
               key={v}
-              href={v === "dominant" ? "/map" : `/map/${v}`}
+              href={v === SHOWN_VARIANTS[0] ? "/map" : `/map/${v}`}
               className={`font-mono text-xs tracking-[0.22em] uppercase transition-colors ${
                 v === variant
                   ? "kalmus-text-primary underline underline-offset-4"
