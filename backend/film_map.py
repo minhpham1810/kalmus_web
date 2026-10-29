@@ -54,7 +54,20 @@ def film_map_row(job_id: str, f: dict) -> tuple:
     return (job_id, f["primary_hue"], f["lightness"], f["mean_hue"], json.dumps(f["hue_hist"]) if f["hue_hist"] else None)
 
 
-INSERT_FILM_MAP = "INSERT OR REPLACE INTO film_map (job_id, primary_hue, lightness, mean_hue, hue_hist) VALUES (?, ?, ?, ?, ?)"
+# One point per film and edition (case-insensitive, as find_existing_analysis): skipped when another job of the
+# same film and edition is already on the map. Needs the job's analyzed_files row to exist first.
+INSERT_FILM_MAP = """
+INSERT OR REPLACE INTO film_map (job_id, primary_hue, lightness, mean_hue, hue_hist)
+SELECT ?1, ?2, ?3, ?4, ?5
+WHERE NOT EXISTS (
+    SELECT 1 FROM film_map m
+    JOIN analyzed_files other ON other.job_id = m.job_id
+    JOIN analyzed_files new ON new.job_id = ?1
+    WHERE m.job_id != ?1
+        AND other.film_id = new.film_id
+        AND LOWER(COALESCE(other.edition, '')) = LOWER(COALESCE(new.edition, ''))
+)
+"""
 
 
 if __name__ == "__main__":
