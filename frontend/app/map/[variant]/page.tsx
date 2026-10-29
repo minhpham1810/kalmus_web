@@ -14,18 +14,34 @@ export default async function MapVariantPage({
   const { variant } = await params;
   if (!SHOWN_VARIANTS.includes(variant as Variant)) notFound();
 
+  // A film's linked names, unit-separator joined (names can contain commas)
+  const names = (table: string, col: string) =>
+    `(SELECT GROUP_CONCAT(e.name, char(31)) FROM film_${table} j JOIN ${table} e ON e.id = j.${col}_id WHERE j.film_id = f.id) AS ${table}`;
+  const split = (s: string | null) => (s ? s.split("\x1f") : []);
+  type Row = Omit<MapFilm, "hue_hist" | "display_hist" | "countries" | "directors" | "genres"> &
+    Record<"hue_hist" | "display_hist" | "countries" | "directors" | "genres", string | null>;
+  const hist = (s: string | null) => (s ? (JSON.parse(s) as number[]) : null);
+
   const films = withDb((db) =>
     (
       db
         .prepare(
-          `SELECT m.job_id, m.primary_hue AS hue, m.mean_hue, m.hue_hist, m.lightness,
-            f.title, f.released_year AS year, af.edition
+          `SELECT m.job_id, m.primary_hue AS hue, m.mean_hue, m.hue_hist, m.display_hist, m.lightness,
+            f.title, f.released_year AS year, af.edition,
+            ${names("countries", "country")}, ${names("directors", "director")}, ${names("genres", "genre")}
           FROM film_map m
           JOIN analyzed_files af ON af.job_id = m.job_id
           JOIN films f ON f.id = af.film_id`,
         )
-        .all() as (Omit<MapFilm, "hue_hist"> & { hue_hist: string | null })[]
-    ).map((f) => ({ ...f, hue_hist: f.hue_hist ? (JSON.parse(f.hue_hist) as number[]) : null })),
+        .all() as Row[]
+    ).map((f) => ({
+      ...f,
+      hue_hist: hist(f.hue_hist),
+      display_hist: hist(f.display_hist),
+      countries: split(f.countries),
+      directors: split(f.directors),
+      genres: split(f.genres),
+    })),
   );
 
   return (

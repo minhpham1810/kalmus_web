@@ -9,6 +9,11 @@ export interface MapFilm {
   title: string;
   year: number | null;
   edition: string | null;
+  display_hist: number[] | null; // the results page's hue histogram (HSV, per frame) in 72 bins, for the hover card
+  // For the map's filters
+  countries: string[];
+  directors: string[];
+  genres: string[];
 }
 
 export const VARIANTS = {

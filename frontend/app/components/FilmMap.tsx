@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   HUE_BINS,
@@ -9,6 +8,7 @@ import {
   type MapFilm,
   type Variant,
 } from "@/lib/film-map";
+import { FilmMapPanel, NO_FILTER, filterActive, matchesFilter } from "./FilmMapPanel";
 
 interface Node extends MapFilm {
   x: number;
@@ -229,10 +229,12 @@ export function FilmMap({
     variant === "similarity" ||
     variant === "glyphs";
   const wheel = variant !== "similarity"; // similarity positions have no hue/lightness axes
-  const router = useRouter();
   // Keyed by job_id: nodes are rebuilt with each layout, so object identity isn't stable
   const [hoverId, setHoverId] = useState<string | null>(null);
+  const [pinnedId, setPinnedId] = useState<string | null>(null); // clicked: holds the card and highlight until unpinned
+  const focusId = pinnedId ?? hoverId;
   const [view, setView] = useState({ x: 0, y: 0, k: 1 });
+  const [filter, setFilter] = useState(NO_FILTER);
   const svgRef = useRef<SVGSVGElement>(null);
   const drag = useRef<{ x: number; y: number; moved: boolean } | null>(null);
 
@@ -286,16 +288,21 @@ export function FilmMap({
   }, [films, lo, hi, variant, byPalette, wheel]);
 
   const all = [...color, ...mono];
-  const hover = all.find((n) => n.job_id === hoverId) ?? null;
+  const hover = all.find((n) => n.job_id === focusId) ?? null;
   const near = new Set(
     edges.flatMap(([a, b]) =>
-      a.job_id === hoverId
+      a.job_id === focusId
         ? [b.job_id]
-        : b.job_id === hoverId
+        : b.job_id === focusId
           ? [a.job_id]
           : [],
     ),
   );
+
+  // Filters dim the films they rule out; a title search also rings what it finds
+  const filtering = filterActive(filter);
+  const matched = new Set(all.filter((n) => matchesFilter(n, filter)).map((n) => n.job_id));
+  const searching = filter.q.trim() !== "";
 
   const toSvg = (x: number, y: number) => toViewBox(svgRef.current!, x, y);
   const clamp = (v: View) => clampView(svgRef.current!, v);
@@ -349,8 +356,12 @@ export function FilmMap({
           drag.current = { x: p.x, y: p.y, moved: true };
           setView((v) => clamp({ ...v, x: v.x + dx, y: v.y + dy }));
         }}
-        // Cleared after the click event so a drag that ends on a dot doesn't open it
+        // Cleared after the click event so a drag that ends on a dot doesn't pin it
         onPointerUp={() => setTimeout(() => (drag.current = null))}
+        // A click on empty map (not a drag) unpins
+        onClick={() => {
+          if (!drag.current?.moved) setPinnedId(null);
+        }}
         onPointerLeave={() => (drag.current = null)}
       >
         <defs>
@@ -434,7 +445,7 @@ export function FilmMap({
           )}
 
           {edges.map(([a, b]) => {
-            const lit = a.job_id === hoverId || b.job_id === hoverId;
+            const lit = a.job_id === focusId || b.job_id === focusId;
             return (
               <line
                 key={a.job_id + b.job_id}
@@ -450,7 +461,9 @@ export function FilmMap({
           })}
 
           {all.map((n) => {
-            const dim = hover !== null && hover !== n && !near.has(n.job_id);
+            const hit = matched.has(n.job_id);
+            const dim =
+              (hover !== null && hover !== n && !near.has(n.job_id)) || (filtering && !hit && hover !== n);
             const glyph = variant === "glyphs" && n.hue !== null;
             // Dashed: no palette data, so palette variants fall back to the dominant hue alone
             const approx = byPalette && n.hue !== null && !n.hue_hist;
@@ -461,8 +474,9 @@ export function FilmMap({
                 className="cursor-pointer transition-opacity"
                 onMouseEnter={() => setHoverId(n.job_id)}
                 onMouseLeave={() => setHoverId(null)}
-                onClick={() => {
-                  if (!drag.current?.moved) router.push(`/results/${n.job_id}`);
+                onClick={(e) => {
+                  e.stopPropagation(); // the map's own click would unpin it again
+                  if (!drag.current?.moved) setPinnedId(pinnedId === n.job_id ? null : n.job_id);
                 }}
               >
                 {glyph &&
@@ -480,6 +494,9 @@ export function FilmMap({
                   strokeDasharray={approx ? `${2 / k} ${1.5 / k}` : undefined}
                   filter={glyph ? undefined : "url(#glow)"}
                 />
+                {searching && hit && (
+                  <circle cx={n.x} cy={n.y} r={13 / k} fill="none" stroke="#fff" strokeWidth={1.5 / k} />
+                )}
                 {/* Invisible hit area, so the gaps between petals still hover */}
                 {glyph && (
                   <circle cx={n.x} cy={n.y} r={14 / k} fill="transparent" />
@@ -529,6 +546,13 @@ export function FilmMap({
             ))}
         </g>
       </svg>
+      <FilmMapPanel
+        films={films}
+        hover={all.find((n) => n.job_id === pinnedId) ?? null}
+        filter={filter}
+        setFilter={setFilter}
+        matches={films.filter((f) => matchesFilter(f, filter)).length}
+      />
     </>
   );
 }
