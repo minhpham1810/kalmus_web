@@ -41,12 +41,53 @@ def map_features(rgb) -> dict:
     }
 
 
+HUE_FRAME = "map_frame.webp"  # the film's dominant-hue frame, shown when it's hovered on the map
+
+
+def hue_frame(rgb, primary_hue: float, candidates: list[int]) -> int:
+    """Of the candidate frame indices, the most saturated within 15 degrees of primary_hue, else the nearest in hue."""
+    rgb = np.asarray(rgb, dtype=np.float64).reshape(-1, 3)[candidates]
+    lab = srgb_to_oklab(rgb / 255.0 if rgb.max() > 1.0 else rgb)
+    chroma = np.hypot(lab[:, 1], lab[:, 2])
+    off = np.abs((np.degrees(np.arctan2(lab[:, 2], lab[:, 1])) - primary_hue + 180) % 360 - 180)
+    return candidates[int(np.argmax(np.where(off <= 15, chroma, -off)))]
+
+
+def save_hue_frame(job_dir: Path, barcode: dict, primary_hue: float) -> None:
+    """Crop the dominant-hue frame out of the job's thumbnail sheets into HUE_FRAME. Only thumbnailed frames qualify."""
+    from PIL import Image
+
+    manifest = json.loads((job_dir / "thumbnails.json").read_text())
+    if not manifest.get("enabled"):
+        return
+    colors = barcode["colors"]
+    skip, rate = barcode.get("skip_over", 0), max(1, barcode.get("sampled_frame_rate", 1))
+    # Thumbnails are keyed by source frame; colors[i] is source frame skip + i * rate
+    by_index = {round((t["frame_index"] - skip) / rate): t for t in manifest["thumbnails"]}
+    candidates = [i for i in by_index if 0 <= i < len(colors)]
+    if not candidates:
+        return
+    t = by_index[hue_frame(colors, primary_hue, candidates)]
+    sheet = next(s for s in manifest["sheets"] if s["index"] == t["sheet_index"])
+    with Image.open(job_dir / sheet["filename"]) as im:
+        im.crop((t["x"], t["y"], t["x"] + t["width"], t["y"] + t["height"])).save(job_dir / HUE_FRAME, quality=80)
+
+
 def map_point(json_loc: str, barcode_type: str, metric: str, frame_type: str) -> dict | None:
-    """Film-map features of an average, whole-frame color barcode; None for other barcodes."""
+    """Film-map features of an average, whole-frame color barcode; None for other barcodes.
+    Also saves the dominant-hue frame next to the barcode when the job has thumbnails."""
     if (barcode_type.lower(), metric.lower(), frame_type.lower()) != ("color", "average", "whole_frame") or not Path(json_loc).exists():
         return None
-    colors = json.loads(Path(json_loc).read_text()).get("colors")
-    return map_features(colors) if colors else None
+    barcode = json.loads(Path(json_loc).read_text())
+    if not barcode.get("colors"):
+        return None
+    features = map_features(barcode["colors"])
+    if features["primary_hue"] is not None:
+        try:
+            save_hue_frame(Path(json_loc).parent, barcode, features["primary_hue"])
+        except (OSError, KeyError, ValueError, StopIteration) as e:  # the frame is optional; the map point still counts
+            print(f"No dominant-hue frame for {json_loc}: {e}")
+    return features
 
 
 def film_map_row(job_id: str, f: dict) -> tuple:
@@ -77,4 +118,8 @@ if __name__ == "__main__":
     assert abs(sum(f["hue_hist"]) - 1) < 1e-3 and sum(x > 0 for x in f["hue_hist"]) == 2
     assert f["primary_hue"] != f["mean_hue"]
     assert map_features(np.full((10, 3), 128))["hue_hist"] is None
+    # The dominant-hue frame is the most saturated orange one, from the candidates only
+    frames = [[200, 120, 60], [230, 120, 40], [30, 140, 150], [250, 110, 20]]
+    orange = map_features(frames[1:2])["primary_hue"]
+    assert hue_frame(frames, orange, [0, 1, 2]) == 1 and hue_frame(frames, orange, [0, 1, 2, 3]) == 3
     print("ok", f)
