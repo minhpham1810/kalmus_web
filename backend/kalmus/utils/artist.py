@@ -713,16 +713,20 @@ def find_letter_box_from_videos(video, num_sample=30):
     return low_bound_ver, high_bound_ver, low_bound_hor, high_bound_hor
 
 
-def get_letter_box_from_frames(frame, threshold=5):
+def get_letter_box_from_frames(frame, threshold=5, dark=20):
     """
     Find the position of letterbox (black bars around the scene) in the input cv2 video object.
     The function assumes the letter box of the frame is black (dark)
+    A frame that is mostly almost black (over half its pixels at or below dark) keeps its whole area: in a dark scene
+    the bars can't be told from the picture, so cropping would eat into it.
 
     :param frame: Input frame
     :type frame: numpy.ndarray
     :param threshold: The brightness threshold value that distinguish \
                       the region of interest (bright) and letterbox (dark)
     :type threshold: int
+    :param dark: Brightness (0-255, mean of the channels) at or below which a pixel counts as almost black
+    :type dark: int
     :return: The smaller row index of letterbox (bound for upper horizontal letterbox), \
              the larger row index of letterbox (bound for lower horizontal letterbox), \
              the smaller col index of letterbox (bound for left vertical letterbox), \
@@ -733,6 +737,10 @@ def get_letter_box_from_frames(frame, threshold=5):
     high_bound_ver = frame.shape[0]
     low_bound_hor = 0
     high_bound_hor = frame.shape[1]
+
+    brightness = frame.mean(axis=-1) if frame.ndim == 3 else frame
+    if np.mean(brightness <= dark) > 0.5:
+        return low_bound_ver, high_bound_ver, low_bound_hor, high_bound_hor
 
     for i in range(0, frame.shape[0] // 2):
         color = np.average(frame[i, ...])
