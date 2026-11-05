@@ -21,7 +21,7 @@ const R_INNER = 30; // keeps the darkest films off the exact center
 const BW_R = 130; // black-and-white universe radius
 const BW_CX = R * 2 + 60 + BW_R; // B/W universe sits to the right
 const SHOW_BW = false; // B/W universe hidden for now; flip to bring it back
-const SIZE = { w: SHOW_BW ? BW_CX + BW_R + 40 : R * 2 + 40, h: R * 2 + 8 }; // 4 above and below the wheel; the "Color" label sits over its bottom edge
+const SIZE = { w: SHOW_BW ? BW_CX + BW_R + 40 : R * 2 + 40, h: R * 2 + 8 }; // 4 above and below the wheel
 const CX = R + 20;
 const CY = R + 4;
 const NEIGHBOURS = 2;
@@ -149,7 +149,7 @@ function petals(n: Node, k: number) {
 // Greedy label placement, in screen pixels so it holds at any zoom: the hovered film first,
 // then each neighbour tries right, left, then steps up/down until it clears placed labels.
 // ponytail: text width is estimated from character count; measure with getBBox if it misfires
-function placeLabels(nodes: Node[], hover: Node, k: number) {
+function placeLabels(nodes: Node[], hover: Node | null, k: number) {
   const boxes: { x0: number; x1: number; y0: number; y1: number }[] = [];
   return nodes.map((n) => {
     const text = `${n.title}${n.year ? ` (${n.year})` : ""}${n.edition ? ` · ${n.edition}` : ""}`;
@@ -220,9 +220,11 @@ function clampView(svg: SVGSVGElement, v: View): View {
 export function FilmMap({
   films: allFilms,
   variant,
+  children,
 }: {
   films: MapFilm[];
   variant: Variant;
+  children?: React.ReactNode; // heads the left panel
 }) {
   const byPalette =
     variant === "palette-links" ||
@@ -339,8 +341,8 @@ export function FilmMap({
       <svg
         ref={svgRef}
         viewBox={`0 0 ${SIZE.w} ${SIZE.h}`}
-        // Inset below the variant switcher text and above the bottom controls; overflow shows the map behind them when zoomed
-        className="fixed inset-x-0 top-20 bottom-6 w-screen h-[calc(100vh-6.5rem)] overflow-visible touch-none select-none cursor-grab active:cursor-grabbing"
+        // Equal insets top and bottom keep it vertically centered; overflow shows the map behind the controls when zoomed
+        className="fixed inset-x-0 top-10 bottom-10 w-screen h-[calc(100vh-5rem)] overflow-visible touch-none select-none cursor-grab active:cursor-grabbing"
         role="img"
         aria-label="Map of films by primary hue and lightness"
         onPointerDown={(e) => {
@@ -421,16 +423,6 @@ export function FilmMap({
                 strokeDasharray={`${2 / k} ${4 / k}`}
               />
             ))}
-          <text
-            x={CX}
-            y={SIZE.h - 2}
-            textAnchor="middle"
-            fontSize={20}
-            fill="currentColor"
-            className="kalmus-text-secondary"
-          >
-            Color
-          </text>
           {SHOW_BW && (
             <text
               x={BW_CX}
@@ -462,15 +454,15 @@ export function FilmMap({
 
           {all.map((n) => {
             const hit = matched.has(n.job_id);
-            const dim =
-              (hover !== null && hover !== n && !near.has(n.job_id)) || (filtering && !hit && hover !== n);
+            const filteredOut = filtering && !hit && hover !== n && n.job_id !== hoverId;
+            const dim = hover !== null && hover !== n && !near.has(n.job_id) && n.job_id !== hoverId;
             const glyph = variant === "glyphs" && n.hue !== null;
             // Dashed: no palette data, so palette variants fall back to the dominant hue alone
             const approx = byPalette && n.hue !== null && !n.hue_hist;
             return (
               <g
                 key={n.job_id}
-                opacity={dim ? 0.25 : 1}
+                opacity={filteredOut ? 0.08 : dim ? 0.25 : 1}
                 className="cursor-pointer transition-opacity"
                 onMouseEnter={() => setHoverId(n.job_id)}
                 onMouseLeave={() => setHoverId(null)}
@@ -486,7 +478,7 @@ export function FilmMap({
                 <circle
                   cx={n.x}
                   cy={n.y}
-                  r={(glyph ? 3.5 : hover === n ? 9 : 6) / k}
+                  r={(glyph ? 2.5 : hover === n ? 6 : 4) / k}
                   fill={n.color}
                   stroke="#fff"
                   strokeOpacity={0.5}
@@ -494,8 +486,8 @@ export function FilmMap({
                   strokeDasharray={approx ? `${2 / k} ${1.5 / k}` : undefined}
                   filter={glyph ? undefined : "url(#glow)"}
                 />
-                {searching && hit && (
-                  <circle cx={n.x} cy={n.y} r={13 / k} fill="none" stroke="#fff" strokeWidth={1.5 / k} />
+                {searching && hit && !hover && (
+                  <circle cx={n.x} cy={n.y} r={9 / k} fill="none" stroke="#fff" strokeWidth={1.5 / k} />
                 )}
                 {/* Invisible hit area, so the gaps between petals still hover */}
                 {glyph && (
@@ -505,12 +497,23 @@ export function FilmMap({
             );
           })}
 
-          {hover &&
-            placeLabels(
-              [hover, ...all.filter((n) => near.has(n.job_id))],
-              hover,
-              k,
-            ).map(({ n, text, size, x, y, anchor, moved }) => (
+          {placeLabels(
+            [
+              // Hovering labels just that film and its neighbours, as without a filter; otherwise every film a filter keeps
+              ...(hover
+                ? [
+                    hover,
+                    ...all.filter((n) => near.has(n.job_id)),
+                    // While a film is pinned, hovering another just adds that film's name
+                    ...all.filter((n) => n.job_id === hoverId && n !== hover && !near.has(n.job_id)),
+                  ]
+                : filtering
+                  ? all.filter((n) => matched.has(n.job_id))
+                  : []),
+            ],
+            hover,
+            k,
+          ).map(({ n, text, size, x, y, anchor, moved }) => (
               <g key={n.job_id} pointerEvents="none">
                 {moved && (
                   <line
@@ -548,11 +551,15 @@ export function FilmMap({
       </svg>
       <FilmMapPanel
         films={films}
-        hover={all.find((n) => n.job_id === pinnedId) ?? null}
+        // A pinned film holds the card; otherwise it follows the hovered film
+        hover={all.find((n) => n.job_id === (pinnedId ?? hoverId)) ?? null}
+        pinned={pinnedId !== null}
         filter={filter}
         setFilter={setFilter}
         matches={films.filter((f) => matchesFilter(f, filter)).length}
-      />
+      >
+        {children}
+      </FilmMapPanel>
     </>
   );
 }

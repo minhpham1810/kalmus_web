@@ -1,7 +1,8 @@
+import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { withDb } from "@/lib/db";
-import { SHOWN_VARIANTS, VARIANTS, type MapFilm, type Variant } from "@/lib/film-map";
+import { SHOWN_VARIANTS, type MapFilm, type Variant } from "@/lib/film-map";
 import { FilmMap } from "../../components/FilmMap";
 
 export const dynamic = "force-dynamic";
@@ -45,36 +46,30 @@ export default async function MapVariantPage({
 
   return (
     <div className="min-h-screen">
-      <div className="fixed top-5 left-6 z-50">
+      {/* Heads the map's left column, above the filter */}
+      <FilmMap films={films} variant={variant as Variant}>
         <Link
           href="/"
-          className="text-base kalmus-text-secondary hover:text-[var(--text-primary)] transition-colors"
+          className="self-start text-base kalmus-text-secondary hover:text-[var(--text-primary)] transition-colors"
         >
           ← Back
         </Link>
-      </div>
-      {/* Variant switcher, for A/B comparing the map designs */}
-      <nav className="fixed top-5 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-1 pointer-events-none">
-        <div className="flex flex-wrap justify-center gap-4 pointer-events-auto">
-          {SHOWN_VARIANTS.map((v) => (
-            <Link
-              key={v}
-              href={v === SHOWN_VARIANTS[0] ? "/map" : `/map/${v}`}
-              className={`font-mono text-xs tracking-[0.22em] uppercase transition-colors ${
-                v === variant
-                  ? "kalmus-text-primary underline underline-offset-4"
-                  : "kalmus-text-secondary hover:text-[var(--text-primary)]"
-              }`}
-            >
-              {VARIANTS[v].label}
-            </Link>
-          ))}
-        </div>
-        <p className="text-xs kalmus-text-muted max-w-xl text-center">
-          {VARIANTS[variant as Variant].blurb}
+        <Image src="/kalmusverse-logo.png" alt="KALMUSverse" width={270} height={40} priority />
+        <p className="kalmus-text-secondary leading-snug">
+          All the films in the KALMUS archive plotted by their dominant color (hue) and lightness. For example, darker
+          films gravitate to the center and brighter films drift to the perimeter. Lines connect films with similar
+          palettes and lightness.
         </p>
-      </nav>
-      <FilmMap films={films} variant={variant as Variant} />
+        {/* The one item that gives way on short screens, so the filter and film card always fit;
+            object-contain keeps it square as its box shrinks */}
+        <Image
+          src="/hue-lightness.png"
+          alt="Hue runs round the wheel, lightness outward from the center"
+          width={240}
+          height={240}
+          className="size-60 min-h-0 object-contain object-left"
+        />
+      </FilmMap>
     </div>
   );
 }

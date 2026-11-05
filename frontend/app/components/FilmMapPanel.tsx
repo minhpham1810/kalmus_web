@@ -42,12 +42,16 @@ export function FilmMapPanel({
   filter,
   setFilter,
   matches,
+  pinned,
+  children,
 }: {
   films: MapFilm[];
   hover: MapFilm | null;
+  pinned: boolean;
   filter: MapFilter;
   setFilter: (f: MapFilter) => void;
   matches: number;
+  children?: React.ReactNode; // back link, logo and key, above the filter
 }) {
   const options = useMemo(
     () => ({
@@ -71,7 +75,8 @@ export function FilmMapPanel({
 
   return (
     // Clicks pass through the empty space between the boxes to the map; the boxes take them back
-    <aside className="fixed top-20 left-6 bottom-6 z-50 hidden md:flex w-80 flex-col gap-4 text-xs pointer-events-none *:pointer-events-auto">
+    <aside className="fixed top-5 left-6 bottom-6 z-50 flex w-64 flex-col gap-2 text-xs pointer-events-none *:pointer-events-auto">
+      {children}
       {Object.entries(options).map(([k, values]) => (
         <datalist key={k} id={`map-${k}`}>
           {values.map((v) => (
@@ -80,8 +85,8 @@ export function FilmMapPanel({
         </datalist>
       ))}
 
-      <section className="kalmus-surface p-4 flex flex-col gap-2">
-        <h2 className="font-mono uppercase tracking-[0.22em] kalmus-text-secondary">Find films</h2>
+      <section className="kalmus-surface p-3 flex flex-col gap-1.5">
+        <h2 className="font-mono uppercase tracking-[0.22em] kalmus-text-secondary">Filter</h2>
         {field("q", "Search titles…", "q")}
         {field("country", "Country", "country")}
         {field("director", "Filmmaker", "director")}
@@ -103,8 +108,9 @@ export function FilmMapPanel({
         )}
       </section>
 
-      <section className="kalmus-surface p-4 flex flex-col gap-3 min-h-0 mt-auto">
-        {hover ? <HoverCard film={hover} /> : <p className="kalmus-text-muted">Click a film to see its colors.</p>}
+      <section className="kalmus-surface p-3 flex flex-col gap-2 mt-auto relative">
+        {hover ? <HoverCard film={hover} /> : <p className="kalmus-text-muted">Hover over a film to see its colors; click to pin it.</p>}
+        {pinned && <span className="absolute bottom-3 right-3 kalmus-text-muted">Pinned</span>}
       </section>
     </aside>
   );
@@ -134,7 +140,7 @@ function HoverCard({ film }: { film: MapFilm }) {
         />
       )}
       {/* Mini hue histogram, red first, as on the wheel */}
-      <svg viewBox={`0 0 ${bins} 20`} preserveAspectRatio="none" className="w-full h-14 bg-black" role="img"
+      <svg viewBox={`0 0 ${bins} 20`} preserveAspectRatio="none" className="w-full h-10 bg-black" role="img"
         aria-label="Hue histogram">
         {hist.map((v, i) => (
           <rect
