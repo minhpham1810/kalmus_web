@@ -10,6 +10,7 @@ export interface WatermarkRect {
 }
 
 export const WATERMARK_SRC = "/kalmus-logo.png";
+export const BARCODE_WATERMARK_SRC = "/kalmus%20logo_type_only.png";
 export const WATERMARK_OPACITY = 0.9;
 // Logo spans at most 15% of the image width and 20% of its height,
 // inset from the lower-left corner by 3% of the shorter side.
@@ -54,9 +55,10 @@ export function loadImage(src: string): Promise<HTMLImageElement> {
 export async function drawWatermark(
   ctx: CanvasRenderingContext2D,
   width: number,
-  height: number
+  height: number,
+  src: string = WATERMARK_SRC
 ): Promise<void> {
-  const logo = await loadImage(WATERMARK_SRC);
+  const logo = await loadImage(src);
   const rect = getWatermarkRect(width, height, logo.naturalWidth, logo.naturalHeight);
   ctx.save();
   ctx.imageSmoothingEnabled = true;

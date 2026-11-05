@@ -14,7 +14,7 @@ import {
   PRINT_WIDTH_INCHES,
   type DownloadVariant,
 } from "@/lib/barcode-download";
-import { drawWatermark, isWatermarkExempt } from "@/lib/watermark";
+import { BARCODE_WATERMARK_SRC, drawWatermark, isWatermarkExempt } from "@/lib/watermark";
 
 export interface BarcodePreviewMovie {
   title: string;
@@ -550,7 +550,7 @@ useEffect(() => {
     ctx.drawImage(source, 0, 0, out.width, out.height);
     if (!isWatermarkExempt()) {
       try {
-        await drawWatermark(ctx, out.width, out.height);
+        await drawWatermark(ctx, out.width, out.height, BARCODE_WATERMARK_SRC);
       } catch (error) {
         // Never hand out an unwatermarked image outside the admin flow.
         console.error("Barcode watermark failed:", error);
