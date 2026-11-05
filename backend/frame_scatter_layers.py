@@ -8,9 +8,9 @@ import zlib
 from typing import Dict, List, Optional, Sequence, Tuple
 
 HUE_BIN_DEGREES = 2.5
-LIGHTNESS_BIN_SIZE = 0.15
+LIGHTNESS_BIN_SIZE = 0.1
 
-SATURATION_THRESHOLD = 0.1
+SATURATION_THRESHOLD = 0.15
 
 SATURATION_THRESHOLDS: List[Tuple[str, float]] = [
     ("frames", SATURATION_THRESHOLD),
