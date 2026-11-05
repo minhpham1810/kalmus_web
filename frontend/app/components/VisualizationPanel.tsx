@@ -1507,6 +1507,8 @@ export default function VisualizationPanel({
                   jobId2={compareJobId}
                   title1={videoFilename}
                   title2={compareTitle}
+                  poster1={previewMovie?.posterUrl}
+                  poster2={compareMovie?.posterUrl}
                   range1={comparePrimaryRange}
                   range2={compareSecondaryRange}
                 />
