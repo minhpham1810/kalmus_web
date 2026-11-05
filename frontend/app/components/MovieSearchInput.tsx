@@ -25,6 +25,8 @@ interface SearchResult {
 
 interface MovieSearchInputProps {
   onChange: (movie: MovieInfo | null) => void;
+  /** Looked up on mount, e.g. when an admin opens the upload page from a film request. */
+  initialImdbId?: string;
 }
 
 const IMDB_ID_RE = /^tt\d{7,8}$/i;
@@ -37,8 +39,8 @@ const inputStyle = {
   outline: 'none',
 } as React.CSSProperties;
 
-export default function MovieSearchInput({ onChange }: MovieSearchInputProps) {
-  const [query, setQuery] = useState("");
+export default function MovieSearchInput({ onChange, initialImdbId }: MovieSearchInputProps) {
+  const [query, setQuery] = useState(initialImdbId ?? "");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [selected, setSelected] = useState<MovieMetadata | null>(null);
   const [submittedManual, setSubmittedManual] = useState("");

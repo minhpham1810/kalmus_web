@@ -5,6 +5,7 @@ import { Readable } from 'stream';
 import type { ReadableStream as NodeReadableStream } from 'stream/web';
 import { findDuplicateAnalysisSignatures, FRAME_TYPE_OPTIONS, parseAnalysisConfigPayload } from '@/lib/multi-analysis';
 import { submitBarcodeBatch } from '@/lib/barcode-submission';
+import { linkRequestToBatch } from '@/lib/requests';
 
 // Configure route segment for large file uploads
 export const maxDuration = 600; // 10 minutes timeout for large uploads
@@ -96,6 +97,8 @@ export async function POST(request: NextRequest) {
       user,
       movie,
     });
+
+    await linkRequestToBatch(formData.get('request_id'), batch.jobs);
 
     return NextResponse.json({
       success: true,

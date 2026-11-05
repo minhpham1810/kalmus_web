@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   AnalysisConfig,
   buildAnalysisConfigPayload,
@@ -9,7 +9,9 @@ import {
   findDuplicateAnalysisSignatures,
   getNextAvailableAnalysisConfig,
   getInitialAnalysisConfigs,
+  normalizeAnalysisConfigs,
 } from "@/lib/multi-analysis";
+import type { FilmRequest } from "@/lib/requests-store";
 import FileUpload from "./FileUpload";
 import ConfigPanel from "./ConfigPanel";
 import MovieSearchInput, { MovieInfo } from "./MovieSearchInput";
@@ -46,7 +48,20 @@ interface BatchSubmitResponse {
   error?: string;
 }
 
-export default function BarcodeGenerator() {
+interface BarcodeGeneratorProps {
+  /**
+   * "upload" submits jobs with a video. "request" has no video: the same form is saved as a
+   * film request for an admin to approve.
+   */
+  mode?: "upload" | "request";
+}
+
+export default function BarcodeGenerator({ mode = "upload" }: BarcodeGeneratorProps) {
+  const isRequestMode = mode === "request";
+  const searchParams = useSearchParams();
+  // Set when an admin opens the upload form from a request, to prefill and later link its job
+  const requestId = isRequestMode ? null : searchParams.get("request");
+  const [fulfilling, setFulfilling] = useState<FilmRequest | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [sharedConfig, setSharedConfig] = useState<SharedBarcodeConfig>({
     sampled_rate: 1,
@@ -86,6 +101,10 @@ export default function BarcodeGenerator() {
       ),
     [analysisConfigs, duplicateStates],
   );
+  // Requesting only makes sense for analyses that are not already in the archive
+  const allAnalysesExist =
+    isRequestMode &&
+    analysisConfigs.every((config) => duplicateStates[config.clientId]?.exactMatch);
   const duplicateMetrics = useMemo(
     () => findDuplicateAnalysisSignatures(analysisConfigs),
     [analysisConfigs],
@@ -305,6 +324,100 @@ export default function BarcodeGenerator() {
     };
   }, [analysisConfigs, fetchDuplicateState, movieInfo]);
 
+  useEffect(() => {
+    if (!requestId) return;
+    let cancelled = false;
+
+    async function loadRequest() {
+      try {
+        const response = await fetch(`${API_BASE}/api/admin/requests/${encodeURIComponent(requestId!)}`);
+        if (!response.ok) throw new Error("Request not found");
+        const { request } = (await response.json()) as { request: FilmRequest };
+        if (cancelled) return;
+
+        const { config } = request;
+        setFulfilling(request);
+        setSharedConfig((prev) => ({
+          ...prev,
+          sampled_rate: config.sampled_rate,
+          skip_over: config.skip_over,
+          total_frames: config.total_frames,
+          seconds_per_column: config.seconds_per_column,
+          save_thumbnails: config.save_thumbnails,
+          edition: config.edition,
+          changing_aspect_ratio: config.changing_aspect_ratio,
+        }));
+        setAnalysisConfigs(normalizeAnalysisConfigs(config.analyses));
+      } catch {
+        if (!cancelled) setError("Could not load the film request, so the form was not prefilled.");
+      }
+    }
+
+    void loadRequest();
+    return () => {
+      cancelled = true;
+    };
+  }, [API_BASE, requestId]);
+
+  const handleRequestSubmit = async () => {
+    if (!movieInfo || !("imdb_id" in movieInfo) || !movieInfo.imdb_id) {
+      setError("Pick a film from the search results so it can be requested");
+      return;
+    }
+    if (!sharedConfig.email || !sharedConfig.email.includes("@")) {
+      setError("Please enter a valid email address");
+      return;
+    }
+    if (duplicateMetrics.length > 0) {
+      setError(
+        "Each batch option must be unique. Duplicate barcode type, frame type, and metric combination.",
+      );
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError(null);
+    try {
+      const response = await fetch(`${API_BASE}/api/requests`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          movie: movieInfo,
+          email: sharedConfig.email,
+          config: {
+            sampled_rate: sharedConfig.sampled_rate,
+            skip_over: sharedConfig.skip_over,
+            total_frames: sharedConfig.total_frames,
+            seconds_per_column: sharedConfig.seconds_per_column,
+            save_thumbnails: sharedConfig.save_thumbnails,
+            edition: sharedConfig.edition?.trim() || "",
+            changing_aspect_ratio: sharedConfig.changing_aspect_ratio,
+            analyses: analysisConfigs.map(({ barcode_type, frame_type, color_metric }) => ({
+              barcode_type,
+              frame_type,
+              color_metric,
+            })),
+          },
+        }),
+      });
+      const data = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        alreadySubscribed?: boolean;
+        closed?: boolean;
+      };
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to submit request");
+      }
+
+      const notice = data.closed ? "closed" : data.alreadySubscribed ? "already" : "requested";
+      router.push(`/requests?notice=${notice}`);
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : "An error occurred");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const getOptimalChunkSize = (fileSize: number): number => {
     if (fileSize > 1 * 1024 * 1024 * 1024) return 25 * 1024 * 1024;
     if (fileSize > 500 * 1024 * 1024) return 15 * 1024 * 1024;
@@ -450,6 +563,7 @@ export default function BarcodeGenerator() {
                 sharedConfig.changing_aspect_ratio.toString(),
             },
             movie: movieInfo,
+            requestId,
           }),
         });
 
@@ -484,6 +598,7 @@ export default function BarcodeGenerator() {
         String(sharedConfig.changing_aspect_ratio),
       );
       formData.append("movie", JSON.stringify(movieInfo));
+      if (requestId) formData.append("request_id", requestId);
       formData.append("analysis_configs", JSON.stringify(analysisPayload));
 
       const xhr = new XMLHttpRequest();
@@ -562,24 +677,39 @@ export default function BarcodeGenerator() {
 
   return (
     <div className="space-y-6">
-      <div
-        className="panel-bg p-6"
-        style={{
-          border: "1px solid var(--surface-border)",
-          borderLeftWidth: 3,
-          borderLeftColor: "var(--accent-crimson)",
-        }}
-      >
-        <h2 className="font-mono text-xs tracking-[0.35em] uppercase kalmus-text-secondary mb-4">
-          ▸ Video Upload
-        </h2>
-        <FileUpload
-          onFileSelect={handleFileSelect}
-          selectedFile={selectedFile}
-        />
-      </div>
+      {fulfilling && (
+        <div className="kalmus-surface p-3">
+          <p className="font-mono text-xs kalmus-text-primary">
+            Fulfilling request: {fulfilling.title}
+            {fulfilling.year && ` (${fulfilling.year})`}
+          </p>
+          <p className="font-mono text-xs kalmus-text-muted mt-0.5">
+            {fulfilling.requestCount} {fulfilling.requestCount === 1 ? "person" : "people"} will be emailed. The
+            requested settings are filled in below; attach the video and enter your own email for job notifications.
+          </p>
+        </div>
+      )}
 
-      {selectedFile && (
+      {!isRequestMode && (
+        <div
+          className="panel-bg p-6"
+          style={{
+            border: "1px solid var(--surface-border)",
+            borderLeftWidth: 3,
+            borderLeftColor: "var(--accent-crimson)",
+          }}
+        >
+          <h2 className="font-mono text-xs tracking-[0.35em] uppercase kalmus-text-secondary mb-4">
+            ▸ Video Upload
+          </h2>
+          <FileUpload
+            onFileSelect={handleFileSelect}
+            selectedFile={selectedFile}
+          />
+        </div>
+      )}
+
+      {(isRequestMode || selectedFile) && (
         <>
           <div
             className="panel-bg p-6"
@@ -598,8 +728,9 @@ export default function BarcodeGenerator() {
               barcode.
             </p>
             <MovieSearchInput
-              key={selectedFile.name}
+              key={`${selectedFile?.name ?? "request"}:${fulfilling?.imdbId ?? ""}`}
               onChange={handleMovieChange}
+              initialImdbId={fulfilling?.imdbId}
             />
           </div>
 
@@ -624,6 +755,7 @@ export default function BarcodeGenerator() {
                   onAddAnalysisConfig={handleAddAnalysisConfig}
                   onRemoveAnalysisConfig={handleRemoveAnalysisConfig}
                   canAddAnalysisConfig={canAddAnalysisConfig}
+                  requestMode={isRequestMode}
                 />
               </div>
 
@@ -689,6 +821,7 @@ export default function BarcodeGenerator() {
                             >
                               View Existing
                             </button>
+                            {!isRequestMode && (
                             <button
                               onClick={() =>
                                 handleAnalysisConfigChange(config.clientId, {
@@ -704,6 +837,7 @@ export default function BarcodeGenerator() {
                                 ? "Cancel Reprocess"
                                 : "Reprocess Anyway"}
                             </button>
+                            )}
                           </div>
                         )}
                       </div>
@@ -813,13 +947,15 @@ export default function BarcodeGenerator() {
 
               <div className="flex justify-end">
                 <button
-                  onClick={handleSubmit}
+                  onClick={isRequestMode ? handleRequestSubmit : handleSubmit}
                   disabled={
                     isSubmitting ||
                     !sharedConfig.email ||
                     duplicateCheckLoading ||
-                    duplicateMetrics.length > 0
+                    duplicateMetrics.length > 0 ||
+                    allAnalysesExist
                   }
+                  title={allAnalysesExist ? "Every selected analysis already exists in the archive" : undefined}
                   className="kalmus-button-filled px-6 py-2.5 font-mono text-xs tracking-[0.22em] uppercase transition-all hover:brightness-90 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:hover:brightness-100 disabled:hover:translate-y-0"
                 >
                   {isSubmitting ? (
@@ -840,12 +976,12 @@ export default function BarcodeGenerator() {
                           d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                         />
                       </svg>
-                      {uploadProgress < 100
+                      {!isRequestMode && uploadProgress < 100
                         ? `Uploading ${uploadProgress}%`
                         : "Submitting..."}
                     </span>
                   ) : (
-                    "Submit Jobs"
+                    isRequestMode ? "Submit Request" : "Submit Jobs"
                   )}
                 </button>
               </div>

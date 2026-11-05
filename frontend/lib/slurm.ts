@@ -22,7 +22,7 @@ export const SLURM_CONFIG = {
   websiteUrl: requireEnv("WEBSITE_URL"),
 };
 
-export type NotificationStatus = "COMPLETED" | "FAILED" | "DUPLICATE";
+export type NotificationStatus = "COMPLETED" | "FAILED" | "DUPLICATE" | "ACCEPTED" | "REJECTED";
 
 export interface JobConfig {
   color_metric: string;
@@ -145,12 +145,14 @@ export async function sendJobNotificationEmail({
   resultsUrl,
   videoTitle,
   metadataFile,
+  note,
 }: {
   email: string;
   status: NotificationStatus;
   resultsUrl: string;
   videoTitle: string;
   metadataFile?: string;
+  note?: string;
 }): Promise<void> {
   const emailScript = shellQuote(SLURM_CONFIG.emailScript);
   const argList = [
@@ -165,6 +167,9 @@ export async function sendJobNotificationEmail({
   ];
   if (metadataFile) {
     argList.push("--metadata-file", metadataFile);
+  }
+  if (note) {
+    argList.push("--note", note);
   }
   const args = argList.map(shellQuote).join(" ");
 
@@ -601,8 +606,6 @@ export async function getSlurmJobResult(jobId: string) {
           "utf-8",
         );
       }
-
-      console.log("pain");
 
       return {
         success: false,

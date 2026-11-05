@@ -4,12 +4,14 @@ Send KALMUS job notification email.
 """
 
 import argparse
+import html
 import json
 import os
 import smtplib
 import sys
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from email.utils import formataddr, formatdate, make_msgid
 from typing import Optional
 
 
@@ -134,9 +136,60 @@ def build_subject(status: str, video_title: str, job_id: Optional[str] = None) -
     suffix = f" [{job_id[:8]}]" if job_id else ""
     if status == "FAILED":
         return f"KALMUS Job Failed - {video_title}{suffix}"
+    if status == "ACCEPTED":
+        return f"KALMUS Request Accepted - {video_title}"
+    if status == "REJECTED":
+        return f"KALMUS Request Declined - {video_title}"
     if status == "DUPLICATE":
         return f"KALMUS Existing Result - {video_title}{suffix}"
     return f"KALMUS Job Completed - {video_title}{suffix}"
+
+
+def describe_status(status: str, note: Optional[str] = None) -> tuple[str, str, str]:
+    """Returns (headline, description, link_label) as plain text for a status."""
+    if status == "ACCEPTED":
+        return (
+            "Your film request was accepted.",
+            "We will process it soon and email you again when the result is ready. You can follow its progress on the request queue.",
+            "View Request Queue",
+        )
+    if status == "REJECTED":
+        return (
+            "Your film request could not be fulfilled.",
+            note or "We are unable to process this film at this time.",
+            "View Request Queue",
+        )
+    if status == "FAILED":
+        return (
+            "Your KALMUS job failed.",
+            "Use the link below to review the job result page and any available error details.",
+            "Open Result Page",
+        )
+    if status == "DUPLICATE":
+        return (
+            "A matching KALMUS analysis already exists.",
+            "We linked you to the existing result page instead of generating a duplicate run.",
+            "Open Result Page",
+        )
+    return (
+        "Your KALMUS job completed successfully.",
+        "Use the link below to view the result page.",
+        "Open Result Page",
+    )
+
+
+def build_plain_text(status: str, video_title: str, results_url: str, note: Optional[str] = None) -> str:
+    headline, description, link_label = describe_status(status, note)
+    return f"""KALMUS - {video_title}
+
+{headline}
+{description}
+
+{link_label}: {results_url}
+
+Status: {status}
+This is an automated KALMUS notification.
+"""
 
 
 def build_message_body(
@@ -146,16 +199,10 @@ def build_message_body(
     job_id: Optional[str] = None,
     config: Optional[dict] = None,
     movie: Optional[dict] = None,
+    note: Optional[str] = None,
 ) -> str:
-    if status == "FAILED":
-        headline = "Your KALMUS job failed."
-        description = "Use the link below to review the job result page and any available error details."
-    elif status == "DUPLICATE":
-        headline = "A matching KALMUS analysis already exists."
-        description = "We linked you to the existing result page instead of generating a duplicate run."
-    else:
-        headline = "Your KALMUS job completed successfully."
-        description = "Use the link below to view the result page."
+    headline, description, link_label = describe_status(status, note)
+    description = html.escape(description)
 
     status_color = "#9a9a9a" if status == "COMPLETED" else "#8a8a8a"
 
@@ -191,7 +238,7 @@ def build_message_body(
                       <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="border-collapse:collapse;">
                         <tr>
                           <td style="background:#5a5a5a; padding:0;">
-                            <a href="{results_url}" style="display:inline-block; padding:12px 18px; color:#ffffff; text-decoration:none; font-family:'Courier New', Courier, monospace; font-size:11px; letter-spacing:0.18em; text-transform:uppercase;">Open Result Page</a>
+                            <a href="{results_url}" style="display:inline-block; padding:12px 18px; color:#ffffff; text-decoration:none; font-family:'Courier New', Courier, monospace; font-size:11px; letter-spacing:0.18em; text-transform:uppercase;">{link_label}</a>
                           </td>
                         </tr>
                       </table>
@@ -223,15 +270,21 @@ def send_email(
     job_id: Optional[str] = None,
     config: Optional[dict] = None,
     movie: Optional[dict] = None,
+    note: Optional[str] = None,
 ) -> bool:
     from_email = "noreply@bucknell.edu"
     subject = build_subject(status, video_title, job_id)
-    html_body = build_message_body(status, video_title, results_url, job_id, config, movie)
+    html_body = build_message_body(status, video_title, results_url, job_id, config, movie, note)
 
     msg = MIMEMultipart("alternative")
-    msg["From"] = from_email
+    msg["From"] = formataddr(("KALMUS", from_email))
     msg["To"] = to_email
     msg["Subject"] = subject
+    msg["Date"] = formatdate(localtime=True)
+    msg["Message-ID"] = make_msgid(domain="kalmus.bucknell.edu")
+    msg["Auto-Submitted"] = "auto-generated"
+    # Plain text first: clients (and spam filters) prefer the last alternative, which is the HTML
+    msg.attach(MIMEText(build_plain_text(status, video_title, results_url, note), "plain"))
     msg.attach(MIMEText(html_body, "html"))
 
     try:
@@ -246,10 +299,12 @@ def send_email(
 def main():
     parser = argparse.ArgumentParser(description="Send KALMUS job notification email")
     parser.add_argument("--email", required=True, help="Recipient email")
-    parser.add_argument("--status", required=True, choices=["COMPLETED", "FAILED", "DUPLICATE"], help="Job status")
+    parser.add_argument("--status", required=True, choices=["COMPLETED", "FAILED", "DUPLICATE", "ACCEPTED", "REJECTED"], help="Job status")
     parser.add_argument("--results-url", required=True, help="Link to the result page")
     parser.add_argument("--video-title", required=True, help="User-entered video title")
     parser.add_argument("--metadata-file", help="Path to job metadata.json for job details and film info")
+
+    parser.add_argument("--note", help="Extra message shown to the recipient, e.g. a rejection reason")
 
     args = parser.parse_args()
 
@@ -262,7 +317,7 @@ def main():
         config = data.get("config")
         movie = data.get("movie")
 
-    success = send_email(args.email, args.status, args.results_url, args.video_title, job_id, config, movie)
+    success = send_email(args.email, args.status, args.results_url, args.video_title, job_id, config, movie, args.note)
 
     if success:
         print(f"Notification email sent successfully to {args.email}")

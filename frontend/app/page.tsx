@@ -478,6 +478,12 @@ export default function Home() {
       {/* About link */}
       <div className="fixed top-6.5 right-24 z-50 flex items-center gap-5">
         <Link
+          href="/requests"
+          className="font-mono text-xs tracking-[0.22em] uppercase kalmus-text-secondary hover:text-[var(--text-primary)] transition-colors"
+        >
+          Requests
+        </Link>
+        <Link
           href="/map"
           className="font-mono text-xs tracking-[0.22em] uppercase kalmus-text-secondary hover:text-[var(--text-primary)] transition-colors"
         >

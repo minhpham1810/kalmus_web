@@ -19,6 +19,8 @@ interface ConfigPanelProps {
   onAddAnalysisConfig: () => void;
   onRemoveAnalysisConfig: (clientId: string) => void;
   canAddAnalysisConfig: boolean;
+  /** Saving a request for admin review instead of submitting jobs directly. */
+  requestMode?: boolean;
 }
 
 const FRAME_TYPES = [
@@ -65,6 +67,7 @@ export default function ConfigPanel({
   onAddAnalysisConfig,
   onRemoveAnalysisConfig,
   canAddAnalysisConfig,
+  requestMode = false,
 }: ConfigPanelProps) {
   return (
     <div className="space-y-6">
@@ -203,7 +206,11 @@ export default function ConfigPanel({
               Email <span style={{ color: "var(--accent-amber)" }}>*</span>
             </>
           }
-          helper="Job notifications will be sent to this email"
+          helper={
+            requestMode
+              ? "We'll email you when this request is accepted and when it's ready"
+              : "Job notifications will be sent to this email"
+          }
         >
           <input
             type="email"
@@ -259,9 +266,9 @@ export default function ConfigPanel({
       <div className="md:col-span-2">
         <div className="kalmus-surface p-3">
           <p className="font-mono text-xs kalmus-text-secondary leading-relaxed">
-            Your video will be processed on HPC compute nodes. Processing takes
-            1-10 minutes depending on video length. You&apos;ll receive an email
-            when complete and can close this page after submitting.
+            {requestMode
+              ? "Your request is saved with these settings and reviewed by an admin. If it's accepted, the film is processed with this configuration and you'll be emailed when it's ready."
+              : "Your video will be processed on HPC compute nodes. Processing takes 1-10 minutes depending on video length. You'll receive an email when complete and can close this page after submitting."}
           </p>
         </div>
       </div>

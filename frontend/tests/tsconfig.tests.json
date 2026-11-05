@@ -13,6 +13,8 @@
     "../tests/barcode-utils.test.ts",
     "../tests/film-of-day.test.ts",
     "../tests/multi-analysis.test.ts",
+    "../tests/request-config.test.ts",
+    "../tests/requests-store.test.ts",
     "../tests/theme-provider.test.ts",
     "../tests/watermark.test.ts",
     "../app/components/theme.ts",
@@ -21,6 +23,8 @@
     "../lib/barcode-utils.ts",
     "../lib/film-of-day.ts",
     "../lib/multi-analysis.ts",
+    "../lib/request-config.ts",
+    "../lib/requests-store.ts",
     "../lib/submission-batches.ts",
     "../lib/watermark.ts"
   ]

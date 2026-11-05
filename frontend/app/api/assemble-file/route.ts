@@ -7,6 +7,7 @@ import { JobConfig } from '@/lib/slurm';
 import { streamToHPC } from '@/lib/hpc-transfer';
 import { findDuplicateAnalysisSignatures, FRAME_TYPE_OPTIONS, parseAnalysisConfigPayload } from '@/lib/multi-analysis';
 import { submitBarcodeBatch } from '@/lib/barcode-submission';
+import { linkRequestToBatch } from '@/lib/requests';
 
 export const maxDuration = 600;
 export const dynamic = 'force-dynamic';
@@ -16,7 +17,7 @@ const CHUNKS_DIR = '/tmp/kalmus-chunks';
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
-        const { uploadId, filename, config, movie } = body;
+        const { uploadId, filename, config, movie, requestId } = body;
 
         if (!uploadId || !filename || !config) {
             return NextResponse.json(
@@ -135,6 +136,8 @@ export async function POST(request: NextRequest) {
             user,
             movie: movie as Record<string, unknown> | undefined,
         });
+
+        await linkRequestToBatch(requestId, batch.jobs);
 
         return NextResponse.json({
             success: true,
