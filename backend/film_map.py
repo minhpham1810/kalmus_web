@@ -41,30 +41,6 @@ def map_features(rgb) -> dict:
     }
 
 
-DISPLAY_BINS = 72  # 5-degree bins
-
-
-def display_hist(rgb) -> list[float] | None:
-    """The results page's hue histogram (frontend/lib/kalmus_visualizer.py generate_hue_histogram), binned to
-    DISPLAY_BINS and summing to 1, for the map's hover card: HSV hue, one vote per frame, near-black/white grey
-    frames dropped, then the lowest 1% of hues trimmed. Copied rather than imported, as that module needs the
-    KALMUS GUI libraries; keep the two in step. None when no frame survives."""
-    from matplotlib.colors import rgb_to_hsv
-
-    rgb = np.asarray(rgb, dtype=np.float64).reshape(-1, 3)
-    if rgb.max() <= 1.0:
-        rgb = rgb * 255
-    hi, lo = rgb.max(axis=1), rgb.min(axis=1)
-    # HUE_HISTOGRAM_ACHROMATIC_DELTA, _BLACK_MAX and _WHITE_MIN
-    rgb = rgb[~((hi - lo <= 30) & ((hi <= 60) | (lo >= 195)))]
-    if not len(rgb):
-        return None
-    hue = np.sort(rgb_to_hsv(rgb / 255.0)[:, 0] * 360)
-    hue = hue[int(len(hue) * 0.01):] if len(hue) >= 2 else hue
-    counts = np.bincount((hue // (360 / DISPLAY_BINS)).astype(int) % DISPLAY_BINS, minlength=DISPLAY_BINS)
-    return [round(float(x), 5) for x in counts / counts.sum()]
-
-
 HUE_FRAME = "map_frame.webp"  # the film's dominant-hue frame, shown when it's hovered on the map
 
 
@@ -106,7 +82,6 @@ def map_point(json_loc: str, barcode_type: str, metric: str, frame_type: str) ->
     if not barcode.get("colors"):
         return None
     features = map_features(barcode["colors"])
-    features["display_hist"] = display_hist(barcode["colors"])
     if features["primary_hue"] is not None:
         try:
             save_hue_frame(Path(json_loc).parent, barcode, features["primary_hue"])
@@ -117,15 +92,15 @@ def map_point(json_loc: str, barcode_type: str, metric: str, frame_type: str) ->
 
 def film_map_row(job_id: str, f: dict) -> tuple:
     """Parameters for INSERT_FILM_MAP."""
-    as_json = lambda h: json.dumps(h) if h else None
-    return (job_id, f["primary_hue"], f["lightness"], f["mean_hue"], as_json(f["hue_hist"]), as_json(f.get("display_hist")))
+    hist = json.dumps(f["hue_hist"]) if f["hue_hist"] else None
+    return (job_id, f["primary_hue"], f["lightness"], f["mean_hue"], hist)
 
 
 # One point per film and edition (case-insensitive, as find_existing_analysis): skipped when another job of the
 # same film and edition is already on the map. Needs the job's analyzed_files row to exist first.
 INSERT_FILM_MAP = """
-INSERT OR REPLACE INTO film_map (job_id, primary_hue, lightness, mean_hue, hue_hist, display_hist)
-SELECT ?1, ?2, ?3, ?4, ?5, ?6
+INSERT OR REPLACE INTO film_map (job_id, primary_hue, lightness, mean_hue, hue_hist)
+SELECT ?1, ?2, ?3, ?4, ?5
 WHERE NOT EXISTS (
     SELECT 1 FROM film_map m
     JOIN analyzed_files other ON other.job_id = m.job_id
@@ -148,7 +123,4 @@ if __name__ == "__main__":
     frames = [[200, 120, 60], [230, 120, 40], [30, 140, 150], [250, 110, 20]]
     orange = map_features(frames[1:2])["primary_hue"]
     assert hue_frame(frames, orange, [0, 1, 2]) == 1 and hue_frame(frames, orange, [0, 1, 2, 3]) == 3
-    # Display histogram: one vote per frame in HSV hue, grey near-black/white frames dropped
-    d = display_hist([[255, 0, 0]] * 3 + [[0, 0, 255]] + [[10, 10, 10]] * 5)
-    assert d[0] == 0.75 and d[240 // 5] == 0.25 and display_hist([[0, 0, 0]]) is None
     print("ok", f)

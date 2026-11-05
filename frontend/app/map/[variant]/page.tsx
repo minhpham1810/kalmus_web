@@ -18,15 +18,15 @@ export default async function MapVariantPage({
   const names = (table: string, col: string) =>
     `(SELECT GROUP_CONCAT(e.name, char(31)) FROM film_${table} j JOIN ${table} e ON e.id = j.${col}_id WHERE j.film_id = f.id) AS ${table}`;
   const split = (s: string | null) => (s ? s.split("\x1f") : []);
-  type Row = Omit<MapFilm, "hue_hist" | "display_hist" | "countries" | "directors" | "genres"> &
-    Record<"hue_hist" | "display_hist" | "countries" | "directors" | "genres", string | null>;
+  type Row = Omit<MapFilm, "hue_hist" | "countries" | "directors" | "genres"> &
+    Record<"hue_hist" | "countries" | "directors" | "genres", string | null>;
   const hist = (s: string | null) => (s ? (JSON.parse(s) as number[]) : null);
 
   const films = withDb((db) =>
     (
       db
         .prepare(
-          `SELECT m.job_id, m.primary_hue AS hue, m.mean_hue, m.hue_hist, m.display_hist, m.lightness,
+          `SELECT m.job_id, m.primary_hue AS hue, m.mean_hue, m.hue_hist, m.lightness,
             f.title, f.released_year AS year, af.edition,
             ${names("countries", "country")}, ${names("directors", "director")}, ${names("genres", "genre")}
           FROM film_map m
@@ -37,7 +37,6 @@ export default async function MapVariantPage({
     ).map((f) => ({
       ...f,
       hue_hist: hist(f.hue_hist),
-      display_hist: hist(f.display_hist),
       countries: split(f.countries),
       directors: split(f.directors),
       genres: split(f.genres),

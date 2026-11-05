@@ -113,11 +113,9 @@ export function FilmMapPanel({
 function HoverCard({ film }: { film: MapFilm }) {
   // Keyed by job, so a missing frame hides only that film's image
   const [missing, setMissing] = useState<string | null>(null);
-  // The results page's histogram when stored; else the map's own (OKLab, chroma-weighted), coloured to suit
-  const hist = film.display_hist ?? histOf(film);
-  const color = film.display_hist
-    ? (h: number) => `hsl(${h} 100% 50%)`
-    : (h: number) => `oklch(0.7 0.14 ${h})`;
+  // The map's own perceptual histogram (OKLab, chroma-weighted)
+  const hist = histOf(film);
+  const color = (h: number) => `oklch(0.7 0.14 ${h})`;
   const bins = hist.length;
   const max = Math.max(...hist, 1e-9);
   return (

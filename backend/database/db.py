@@ -350,17 +350,19 @@ class FilmsDb(Db):
                   lightness REAL NOT NULL,
                   mean_hue REAL,
                   hue_hist TEXT,
-                  display_hist TEXT,
                   FOREIGN KEY (job_id) REFERENCES analyzed_files(job_id) ON DELETE CASCADE
               )
               """
             )
 
-            # Migration: film maps created before the palette features (mean_hue, hue_hist JSON) or display_hist existed
+            # Migration: film maps created before the palette features (mean_hue, hue_hist JSON) existed
             film_map_cols = {r[1] for r in cur.execute("PRAGMA table_info(film_map)")}
-            for col, type_ in (("mean_hue", "REAL"), ("hue_hist", "TEXT"), ("display_hist", "TEXT")):
+            for col, type_ in (("mean_hue", "REAL"), ("hue_hist", "TEXT")):
                 if col not in film_map_cols:
                     cur.execute(f"ALTER TABLE film_map ADD COLUMN {col} {type_}")
+            # Migration: the HSV display_hist was dropped; the map shows only the perceptual hue_hist
+            if "display_hist" in film_map_cols:
+                cur.execute("ALTER TABLE film_map DROP COLUMN display_hist")
 
             # One row per failed run (non-zero exit or SLURM timeout), with the configuration it was submitted with
             cur.execute(
