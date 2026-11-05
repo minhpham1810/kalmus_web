@@ -2,6 +2,7 @@ import Link from "next/link";
 import { GroupedFilm } from "@/lib/admin-films";
 import FilmMetadataLine from "./FilmMetadataLine";
 import FilmCardBarcode from "./FilmCardBarcode";
+import PosterKitButton from "./PosterKitButton";
 
 /**
  * admin page film cards
@@ -91,6 +92,8 @@ export default function AdminFilmCard({
                   <span>View</span>
                 </div>
               </Link>
+
+              {isAdminMode && <PosterKitButton jobId={a.job_id} title={film.title} />}
 
               {/* edit button */}
               {isAdminMode && (
