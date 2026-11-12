@@ -10,6 +10,7 @@ import os
 from dotenv import load_dotenv
 
 from film_map import INSERT_FILM_MAP, film_map_row, map_point
+from credits_trim import job_trim_inputs
 
 # Shares the frontend's env file; vars already in the environment (e.g. from sbatch) take priority.
 load_dotenv(Path(__file__).resolve().parents[2] / "frontend" / ".env.local")
@@ -364,6 +365,20 @@ class FilmsDb(Db):
             if "display_hist" in film_map_cols:
                 cur.execute("ALTER TABLE film_map DROP COLUMN display_hist")
 
+            # Admin override of the credits trim: positions on the source video, per film and edition
+            # (edition_key = LOWER(COALESCE(TRIM(edition), '')))
+            cur.execute(
+                """
+              CREATE TABLE IF NOT EXISTS credits_override (
+                  film_id INTEGER NOT NULL REFERENCES films(id) ON DELETE CASCADE,
+                  edition_key TEXT NOT NULL,
+                  film_start_s REAL,
+                  credits_start_s REAL,
+                  PRIMARY KEY (film_id, edition_key)
+              )
+              """
+            )
+
             # One row per failed run (non-zero exit or SLURM timeout), with the configuration it was submitted with
             cur.execute(
                 """
@@ -486,7 +501,6 @@ class FilmsDb(Db):
         json_rel = self._results_relative(json_loc)
         poster_rel = self._results_relative(poster_loc)
         config = data.get("config")
-        map_features = map_point(json_loc, config["barcode_type"], config["color_metric"], config["frame_type"])
         movie = data.get("movie")
         raw = movie.get("raw", None)
 
@@ -568,6 +582,9 @@ class FilmsDb(Db):
                     upload_metadata.get("frame_count"),
                 )
             )
+            # After the job row exists, so the film's year and this edition's override are found
+            year, override = job_trim_inputs(con, job_id)
+            map_features = map_point(json_loc, config["barcode_type"], config["color_metric"], config["frame_type"], year, override)
             if map_features is not None:
                 cur.execute(INSERT_FILM_MAP, film_map_row(job_id, map_features))
 

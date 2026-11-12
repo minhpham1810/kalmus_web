@@ -13,6 +13,7 @@ from scipy.ndimage import gaussian_filter1d
 # Same OKLab conversion and hue bins as the film comparison, so map positions agree with it
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "frontend" / "lib"))
 from film_compare import MONO_CHROMA, N_HUE_BINS, srgb_to_oklab
+from credits_trim import Override, Timeline, hue_frame_mask, keep_slice, keep_window
 
 
 def map_features(rgb) -> dict:
@@ -53,6 +54,16 @@ def hue_frame(rgb, primary_hue: float, candidates: list[int]) -> int:
     return candidates[int(np.argmax(np.where(off <= 15, chroma, -off)))]
 
 
+def hue_frame_candidates(barcode: dict, manifest: dict) -> list[int]:
+    """Indices into barcode["colors"] of thumbnailed frames in the middle 92% of the film (never the margins)."""
+    colors = barcode["colors"]
+    skip, rate = barcode.get("skip_over", 0), max(1, barcode.get("sampled_frame_rate", 1))
+    # Thumbnails are keyed by source frame; colors[i] is source frame skip + i * rate
+    by_index = {round((t["frame_index"] - skip) / rate) for t in manifest["thumbnails"]}
+    mask = hue_frame_mask(Timeline.from_barcode(barcode))
+    return [i for i in by_index if 0 <= i < len(colors) and mask[i]]
+
+
 def save_hue_frame(job_dir: Path, barcode: dict, primary_hue: float) -> None:
     """Crop the dominant-hue frame out of the job's thumbnail sheets into HUE_FRAME. Only thumbnailed frames qualify."""
     from PIL import Image
@@ -62,9 +73,8 @@ def save_hue_frame(job_dir: Path, barcode: dict, primary_hue: float) -> None:
         return
     colors = barcode["colors"]
     skip, rate = barcode.get("skip_over", 0), max(1, barcode.get("sampled_frame_rate", 1))
-    # Thumbnails are keyed by source frame; colors[i] is source frame skip + i * rate
     by_index = {round((t["frame_index"] - skip) / rate): t for t in manifest["thumbnails"]}
-    candidates = [i for i in by_index if 0 <= i < len(colors)]
+    candidates = hue_frame_candidates(barcode, manifest)
     if not candidates:
         return
     t = by_index[hue_frame(colors, primary_hue, candidates)]
@@ -73,15 +83,19 @@ def save_hue_frame(job_dir: Path, barcode: dict, primary_hue: float) -> None:
         im.crop((t["x"], t["y"], t["x"] + t["width"], t["y"] + t["height"])).save(job_dir / HUE_FRAME, quality=80)
 
 
-def map_point(json_loc: str, barcode_type: str, metric: str, frame_type: str) -> dict | None:
+def map_point(json_loc: str, barcode_type: str, metric: str, frame_type: str,
+              year: int | None = None, override: Override | None = None) -> dict | None:
     """Film-map features of an average, whole-frame color barcode; None for other barcodes.
+    Opening logos and end credits are left out (credits_trim: by release year, or the film's override).
     Also saves the dominant-hue frame next to the barcode when the job has thumbnails."""
     if (barcode_type.lower(), metric.lower(), frame_type.lower()) != ("color", "average", "whole_frame") or not Path(json_loc).exists():
         return None
     barcode = json.loads(Path(json_loc).read_text())
     if not barcode.get("colors"):
         return None
-    features = map_features(barcode["colors"])
+    tl = Timeline.from_barcode(barcode)
+    kept = keep_slice(tl, keep_window(year, override, tl.length_s()))
+    features = map_features(np.asarray(barcode["colors"])[kept])
     if features["primary_hue"] is not None:
         try:
             save_hue_frame(Path(json_loc).parent, barcode, features["primary_hue"])

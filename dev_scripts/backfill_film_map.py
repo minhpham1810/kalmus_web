@@ -5,6 +5,9 @@ computed.
 
 --rebuild recomputes every job and replaces the whole table (and every dominant-hue frame), keeping the most
 recently processed job of each film and edition. Jobs whose barcode can't be read drop off the map.
+
+Points leave out opening logos and end credits (frontend/lib/credits_trim.py), so after that rule or a film's
+override changes, run one --rebuild to apply it to existing jobs.
 """
 
 
@@ -14,6 +17,8 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
 
 from database import FilmsDb
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "frontend" / "lib"))
+from credits_trim import job_trim_inputs
 from film_map import HUE_FRAME, INSERT_FILM_MAP, film_map_row, map_point
 
 films = FilmsDb()
@@ -29,6 +34,7 @@ def main(rebuild: bool = False):
             # Newest first: INSERT_FILM_MAP keeps the first job of each film and edition
             "ORDER BY af.process_date DESC, af.job_id DESC"
         ).fetchall()
+        trim_inputs = {job[0]: job_trim_inputs(con, job[0]) for job in jobs}
 
     # Compute before writing, so the database isn't locked while barcodes are parsed
     points = []
@@ -38,7 +44,7 @@ def main(rebuild: bool = False):
         if not rebuild and mean_hue is not None and (json_loc.parent / HUE_FRAME).exists():
             continue
         try:
-            features = map_point(str(json_loc), barcode_type, metric, frame_type)
+            features = map_point(str(json_loc), barcode_type, metric, frame_type, *trim_inputs[job_id])
         except ValueError as e:  # includes JSONDecodeError
             print(f"Skipping {job_id}: {e}")
             continue
