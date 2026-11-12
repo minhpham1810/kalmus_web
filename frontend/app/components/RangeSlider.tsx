@@ -33,7 +33,7 @@ export function RangeSlider({
           type="range"
           className="kalmus-range"
           // Raised when both thumbs sit at the top, where the max input would cover it and nothing could move
-          style={lo >= max - step ? { zIndex: 1 } : undefined}
+          style={lo >= max ? { zIndex: 1 } : undefined}
           aria-label={`${label} minimum`}
           min={min}
           max={max}

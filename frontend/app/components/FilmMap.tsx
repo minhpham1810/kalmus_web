@@ -431,9 +431,9 @@ export function FilmMap({
           {wheel &&
             [filter.light[0], filter.light[1]]
               .filter((c, i) => (i === 0 ? c > 0 : c < 100))
-              .map((c) => (
+              .map((c, i) => (
                 <circle
-                  key={c}
+                  key={i}
                   cx={CX}
                   cy={CY}
                   r={ringR(Math.min(hi, Math.max(lo, c / 100)))}
