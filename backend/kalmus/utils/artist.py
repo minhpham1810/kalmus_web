@@ -141,6 +141,34 @@ def compute_median_color(image):
     return median_color
 
 
+def compute_most_vivid_color(image, top_ratio=0.01, min_group_ratio=0.25, n_hue_bins=12):
+    """
+    Compute the most vivid color of an RGB image: the median color of the most chromatic hue group
+    among the top `top_ratio` most chromatic (Lab) pixels. Hue groups smaller than `min_group_ratio`
+    of the kept pixels are ignored (so single-pixel glints cannot win).
+
+    :param image: RGB uint8 image, shape (h, w, 3) or (n, 1, 3)
+    :type image: numpy.ndarray
+    :return: The median RGB color of the chosen group, shape==(3,)
+    :rtype: numpy.ndarray
+    """
+    image = flatten_image(image)
+    lab = cv2.cvtColor(image.reshape(-1, 1, 3).astype(np.float32) / 255, cv2.COLOR_RGB2Lab).reshape(-1, 3)
+    chroma = np.hypot(lab[:, 1], lab[:, 2])
+    hue = np.arctan2(lab[:, 2], lab[:, 1])
+    n_keep = max(1, int(np.ceil(top_ratio * len(image))))
+    kept = np.argsort(chroma, kind="stable")[-n_keep:]
+    bins = np.floor((hue[kept] + np.pi) / (2 * np.pi) * n_hue_bins).astype(int) % n_hue_bins
+    chosen, best = kept, -1.0
+    for b in range(n_hue_bins):
+        members = kept[bins == b]
+        if len(members) >= min_group_ratio * n_keep and len(members) > 0:
+            med = np.median(chroma[members])
+            if med > best:
+                best, chosen = med, members
+    return np.median(image[chosen], axis=0)
+
+
 def compute_brightest_color_and_brightness(grey_image, color_image, return_min=False,
                                            gaussian_blur=False, blur_radius=15):
     """
