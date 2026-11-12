@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { clientKey, isRateLimited } from "@/lib/rate-limit";
 import { syncProcessingRequests, withRequestsDb } from "@/lib/requests";
 import { parseRequestConfig } from "@/lib/request-config";
-import { addRequest, listQueue, listRequests, normalizeEmail, normalizeImdbId } from "@/lib/requests-store";
+import { addRequest, listArchive, listQueue, listRequests, normalizeEmail, normalizeImdbId } from "@/lib/requests-store";
 
 export const dynamic = "force-dynamic";
 
@@ -23,11 +23,12 @@ function cleanPoster(value: unknown): string | null {
 export async function GET() {
   try {
     await syncProcessingRequests();
-    const { top, queue } = withRequestsDb((db) => ({
+    const { top, queue, archive } = withRequestsDb((db) => ({
       top: listRequests(db, TOP_COUNT),
       queue: listQueue(db),
+      archive: listArchive(db),
     }));
-    return NextResponse.json({ success: true, top, queue });
+    return NextResponse.json({ success: true, top, queue, archive });
   } catch (error) {
     console.error("Error loading requests:", error);
     return NextResponse.json({ error: "Failed to load requests" }, { status: 500 });

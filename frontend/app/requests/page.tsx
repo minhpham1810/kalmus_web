@@ -37,6 +37,7 @@ function RequestsContent() {
   const notice = NOTICES[useSearchParams().get("notice") ?? ""];
   const [top, setTop] = useState<QueueItem[]>([]);
   const [queue, setQueue] = useState<QueueItem[]>([]);
+  const [archive, setArchive] = useState<QueueItem[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [email, setEmail] = useState("");
   const [reminderMessage, setReminderMessage] = useState<{ text: string; isError: boolean } | null>(null);
@@ -54,10 +55,11 @@ function RequestsContent() {
       try {
         const res = await fetch("/api/requests", { cache: "no-store" });
         if (!res.ok) throw new Error("Failed to load requests");
-        const data = (await res.json()) as { top: QueueItem[]; queue: QueueItem[] };
+        const data = (await res.json()) as { top: QueueItem[]; queue: QueueItem[]; archive: QueueItem[] };
         if (cancelled) return;
         setTop(data.top);
         setQueue(data.queue);
+        setArchive(data.archive ?? []);
         setLoadError(null);
       } catch {
         if (!cancelled) setLoadError("Could not load the request queue. Retrying…");
@@ -169,6 +171,11 @@ function RequestsContent() {
                 )
               }
             />
+          </section>
+
+          <section className="mt-10">
+            <h2 className="font-mono text-xs tracking-[0.35em] uppercase kalmus-text-secondary mb-3">▸ Archive</h2>
+            <RequestQueue requests={archive} emptyText="No finished requests yet." />
           </section>
         </div>
       </main>

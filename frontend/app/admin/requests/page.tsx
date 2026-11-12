@@ -13,6 +13,7 @@ const actionClass =
 
 export default function AdminRequestsPage() {
   const [queue, setQueue] = useState<QueueItem[]>([]);
+  const [archive, setArchive] = useState<QueueItem[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
 
@@ -25,8 +26,11 @@ export default function AdminRequestsPage() {
       try {
         const res = await fetch("/api/admin/requests", { cache: "no-store" });
         if (!res.ok) throw new Error("Failed to load requests");
-        const data = (await res.json()) as { queue: QueueItem[] };
-        if (!cancelled) setQueue(data.queue);
+        const data = (await res.json()) as { queue: QueueItem[]; archive: QueueItem[] };
+        if (!cancelled) {
+          setQueue(data.queue);
+          setArchive(data.archive ?? []);
+        }
       } catch (e) {
         if (!cancelled) setError((e as Error).message);
       }
@@ -64,6 +68,46 @@ export default function AdminRequestsPage() {
     if (reason !== null) update(request, "rejected", reason);
   }
 
+  function renderActions(request: QueueItem) {
+    const busy = busyId === request.id;
+    return (
+      <div className="flex items-center gap-3 flex-shrink-0">
+        {request.status === "ordered" && (
+          <>
+            <button disabled={busy} className={actionClass} onClick={() => update(request, "accepted")}>
+              Accept
+            </button>
+            <button disabled={busy} className={actionClass} onClick={() => reject(request)}>
+              Reject
+            </button>
+          </>
+        )}
+        {(request.status === "accepted" || request.status === "processing") && (
+          <Link href={`/upload?from=admin&request=${request.id}`} className={actionClass}>
+            {request.status === "accepted" ? "Upload video" : "Re-run"}
+          </Link>
+        )}
+        <select
+          aria-label={`Set status for ${request.title}`}
+          value={request.status}
+          disabled={busy}
+          onChange={(e) => {
+            const next = e.target.value as RequestStatus;
+            if (next === "rejected") reject(request);
+            else update(request, next);
+          }}
+          className="kalmus-input font-mono text-[11px] px-1 py-0.5"
+        >
+          {REQUEST_STATUSES.map((status) => (
+            <option key={status} value={status}>
+              {statusLabel(status)}
+            </option>
+          ))}
+        </select>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen">
       <main className="container mx-auto px-4 py-12">
@@ -89,53 +133,10 @@ export default function AdminRequestsPage() {
             </p>
           )}
 
-          <RequestQueue
-            ranked
-            requests={queue}
-            emptyText="No requests yet."
-            renderActions={(request) => {
-              const busy = busyId === request.id;
-              return (
-                <div className="flex items-center gap-3 flex-shrink-0">
-                  {request.status === "ordered" && (
-                    <>
-                      <button disabled={busy} className={actionClass} onClick={() => update(request, "accepted")}>
-                        Accept
-                      </button>
-                      <button disabled={busy} className={actionClass} onClick={() => reject(request)}>
-                        Reject
-                      </button>
-                    </>
-                  )}
-                  {(request.status === "accepted" || request.status === "processing") && (
-                    <Link
-                      href={`/upload?from=admin&request=${request.id}`}
-                      className={actionClass}
-                    >
-                      {request.status === "accepted" ? "Upload video" : "Re-run"}
-                    </Link>
-                  )}
-                  <select
-                    aria-label={`Set status for ${request.title}`}
-                    value={request.status}
-                    disabled={busy}
-                    onChange={(e) => {
-                      const next = e.target.value as RequestStatus;
-                      if (next === "rejected") reject(request);
-                      else update(request, next);
-                    }}
-                    className="kalmus-input font-mono text-[11px] px-1 py-0.5"
-                  >
-                    {REQUEST_STATUSES.map((status) => (
-                      <option key={status} value={status}>
-                        {statusLabel(status)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              );
-            }}
-          />
+          <RequestQueue ranked requests={queue} emptyText="No open requests." renderActions={renderActions} />
+
+          <h2 className="font-mono text-xs tracking-[0.35em] uppercase kalmus-text-secondary mt-10 mb-3">▸ Archive</h2>
+          <RequestQueue requests={archive} emptyText="No finished requests yet." renderActions={renderActions} />
         </div>
       </main>
     </div>
