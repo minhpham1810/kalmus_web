@@ -1,5 +1,16 @@
 import {NextRequest, NextResponse} from "next/server";
+import {execFile} from "child_process";
+import {promisify} from "util";
+import path from "path";
+import type Database from "better-sqlite3";
 import {withDb} from "@/lib/db";
+import {SLURM_CONFIG} from "@/lib/slurm";
+import {validateOverride} from "@/lib/credits-trim";
+
+const execFileAsync = promisify(execFile);
+
+// Same key as the backend: edition_key is always computed in SQL, never in TypeScript
+const EDITION_KEY_SQL = "LOWER(COALESCE(TRIM(af.edition), ''))";
 
 // [entity table, link column prefix]; each has a film_<table> link table. Same as ENTITIES in db.py
 const ENTITIES = [
@@ -10,6 +21,42 @@ const ENTITIES = [
     ["languages", "language"],
     ["countries", "country"],
 ] as const;
+
+/** Same DDL as create_db in db.py, so an older database that predates the table still works. */
+function ensureCreditsOverride(db: Database.Database) {
+    db.exec(
+        `CREATE TABLE IF NOT EXISTS credits_override (
+            film_id INTEGER NOT NULL REFERENCES films(id) ON DELETE CASCADE,
+            edition_key TEXT NOT NULL,
+            film_start_s REAL,
+            credits_start_s REAL,
+            PRIMARY KEY (film_id, edition_key)
+        )`
+    );
+}
+
+type Override = {film_start_s: number | null; credits_start_s: number | null};
+
+/** Length of the job's source video in seconds, or null when the frame count or fps is missing. */
+function sourceLengthS(db: Database.Database, jobId: string): number | null {
+    const row = db
+        .prepare("SELECT source_frame_count / source_fps AS length_s FROM analyzed_files WHERE job_id = ? AND source_fps > 0")
+        .get(jobId) as {length_s: number | null} | undefined;
+    return row?.length_s ?? null;
+}
+
+/** Runs film_map.py for one film; no keys = all of its edition keys. Rejects with the script's message. */
+async function recomputeFilm(filmId: number, editionKeys: string[]) {
+    const script = path.join(process.cwd(), "..", "backend", "film_map.py");
+    const args = [script, "--film-id", String(filmId)];
+    for (const key of editionKeys) args.push("--edition-key", key); // the key is user text, may be ""
+    try {
+        await execFileAsync(SLURM_CONFIG.pythonBin, args, {env: process.env, timeout: 300_000});
+    } catch (e) {
+        const err = e as Error & {stderr?: string};
+        throw new Error(err.stderr?.trim() || err.message);
+    }
+}
 
 /** GET */
 export async function GET(
@@ -22,13 +69,20 @@ export async function GET(
         const film = withDb((db) => {
             const row = db
             .prepare(
-                `SELECT af.job_id, af.edition, f.id AS film_id, f.title, f.imdb_id, f.released, f.type, f.runtime_minutes
+                `SELECT af.job_id, af.edition, f.id AS film_id, f.title, f.imdb_id, f.released, f.released_year, f.type,
+                    f.runtime_minutes, ${EDITION_KEY_SQL} AS edition_key
                 FROM analyzed_files af JOIN films f ON f.id = af.film_id
                 WHERE af.job_id = ?`
             )
             .get(jobId) as {job_id: string; edition: string | null; film_id: number; title: string; imdb_id: string | null;
-                released: string | null; type:string | null; runtime_minutes: number | null } | undefined;
+                released: string | null; released_year: number | null; type:string | null; runtime_minutes: number | null;
+                edition_key: string} | undefined;
             if (!row) return null;
+
+            ensureCreditsOverride(db);
+            const override = db
+                .prepare("SELECT film_start_s, credits_start_s FROM credits_override WHERE film_id = ? AND edition_key = ?")
+                .get(row.film_id, row.edition_key) as Override | undefined;
 
             const fetchNames = (table: string, col:string): string[] => {
                 const rows = db
@@ -43,6 +97,9 @@ export async function GET(
 
         return {
         ...row,
+        length_s: sourceLengthS(db, jobId),
+        film_start_s: override?.film_start_s ?? null,
+        credits_start_s: override?.credits_start_s ?? null,
         directors: fetchNames("directors", "director"),
         actors: fetchNames("actors", "actor"),
         genres: fetchNames("genres", "genre"),
@@ -65,7 +122,7 @@ export async function GET(
 /**
  * PUT
  * updates the metadata of the job's film (shared by every analysis of that film) and its junction tables,
- * plus this job's edition.
+ * plus this job's edition and its credits trim override (per film + edition key).
  * Changing the IMDb ID moves this job to the film with that ID, creating one if needed;
  * other jobs keep their film. Films left without jobs are deleted by a database trigger.
  * expects json with film metadata
@@ -80,6 +137,9 @@ export async function PUT(
         const body = await request.json();
         const {title, imdb_id, edition, released, type, runtime_minutes, directors, actors,
             genres, writers, languages, countries} = body;
+        // numbers or null; both null clears the override, both absent leaves it as it is
+        const overrideSent = "film_start_s" in body || "credits_start_s" in body;
+        const newOverride: Override = {film_start_s: body.film_start_s ?? null, credits_start_s: body.credits_start_s ?? null};
 
             if (!title || !title.trim()) {
                 return NextResponse.json({error: "Title is required"}, {status: 400});
@@ -88,15 +148,31 @@ export async function PUT(
         const names: Record<string, string[]> = {directors, actors, genres, writers, languages, countries};
         const newImdbId: string | null = imdb_id?.trim() || null;
 
-        const found = withDb((db) => db.transaction(() => {
+        if (overrideSent) {
+            for (const v of [newOverride.film_start_s, newOverride.credits_start_s]) {
+                if (v !== null && (typeof v !== "number" || !Number.isFinite(v))) {
+                    return NextResponse.json({error: "Use h:mm:ss, mm:ss or seconds."}, {status: 400});
+                }
+            }
+            const overrideError = withDb((db) =>
+                validateOverride(newOverride.film_start_s, newOverride.credits_start_s, sourceLengthS(db, jobId)));
+            if (overrideError) {
+                return NextResponse.json({error: overrideError}, {status: 400});
+            }
+        }
+
+        const result = withDb((db) => {
+            ensureCreditsOverride(db);
+            return db.transaction(() => {
+            // old film and key, captured before anything is updated
             const job = db
             .prepare(
-                `SELECT af.film_id, f.imdb_id, f.poster
+                `SELECT af.film_id, f.imdb_id, f.poster, ${EDITION_KEY_SQL} AS edition_key
                 FROM analyzed_files af JOIN films f ON f.id = af.film_id
                 WHERE af.job_id = ?`
             )
-            .get(jobId) as {film_id: number; imdb_id: string | null; poster: string | null} | undefined;
-            if (!job) return false;
+            .get(jobId) as {film_id: number; imdb_id: string | null; poster: string | null; edition_key: string} | undefined;
+            if (!job) return null;
 
             let filmId = job.film_id;
             if (newImdbId !== job.imdb_id) {
@@ -120,6 +196,9 @@ export async function PUT(
 
             // edition belongs to this job only; a trigger keeps the film's search row in sync
             db.prepare("UPDATE analyzed_files SET edition = ? WHERE job_id = ?").run(edition?.trim() || null, jobId);
+
+            // the film that gets the new values may be an existing one (moved job), so read its year here, not the old film's
+            const oldYear = (db.prepare("SELECT released_year FROM films WHERE id = ?").get(filmId) as {released_year: number | null}).released_year;
 
             // update film table
             db.prepare(
@@ -158,13 +237,55 @@ export async function PUT(
                 SELECT f.id, f.title, ${aggregates}, ${editions} FROM films f WHERE f.id = ?`
             ).run(filmId);
 
-            return true;
-        })());
+            const newYear = (db.prepare("SELECT released_year FROM films WHERE id = ?").get(filmId) as {released_year: number | null}).released_year;
+            const newKey = (db.prepare(`SELECT ${EDITION_KEY_SQL} AS k FROM analyzed_files af WHERE af.job_id = ?`).get(jobId) as {k: string}).k;
 
-        if (!found) {
+            // credits trim override of the job's film + edition: replace the row, or leave none
+            let overrideChanged = false;
+            if (overrideSent) {
+                const before = db
+                    .prepare("SELECT film_start_s, credits_start_s FROM credits_override WHERE film_id = ? AND edition_key = ?")
+                    .get(filmId, newKey) as Override | undefined;
+                overrideChanged = (before?.film_start_s ?? null) !== newOverride.film_start_s
+                    || (before?.credits_start_s ?? null) !== newOverride.credits_start_s;
+                db.prepare("DELETE FROM credits_override WHERE film_id = ? AND edition_key = ?").run(filmId, newKey);
+                if (newOverride.film_start_s !== null || newOverride.credits_start_s !== null) {
+                    db.prepare(
+                        "INSERT INTO credits_override (film_id, edition_key, film_start_s, credits_start_s) VALUES (?, ?, ?, ?)"
+                    ).run(filmId, newKey, newOverride.film_start_s, newOverride.credits_start_s);
+                }
+            }
+
+            return {
+                oldFilmId: job.film_id, oldKey: job.edition_key, filmId, newKey,
+                yearChanged: oldYear !== newYear, overrideChanged,
+            };
+            })();
+        });
+
+        if (!result) {
             return NextResponse.json({error: "Film not found"}, {status: 404});
         }
-        return NextResponse.json({success:true});
+
+        // Recompute the map points the save touched. A failure never undoes the save.
+        const {oldFilmId, oldKey, filmId, newKey, yearChanged, overrideChanged} = result;
+        const moved = filmId !== oldFilmId;
+        const keyChanged = newKey !== oldKey;
+        let recomputeError: string | undefined;
+        try {
+            if (yearChanged) {
+                await recomputeFilm(filmId, []); // the year moves every edition across the 1975 rule
+            } else if (overrideChanged || keyChanged || moved) {
+                await recomputeFilm(filmId, [newKey]);
+            }
+            if (moved || keyChanged) {
+                await recomputeFilm(oldFilmId, [oldKey]);
+            }
+        } catch (e) {
+            console.error("PUT /api/edit-film recompute error:", e);
+            recomputeError = (e as Error).message;
+        }
+        return NextResponse.json(recomputeError ? {success: true, recomputeError} : {success: true});
     } catch (error) {
         console.error("PUT /api/edit-film error:", error);
         return NextResponse.json({error: "Failed to update film"}, {status: 500});

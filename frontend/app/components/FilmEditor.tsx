@@ -1,6 +1,7 @@
 "use client";
 
 import {useState} from "react";
+import {AUTO_LAST_WHOLE_YEAR, autoWindow, formatTime, parseTime, validateOverride} from "@/lib/credits-trim";
 
 export interface FilmRecord {
   job_id: string;
@@ -8,6 +9,10 @@ export interface FilmRecord {
   title: string;
   imdb_id: string | null;
   released: string | null;
+  released_year: number | null;
+  length_s: number | null; // source video length in seconds, null if unknown
+  film_start_s: number | null; // credits trim override of this film + edition, null = not set
+  credits_start_s: number | null;
   type: string | null;
   runtime_minutes: number | null;
   directors: string[];
@@ -179,6 +184,10 @@ export default function FilmEditor({
     film.runtime_minutes?.toString() ?? "" // number → string for the input, null → ""
   );
 
+  // credits trim override, as typed (h:mm:ss, mm:ss or seconds); "" = not set
+  const [filmStart, setFilmStart] = useState(film.film_start_s === null ? "" : formatTime(film.film_start_s));
+  const [creditsStart, setCreditsStart] = useState(film.credits_start_s === null ? "" : formatTime(film.credits_start_s));
+
   const [directors, setDirectors] = useState(film.directors.join(", "));
   const [actors, setActors] = useState(film.actors.join(", "));
   const [genres, setGenres] = useState(film.genres.join(", "));
@@ -205,7 +214,26 @@ export default function FilmEditor({
    * ends the edited form data to PUT /api/edit-film/[jobId].
    * The API route will update the `films` table and re-sync all junction tables
    */
+  // hint under the credits trim fields: what the automatic rule keeps for the year being edited
+  const autoHint = (() => {
+    if (film.length_s === null) return null;
+    const m = /^(\d{4})-\d{2}-\d{2}$/.exec(released.trim()); // same as released_year: needs an ISO date
+    const year = m ? Number(m[1]) : null;
+    if (year !== null && year <= AUTO_LAST_WHOLE_YEAR) return `Auto: whole film (${AUTO_LAST_WHOLE_YEAR} or earlier)`;
+    const [from, until] = autoWindow(year, film.length_s);
+    if (from === 0 && until === film.length_s) return "Auto: whole film";
+    return `Auto: ${formatTime(from)} to ${formatTime(until)}`;
+  })();
+
   const handleSave = async () => {
+    const filmStartS = parseTime(filmStart);
+    const creditsStartS = parseTime(creditsStart);
+    const overrideError = validateOverride(filmStartS, creditsStartS, film.length_s);
+    if (overrideError) {
+      setToast({ msg: overrideError, type: "error" });
+      return;
+    }
+
     setSaving(true); // disables the Save button and shows "Saving…"
     try {
       const res = await fetch(`/api/edit-film/${film.job_id}`, {
@@ -216,6 +244,8 @@ export default function FilmEditor({
           edition: edition.trim() || null,  // this analysis only, not the whole film
           imdb_id: imdbId || null,           // empty string → null for the database
           released: released || null,
+          film_start_s: filmStartS,          // seconds on the source video, null = not set (both null clears)
+          credits_start_s: creditsStartS,
           type: type || null,
           runtime_minutes: runtimeMinutes ? parseInt(runtimeMinutes) : null, // string → integer or null
           directors: split(directors),        // "A, B" → ["A", "B"]
@@ -235,10 +265,16 @@ export default function FilmEditor({
 
       // Show success toast, then close the editor after a short delay
       // so the user can see the confirmation before the panel disappears
-      setToast({ msg: `Saved — ${title}`, type: "success" });
+      // The save stands even when the film map recompute failed; say so and leave the toast up longer
+      const { recomputeError } = await res.json().catch(() => ({}));
+      setToast(
+        recomputeError
+          ? { msg: `Saved, but the film map was not updated: ${recomputeError}`, type: "error" }
+          : { msg: `Saved — ${title}`, type: "success" }
+      );
       setTimeout(() => {
         onSaved(); // tells page.tsx to refresh search results and close the editor
-      }, 800);
+      }, recomputeError ? 4000 : 800);
     } catch (e) {
       // Show error toast — the editor stays open so the user can retry
       setToast({
@@ -447,6 +483,69 @@ export default function FilmEditor({
               onChange = {(e) => setEdition(e.target.value)}
               placeholder = "e.g. Criterion Color"
             />
+          </div>
+
+          { /** credits trim: per film + edition, so it sits with the edition */ }
+          <div>
+            <label
+              className = {labelClass}
+              style = {{ display: "block", marginBottom: 4 }}
+            >
+              Credits trim (this edition)
+            </label>
+            <div style = {{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 10, alignItems: "end" }}>
+              <div>
+                <label
+                  className = {labelClass}
+                  style = {{ display: "block", marginBottom: 4 }}
+                >
+                  Film starts at
+                </label>
+                <input
+                  className = "kalmus-input"
+                  style = {inputBaseStyle}
+                  value = {filmStart}
+                  onChange = {(e) => setFilmStart(e.target.value)}
+                  placeholder = "h:mm:ss"
+                />
+              </div>
+              <div>
+                <label
+                  className = {labelClass}
+                  style = {{ display: "block", marginBottom: 4 }}
+                >
+                  End credits begin at
+                </label>
+                <input
+                  className = "kalmus-input"
+                  style = {inputBaseStyle}
+                  value = {creditsStart}
+                  onChange = {(e) => setCreditsStart(e.target.value)}
+                  placeholder = "h:mm:ss"
+                />
+              </div>
+              <button
+                onClick = {() => { setFilmStart(""); setCreditsStart(""); }}
+                className = "font-mono text-xs tracking-wider uppercase"
+                style = {{
+                  padding: "8px 12px",
+                  background: "transparent",
+                  border: "1px solid var(--surface-border)",
+                  color: "var(--text-primary)",
+                  cursor: "pointer",
+                }}
+              >
+                Clear
+              </button>
+            </div>
+            {autoHint && (
+              <p
+                className = "font-mono text-xs kalmus-text-muted"
+                style = {{ margin: "6px 0 0" }}
+              >
+                {autoHint}
+              </p>
+            )}
           </div>
 
           { }
