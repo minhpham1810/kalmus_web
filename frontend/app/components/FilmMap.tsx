@@ -238,6 +238,7 @@ export function FilmMap({
   const focusId = pinnedId ?? hoverId;
   const [view, setView] = useState({ x: 0, y: 0, k: 1 });
   const [filter, setFilter] = useState(NO_FILTER);
+  const [titles, setTitles] = useState(false);
   const svgRef = useRef<SVGSVGElement>(null);
   const drag = useRef<{ x: number; y: number; moved: boolean } | null>(null);
 
@@ -519,7 +520,7 @@ export function FilmMap({
 
           {placeLabels(
             [
-              // Hovering labels just that film and its neighbours, as without a filter; otherwise every film a filter keeps
+              // Hovering labels just that film and its neighbours, as without a filter; otherwise, with titles on, every visible film the filter keeps
               ...(hover
                 ? [
                     hover,
@@ -527,7 +528,7 @@ export function FilmMap({
                     // While a film is pinned, hovering another just adds that film's name
                     ...all.filter((n) => n.job_id === hoverId && n !== hover && !near.has(n.job_id)),
                   ]
-                : filtering
+                : titles
                   ? all.filter((n) => matched.has(n.job_id))
                   : []),
             ],
@@ -576,6 +577,8 @@ export function FilmMap({
         pinned={pinnedId !== null}
         filter={filter}
         setFilter={setFilter}
+        titles={titles}
+        setTitles={setTitles}
         matches={films.filter((f) => matchesFilter(f, filter) && inLightRange(f, filter)).length}
       >
         {children}

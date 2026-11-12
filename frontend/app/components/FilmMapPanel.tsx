@@ -15,6 +15,8 @@ export function FilmMapPanel({
   hover,
   filter,
   setFilter,
+  titles,
+  setTitles,
   matches,
   pinned,
   children,
@@ -24,6 +26,8 @@ export function FilmMapPanel({
   pinned: boolean;
   filter: MapFilter;
   setFilter: (f: MapFilter) => void;
+  titles: boolean;
+  setTitles: (t: boolean) => void;
   matches: number;
   children?: React.ReactNode; // back link, logo and key, above the filter
 }) {
@@ -78,6 +82,20 @@ export function FilmMapPanel({
 
       <section className="kalmus-surface p-3 flex flex-col gap-1.5">
         <h2 className="font-mono uppercase tracking-[0.22em] kalmus-text-secondary">Filter</h2>
+        <label className="flex items-center justify-between gap-2 cursor-pointer kalmus-text-secondary">
+          <span>Show titles</span>
+          <input
+            type="checkbox"
+            role="switch"
+            checked={titles}
+            onChange={(e) => setTitles(e.target.checked)}
+            className="peer sr-only"
+          />
+          <span
+            aria-hidden
+            className="relative h-4 w-7 shrink-0 rounded-full bg-[var(--input-border)] transition-colors peer-checked:bg-[var(--text-primary)] peer-focus-visible:outline peer-focus-visible:outline-1 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[var(--text-primary)] after:absolute after:left-0.5 after:top-0.5 after:h-3 after:w-3 after:rounded-full after:bg-[var(--surface-bg)] after:transition-transform peer-checked:after:translate-x-3"
+          />
+        </label>
         {field("country", "Country", "country")}
         {field("director", "Filmmaker", "director")}
         {field("genre", "Genre", "genre")}
