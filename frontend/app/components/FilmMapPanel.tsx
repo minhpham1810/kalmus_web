@@ -7,7 +7,7 @@ import { NO_FILTER, filterActive, yearBounds, type MapFilter } from "@/lib/film-
 import { RangeSlider } from "./RangeSlider";
 
 const label = (f: MapFilm) => `${f.title}${f.year ? ` (${f.year})` : ""}`;
-const rowLabel = (f: MapFilm) => `${label(f)}${f.edition ? ` · ${f.edition}` : ""}`;
+const rowLabel = (f: MapFilm) => `${label(f)}${f.edition ? ` Â· ${f.edition}` : ""}`;
 const uniq = (lists: string[][]) => [...new Set(lists.flat())].sort((a, b) => a.localeCompare(b));
 
 export function FilmMapPanel({
@@ -110,7 +110,7 @@ export function FilmMapPanel({
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search films…"
+            placeholder="Search filmsâ€¦"
             className="kalmus-input w-full min-w-0 px-2 py-1 text-xs"
           />
           <ul className="max-h-[15rem] overflow-y-auto flex flex-col">
