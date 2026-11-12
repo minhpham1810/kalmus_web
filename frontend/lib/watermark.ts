@@ -9,7 +9,7 @@ export interface WatermarkRect {
   height: number;
 }
 
-export const WATERMARK_SRC = "/kalmus-logo.png";
+export const WATERMARK_SRC = "/kalmus_logo_35p.png";
 export const BARCODE_WATERMARK_SRC = "/kalmus%20logo_type_only.png";
 export const WATERMARK_OPACITY = 0.9;
 // Logo spans at most 15% of the image width and 20% of its height,

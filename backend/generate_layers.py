@@ -19,10 +19,14 @@ from frame_scatter_layers import (
 
 DB_PATH = "/home/kalmus/kalmus/app/databases/films.db"
 RESULTS_ROOT = Path("/home/kalmus/kalmus/results")
-LOGO_PATH = Path(__file__).resolve().parents[1] / "frontend" / "public" / "kalmus-logo.png"
+LOGO_PATH = Path(__file__).resolve().parents[1] / "frontend" / "public" / "kalmus_logo_35p.png"
 
 # Keep in sync with frontend/lib/watermark.ts.
-WATERMARK_OPACITY = 0.9
+WATERMARKED_CANVAS_WIDTH = 12000
+WATERMARKED_CANVAS_HEIGHT = 3600
+WATERMARKED_CANVAS_DPI = 72
+
+WATERMARK_OPACITY = 1
 WATERMARK_MAX_WIDTH = 0.15
 WATERMARK_MAX_HEIGHT = 0.2
 WATERMARK_MARGIN = 0.03
@@ -205,8 +209,11 @@ def watermark_existing_canvases(job_id: str) -> None:
         print(f"Watermarking {png_path}...")
         with Image.open(png_path) as img:
             img.load()
-            add_watermark(img)
-            img.save(png_path.with_name(WATERMARKED_CANVAS))
+            small = img.resize((WATERMARKED_CANVAS_WIDTH, WATERMARKED_CANVAS_HEIGHT), Image.LANCZOS)
+            add_watermark(small)
+            small.save(png_path.with_name(WATERMARKED_CANVAS),
+                       dpi=(WATERMARKED_CANVAS_DPI, WATERMARKED_CANVAS_DPI),)
+            del small
         gc.collect()
 
 
@@ -233,8 +240,13 @@ def process_layer(
     layer_dir.mkdir(parents=True, exist_ok=True)
     png_path = layer_dir / "canvas.png"
     img.save(png_path)
-    add_watermark(img)
-    img.save(layer_dir / WATERMARKED_CANVAS)
+
+    small = img.resize((WATERMARKED_CANVAS_WIDTH, WATERMARKED_CANVAS_HEIGHT), Image.LANCZOS)
+    add_watermark(small)
+    small.save(layer_dir / WATERMARKED_CANVAS,
+               dpi=(WATERMARKED_CANVAS_DPI, WATERMARKED_CANVAS_DPI),
+               )
+    del small
     del img
     gc.collect()
 
