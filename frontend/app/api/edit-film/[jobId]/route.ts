@@ -153,6 +153,9 @@ export async function PUT(
                 if (v !== null && (typeof v !== "number" || !Number.isFinite(v))) {
                     return NextResponse.json({error: "Use h:mm:ss, mm:ss or seconds."}, {status: 400});
                 }
+                if (v !== null && v < 0) {
+                    return NextResponse.json({error: "Times can't be negative."}, {status: 400});
+                }
             }
             const overrideError = withDb((db) =>
                 validateOverride(newOverride.film_start_s, newOverride.credits_start_s, sourceLengthS(db, jobId)));
@@ -240,9 +243,13 @@ export async function PUT(
             const newYear = (db.prepare("SELECT released_year FROM films WHERE id = ?").get(filmId) as {released_year: number | null}).released_year;
             const newKey = (db.prepare(`SELECT ${EDITION_KEY_SQL} AS k FROM analyzed_files af WHERE af.job_id = ?`).get(jobId) as {k: string}).k;
 
-            // credits trim override of the job's film + edition: replace the row, or leave none
+            // The override belongs to a film + edition. Only when this save leaves both alone is it written;
+            // otherwise the job just picks up whatever its new film + edition already has, and no row is touched.
+            const sameTarget = filmId === job.film_id && newKey === job.edition_key;
+            const overrideIgnored = overrideSent && !sameTarget
+                && (newOverride.film_start_s !== null || newOverride.credits_start_s !== null);
             let overrideChanged = false;
-            if (overrideSent) {
+            if (overrideSent && sameTarget) {
                 const before = db
                     .prepare("SELECT film_start_s, credits_start_s FROM credits_override WHERE film_id = ? AND edition_key = ?")
                     .get(filmId, newKey) as Override | undefined;
@@ -256,9 +263,15 @@ export async function PUT(
                 }
             }
 
+            // what now applies to the job, for the editor to show
+            const current = db
+                .prepare("SELECT film_start_s, credits_start_s FROM credits_override WHERE film_id = ? AND edition_key = ?")
+                .get(filmId, newKey) as Override | undefined;
+
             return {
                 oldFilmId: job.film_id, oldKey: job.edition_key, filmId, newKey,
-                yearChanged: oldYear !== newYear, overrideChanged,
+                yearChanged: oldYear !== newYear, overrideChanged, overrideIgnored,
+                film_start_s: current?.film_start_s ?? null, credits_start_s: current?.credits_start_s ?? null,
             };
             })();
         });
@@ -285,7 +298,13 @@ export async function PUT(
             console.error("PUT /api/edit-film recompute error:", e);
             recomputeError = (e as Error).message;
         }
-        return NextResponse.json(recomputeError ? {success: true, recomputeError} : {success: true});
+        return NextResponse.json({
+            success: true,
+            film_start_s: result.film_start_s,
+            credits_start_s: result.credits_start_s,
+            ...(result.overrideIgnored ? {overrideIgnored: true} : {}),
+            ...(recomputeError ? {recomputeError} : {}),
+        });
     } catch (error) {
         console.error("PUT /api/edit-film error:", error);
         return NextResponse.json({error: "Failed to update film"}, {status: 500});

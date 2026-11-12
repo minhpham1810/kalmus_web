@@ -228,7 +228,9 @@ export default function FilmEditor({
   const handleSave = async () => {
     const filmStartS = parseTime(filmStart);
     const creditsStartS = parseTime(creditsStart);
-    const overrideError = validateOverride(filmStartS, creditsStartS, film.length_s);
+    const overrideError = (filmStartS !== null && filmStartS < 0) || (creditsStartS !== null && creditsStartS < 0)
+      ? "Times can't be negative."
+      : validateOverride(filmStartS, creditsStartS, film.length_s);
     if (overrideError) {
       setToast({ msg: overrideError, type: "error" });
       return;
@@ -266,15 +268,24 @@ export default function FilmEditor({
       // Show success toast, then close the editor after a short delay
       // so the user can see the confirmation before the panel disappears
       // The save stands even when the film map recompute failed; say so and leave the toast up longer
-      const { recomputeError } = await res.json().catch(() => ({}));
+      const saved = await res.json().catch(() => ({}));
+      const { recomputeError, overrideIgnored } = saved;
+      // show the trim that now applies to this film + edition (the typed values are dropped if those changed)
+      if (saved.film_start_s !== undefined) {
+        setFilmStart(saved.film_start_s === null ? "" : formatTime(saved.film_start_s));
+        setCreditsStart(saved.credits_start_s === null ? "" : formatTime(saved.credits_start_s));
+      }
+      const ignoredMsg = "Credits trim wasn't saved because the edition or film changed. It now shows this edition's trim.";
       setToast(
         recomputeError
-          ? { msg: `Saved, but the film map was not updated: ${recomputeError}`, type: "error" }
-          : { msg: `Saved — ${title}`, type: "success" }
+          ? { msg: `Saved, but the film map was not updated: ${recomputeError}${overrideIgnored ? ` ${ignoredMsg}` : ""}`, type: "error" }
+          : overrideIgnored
+            ? { msg: `Saved. ${ignoredMsg}`, type: "error" }
+            : { msg: `Saved — ${title}`, type: "success" }
       );
       setTimeout(() => {
         onSaved(); // tells page.tsx to refresh search results and close the editor
-      }, recomputeError ? 4000 : 800);
+      }, recomputeError || overrideIgnored ? 4000 : 800);
     } catch (e) {
       // Show error toast — the editor stays open so the user can retry
       setToast({
