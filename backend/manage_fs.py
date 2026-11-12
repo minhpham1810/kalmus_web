@@ -5,7 +5,7 @@ from typing import Optional
 import shutil
 from pathlib import Path
 
-RESULTS_ROOT = Path("/results")
+RESULTS_ROOT = Path(__file__).resolve().parents[2] / "results"
 
 SBATCH_SCRIPT = "/home/kalmus/generate_frame_scatter.sh"
 MAX_CONCURRENT = 8 # number of jobs running or waiting concurrently
@@ -113,7 +113,7 @@ def count_jobs() -> int:
     Count the amount of SLURM jobs that are currently running or waiting.
     """
     out = subprocess.run(
-        ["squeue", "-u", getpass.getuser(), "h", "-o", "%i"],
+        ["squeue", "-u", getpass.getuser(), "-h", "-o", "%i"],
         capture_output = True, text = True,
     )
     return len(out.stdout.split())
@@ -122,10 +122,13 @@ def generate_all(preview_only: bool = True) -> None:
     jobs = find_job_dirs()
     for i, job_dir in enumerate(jobs, start = 1):
         if not preview_only:
+            if (job_dir / "frame-scatter").exists():
+                continue
+
             while count_jobs() >= MAX_CONCURRENT:
                 time.sleep(POLL_SECONDS)
             print(f"[{i} / {len(jobs)}]", end = "")
-            submit_generation(job_dir, preview_only = preview_only)
+            submit_generation(job_dir.name, preview_only = preview_only)
 ########## ##########
 
 def list_jobs():
@@ -133,15 +136,13 @@ def list_jobs():
     print(f"{len(jobs_pth)} jobs found")
     for job_dir in jobs_pth:
         pth_state = "has frame-scatter" if (job_dir / "frame-scatter").exists() else "no frame-scatter"
-        print(f"{job_dir.name} {pth_state}")
+        if not (job_dir / "frame-scatter").exists():
+            print(f"{job_dir.name} {pth_state}")
 
 def main():
     list_jobs()
     print("")
-    generate_one("4dd71df2-9636-415b-a1df-9fcf49b54e2e", preview_only = False)
-    # delete_one("", preview_only=False)
-
+    # generate_one("", preview_only=False)
 
 if __name__ == "__main__":
-    delete_all(preview_only=True)
     main()
