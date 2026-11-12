@@ -1,5 +1,6 @@
 from typing import TypedDict
 from typing_extensions import NotRequired
+from manage_fs import generate_one
 
 import os
 import argparse
@@ -227,6 +228,9 @@ def _extract_thumbnail_frames(video_path: str, barcode_obj: Barcode, start_frame
 
             thumbnail_width = max(
                 1, int(round(frame_width * (THUMBNAIL_HEIGHT / frame_height))))
+            if thumbnail_width > THUMBNAIL_SHEET_MAX_WIDTH:
+                # Near-black frame whose letterbox crop collapsed to a sliver
+                continue
             resized = cv.resize(
                 rgb_frame,
                 dsize=(thumbnail_width, THUMBNAIL_HEIGHT),
@@ -465,13 +469,17 @@ def save_barcode(barcode_obj: Barcode, args: argparse.Namespace, film_metadata: 
         print("Generating hover-preview thumbnails...")
         processed_source_frames = int(
             barcode_obj.total_frames * barcode_obj.sampled_frame_rate)  # type: ignore
-        thumbnail_manifest = maybe_generate_thumbnail_manifest(
-            args.video_path,
-            barcode_obj,
-            args.output_dir,
-            args.skip_over,
-            processed_source_frames,
-        )
+        try:
+            thumbnail_manifest = maybe_generate_thumbnail_manifest(
+                args.video_path,
+                barcode_obj,
+                args.output_dir,
+                args.skip_over,
+                processed_source_frames,
+            )
+        except Exception as e:
+            # Thumbnails are optional; never fail a finished barcode over them
+            print(f"WARNING: Thumbnail generation failed, continuing without: {e}")
 
     # Also save a summary with metadata
     summary_path = os.path.join(args.output_dir, 'summary.json')
@@ -557,6 +565,11 @@ def main(args: list[str] = sys.argv[1:]) -> int:
         save_barcode(barcode_obj, parsed, film_metadata, upload_metadata)
 
         validate_video(film_metadata, upload_metadata)
+        # add cz generation function
+        try:
+            generate_one(parsed.job_id, preview_only=False) # canvas zoom generation!!!
+        except (OSError, IndexError) as e:
+            print("CANVAS ZOOM SUBMISSION FAILED")
 
         print()
         print("=" * 50)
