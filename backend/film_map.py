@@ -13,7 +13,7 @@ from scipy.ndimage import gaussian_filter1d
 # Same OKLab conversion and hue bins as the film comparison, so map positions agree with it
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "frontend" / "lib"))
 from film_compare import MONO_CHROMA, N_HUE_BINS, srgb_to_oklab
-from credits_trim import Override, Timeline, hue_frame_mask, keep_slice, keep_window
+from credits_trim import Override, Timeline, hue_frame_mask, job_trim_inputs, keep_slice, keep_window
 
 
 def map_features(rgb) -> dict:
@@ -124,6 +124,72 @@ WHERE NOT EXISTS (
         AND LOWER(COALESCE(other.edition, '')) = LOWER(COALESCE(new.edition, ''))
 )
 """
+
+
+def recompute_film(films: "FilmsDb", film_id: int, edition_keys: list[str] | None = None) -> int:
+    """Recompute a film's map points after its override, release date, edition or film changed. Per edition key
+    (given, or every key the film has jobs for): the job already on the map (else the newest) that yields a point is
+    written, and every other job of that film and edition leaves the map. Returns the number of points written.
+    A given key the film has no jobs for just loses its map rows."""
+    key_sql = "LOWER(COALESCE(TRIM(a.edition), ''))"
+    with films.connect(readonly=True) as con:
+        if edition_keys is None:
+            edition_keys = [r[0] for r in con.execute(
+                f"SELECT DISTINCT {key_sql} FROM analyzed_files a WHERE a.film_id = ?", (film_id,))]
+        work = []  # (key, every job of the key, the job ids to try in order with their json and trim inputs)
+        for key in dict.fromkeys(edition_keys):
+            job_ids = [r[0] for r in con.execute(
+                f"SELECT a.job_id FROM analyzed_files a WHERE a.film_id = ? AND {key_sql} = ?", (film_id, key))]
+            candidates = con.execute(
+                f"SELECT a.job_id, a.json, a.barcode_type, a.metric, a.frame_type FROM analyzed_files a "
+                f"LEFT JOIN film_map m ON m.job_id = a.job_id "
+                f"WHERE a.film_id = ? AND {key_sql} = ? AND a.json IS NOT NULL "
+                f"AND a.barcode_type = 'color' AND a.metric = 'average' AND a.frame_type = 'whole_frame' "
+                f"ORDER BY m.job_id IS NULL, a.process_date DESC, a.job_id DESC", (film_id, key)).fetchall()
+            work.append((key, job_ids, [(c, job_trim_inputs(con, c[0])) for c in candidates]))
+
+    # Parse barcodes before opening the write connection, so the database isn't locked meanwhile
+    plan = []  # (job ids of the key, the point to write or None)
+    for key, job_ids, candidates in work:
+        chosen = None
+        for (job_id, json_rel, barcode_type, metric, frame_type), trim in candidates:
+            try:
+                features = map_point(str(films.results_dir / json_rel), barcode_type, metric, frame_type, *trim)
+            except ValueError as e:  # includes JSONDecodeError
+                print(f"Skipping {job_id}: {e}")
+                continue
+            if features is not None:
+                chosen = film_map_row(job_id, features)
+                break
+        plan.append((job_ids, chosen))
+
+    written = 0
+    with films.connect() as con:  # one transaction, so a key never ends up with no point halfway
+        for job_ids, chosen in plan:
+            con.executemany("DELETE FROM film_map WHERE job_id = ?", [(j,) for j in job_ids if not chosen or j != chosen[0]])
+            if chosen:
+                con.execute(
+                    "INSERT OR REPLACE INTO film_map (job_id, primary_hue, lightness, mean_hue, hue_hist) VALUES (?, ?, ?, ?, ?)",
+                    chosen)
+                written += 1
+    return written
+
+
+if __name__ == "__main__" and len(sys.argv) > 1:
+    import argparse
+
+    from database import FilmsDb
+
+    parser = argparse.ArgumentParser(description="Recompute one film's film-map points.")
+    parser.add_argument("--film-id", type=int, required=True)
+    parser.add_argument("--edition-key", action="append", help="edition key to recompute (repeatable; '' for no edition); default all")
+    args = parser.parse_args()
+    try:
+        print(recompute_film(FilmsDb(), args.film_id, args.edition_key))
+    except Exception as e:
+        print(f"Recompute failed: {e}", file=sys.stderr)
+        sys.exit(1)
+    sys.exit(0)
 
 
 if __name__ == "__main__":
