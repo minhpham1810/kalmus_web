@@ -235,7 +235,6 @@ export function FilmMap({
   // Keyed by job_id: nodes are rebuilt with each layout, so object identity isn't stable
   const [hoverId, setHoverId] = useState<string | null>(null);
   const [pinnedId, setPinnedId] = useState<string | null>(null); // clicked: holds the card and highlight until unpinned
-  const focusId = pinnedId ?? hoverId;
   const [view, setView] = useState({ x: 0, y: 0, k: 1 });
   const [filter, setFilter] = useState(NO_FILTER);
   const [titles, setTitles] = useState(false);
@@ -291,25 +290,30 @@ export function FilmMap({
     return { color, mono, edges: [...colorEdges, ...links(mono, onScreen)] };
   }, [films, lo, hi, variant, byPalette, wheel]);
 
-  const everyone = [...color, ...mono];
   // Films outside the brightness range are not drawn at all; the layout above still uses every film, so nothing moves
-  const all = everyone.filter((n) => inLightRange(n, filter));
-  const shown = new Set(all.map((n) => n.job_id));
-  const drawnEdges = edges.filter(([a, b]) => shown.has(a.job_id) && shown.has(b.job_id));
+  const all = useMemo(() => [...color, ...mono].filter((n) => inLightRange(n, filter)), [color, mono, filter]);
+  const shown = useMemo(() => new Set(all.map((n) => n.job_id)), [all]);
+  const drawnEdges = useMemo(
+    () => edges.filter(([a, b]) => shown.has(a.job_id) && shown.has(b.job_id)),
+    [edges, shown],
+  );
+  // A pin hidden by the brightness range is dropped, but kept in state so it returns when the range widens
+  const pin = pinnedId && shown.has(pinnedId) ? pinnedId : null;
+  const focusId = pin ?? hoverId;
   const hover = all.find((n) => n.job_id === focusId) ?? null;
-  const near = new Set(
-    drawnEdges.flatMap(([a, b]) =>
-      a.job_id === focusId
-        ? [b.job_id]
-        : b.job_id === focusId
-          ? [a.job_id]
-          : [],
-    ),
+  const near = useMemo(
+    () =>
+      new Set(
+        drawnEdges.flatMap(([a, b]) =>
+          a.job_id === focusId ? [b.job_id] : b.job_id === focusId ? [a.job_id] : [],
+        ),
+      ),
+    [drawnEdges, focusId],
   );
 
   // Filters dim the films they rule out; checked films are also ringed
   const filtering = filterActive(filter);
-  const matched = new Set(all.filter((n) => matchesFilter(n, filter)).map((n) => n.job_id));
+  const matched = useMemo(() => new Set(all.filter((n) => matchesFilter(n, filter)).map((n) => n.job_id)), [all, filter]);
   const checking = filter.films.length > 0;
 
   const toSvg = (x: number, y: number) => toViewBox(svgRef.current!, x, y);
@@ -338,6 +342,25 @@ export function FilmMap({
 
   const k = view.k; // dots, lines and text divide by k to stay the same size on screen
   const ringR = (l: number) => radius(l, lo, hi, R_INNER, R - 10);
+  // Pans change only the view's x/y, so the labels are placed again only when what they depend on changes
+  const labels = useMemo(
+    () =>
+      placeLabels(
+        hover
+          ? [
+              hover,
+              ...all.filter((n) => near.has(n.job_id)),
+              // While a film is pinned, hovering another just adds that film's name
+              ...all.filter((n) => n.job_id === hoverId && n !== hover && !near.has(n.job_id)),
+            ]
+          : titles
+            ? all.filter((n) => matched.has(n.job_id))
+            : [],
+        hover,
+        k,
+      ),
+    [all, hover, hoverId, near, titles, matched, k],
+  );
   const rings = [0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5].filter(
     (l) => l >= lo && l <= hi,
   );
@@ -431,13 +454,13 @@ export function FilmMap({
             ))}
           {wheel &&
             [filter.light[0], filter.light[1]]
-              .filter((c, i) => (i === 0 ? c > 0 : c < 100))
+              .filter((c, i) => (i === 0 ? c / 100 > lo : c / 100 < hi))
               .map((c, i) => (
                 <circle
                   key={i}
                   cx={CX}
                   cy={CY}
-                  r={ringR(Math.min(hi, Math.max(lo, c / 100)))}
+                  r={ringR(c / 100)}
                   fill="none"
                   stroke="currentColor"
                   strokeOpacity={0.3}
@@ -518,23 +541,7 @@ export function FilmMap({
             );
           })}
 
-          {placeLabels(
-            [
-              // Hovering labels just that film and its neighbours, as without a filter; otherwise, with titles on, every visible film the filter keeps
-              ...(hover
-                ? [
-                    hover,
-                    ...all.filter((n) => near.has(n.job_id)),
-                    // While a film is pinned, hovering another just adds that film's name
-                    ...all.filter((n) => n.job_id === hoverId && n !== hover && !near.has(n.job_id)),
-                  ]
-                : titles
-                  ? all.filter((n) => matched.has(n.job_id))
-                  : []),
-            ],
-            hover,
-            k,
-          ).map(({ n, text, size, x, y, anchor, moved }) => (
+          {labels.map(({ n, text, size, x, y, anchor, moved }) => (
               <g key={n.job_id} pointerEvents="none">
                 {moved && (
                   <line
@@ -573,8 +580,8 @@ export function FilmMap({
       <FilmMapPanel
         films={films}
         // A pinned film holds the card; otherwise it follows the hovered film
-        hover={all.find((n) => n.job_id === (pinnedId ?? hoverId)) ?? null}
-        pinned={pinnedId !== null}
+        hover={all.find((n) => n.job_id === focusId) ?? null}
+        pinned={pin !== null}
         filter={filter}
         setFilter={setFilter}
         titles={titles}

@@ -80,7 +80,7 @@ export function FilmMapPanel({
         </datalist>
       ))}
 
-      <section className="kalmus-surface p-3 flex flex-col gap-1.5">
+      <section className="kalmus-surface p-3 flex flex-col gap-1.5 min-h-0">
         <h2 className="font-mono uppercase tracking-[0.22em] kalmus-text-secondary">Filter</h2>
         <label className="flex items-center justify-between gap-2 cursor-pointer kalmus-text-secondary">
           <span>Show titles</span>
@@ -116,7 +116,7 @@ export function FilmMapPanel({
           onChange={(v) => setFilter({ ...filter, light: v })}
         />
 
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-1 flex-1 min-h-0">
           <div className="flex justify-between kalmus-text-muted">
             <span>Films</span>
             {filter.films.length > 0 && (
@@ -131,7 +131,7 @@ export function FilmMapPanel({
             placeholder="Search films…"
             className="kalmus-input w-full min-w-0 px-2 py-1 text-xs"
           />
-          <ul className="max-h-[15rem] overflow-y-auto flex flex-col">
+          <ul className="max-h-[15rem] flex-1 min-h-0 overflow-y-auto flex flex-col">
             {listed.map((f) => (
               <li key={f.job_id}>
                 <label className="flex items-start gap-2 py-0.5 cursor-pointer kalmus-text-secondary">
