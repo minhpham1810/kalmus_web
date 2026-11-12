@@ -52,12 +52,20 @@ function setTheme(nextBgLevel: BgLevel) {
   window.dispatchEvent(new Event(THEME_CHANGE_EVENT));
 }
 
-export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const bgLevel = useSyncExternalStore<BgLevel>(
+export function ThemeProvider({
+  children,
+  locked,
+}: {
+  children: React.ReactNode;
+  locked?: BgLevel;
+}) {
+  const storedBgLevel = useSyncExternalStore<BgLevel>(
     subscribeThemeChange,
     getThemeSnapshot,
     (): BgLevel => 'gray10'
   );
+
+  const bgLevel = locked ?? storedBgLevel;
 
   useEffect(() => {
     const root = document.documentElement;
@@ -66,7 +74,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   }, [bgLevel]);
 
   const cycleBg = () => {
-    const idx = BG_CYCLE.indexOf(bgLevel);
+    const idx = BG_CYCLE.indexOf(storedBgLevel);
     setTheme(BG_CYCLE[(idx + 1) % BG_CYCLE.length]);
   };
 
