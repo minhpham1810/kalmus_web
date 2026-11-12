@@ -27,9 +27,8 @@ export const FRAME_TYPE_OPTIONS = [
 export const COLOR_METRIC_OPTIONS = [
   "Average",
   "Median",
-  "Mode",
   "Top-dominant",
-  "Weighted-dominant",
+  "Most-vivid",
 ] as const;
 
 const DEFAULT_ANALYSIS_VALUES = {
@@ -38,22 +37,26 @@ const DEFAULT_ANALYSIS_VALUES = {
   color_metric: "Average",
 } as const;
 
-const FRAME_TYPE_ALIASES: Record<string, (typeof FRAME_TYPE_OPTIONS)[number]> = {
-  Whole_frame: "whole_frame",
-  whole_frame: "whole_frame",
-  High_contrast_region: "high_contrast",
-  high_contrast_region: "high_contrast",
-  high_contrast: "high_contrast",
-  Low_contrast_region: "low_contrast",
-  low_contrast_region: "low_contrast",
-  low_contrast: "low_contrast",
-  Foreground: "foreground",
-  foreground: "foreground",
-  Background: "background",
-  background: "background",
-};
+const FRAME_TYPE_ALIASES: Record<string, (typeof FRAME_TYPE_OPTIONS)[number]> =
+  {
+    Whole_frame: "whole_frame",
+    whole_frame: "whole_frame",
+    High_contrast_region: "high_contrast",
+    high_contrast_region: "high_contrast",
+    high_contrast: "high_contrast",
+    Low_contrast_region: "low_contrast",
+    low_contrast_region: "low_contrast",
+    low_contrast: "low_contrast",
+    Foreground: "foreground",
+    foreground: "foreground",
+    Background: "background",
+    background: "background",
+  };
 
-function toAnalysisIndex(clientId: string | undefined, fallbackIndex: number): number {
+function toAnalysisIndex(
+  clientId: string | undefined,
+  fallbackIndex: number,
+): number {
   const match = clientId?.match(/analysis-(\d+)$/);
   if (!match) {
     return fallbackIndex;
@@ -76,7 +79,9 @@ export function createAnalysisConfig(
   return {
     clientId: buildClientId(resolvedIndex),
     barcode_type: source?.barcode_type || DEFAULT_ANALYSIS_VALUES.barcode_type,
-    frame_type: normalizeFrameType(source?.frame_type) || DEFAULT_ANALYSIS_VALUES.frame_type,
+    frame_type:
+      normalizeFrameType(source?.frame_type) ||
+      DEFAULT_ANALYSIS_VALUES.frame_type,
     color_metric: source?.color_metric || DEFAULT_ANALYSIS_VALUES.color_metric,
     forceReprocess: source?.forceReprocess ?? false,
   };
@@ -96,7 +101,9 @@ export function normalizeAnalysisConfigs(
   return configs.map((config, index) => ({
     clientId: config.clientId || buildClientId(index + 1),
     barcode_type: config.barcode_type || DEFAULT_ANALYSIS_VALUES.barcode_type,
-    frame_type: normalizeFrameType(config.frame_type) || DEFAULT_ANALYSIS_VALUES.frame_type,
+    frame_type:
+      normalizeFrameType(config.frame_type) ||
+      DEFAULT_ANALYSIS_VALUES.frame_type,
     color_metric: config.color_metric || DEFAULT_ANALYSIS_VALUES.color_metric,
     forceReprocess:
       "force_reprocess" in config
@@ -113,13 +120,17 @@ export function buildAnalysisConfigPayload(
   return configs.map((config) => ({
     clientId: config.clientId,
     barcode_type: config.barcode_type || DEFAULT_ANALYSIS_VALUES.barcode_type,
-    frame_type: normalizeFrameType(config.frame_type) || DEFAULT_ANALYSIS_VALUES.frame_type,
+    frame_type:
+      normalizeFrameType(config.frame_type) ||
+      DEFAULT_ANALYSIS_VALUES.frame_type,
     color_metric: config.color_metric,
     force_reprocess: Boolean(config.forceReprocess),
   }));
 }
 
-export function normalizeFrameType(frameType: string | null | undefined): string {
+export function normalizeFrameType(
+  frameType: string | null | undefined,
+): string {
   if (!frameType) {
     return "whole_frame";
   }
@@ -142,7 +153,9 @@ export function parseAnalysisConfigPayload(
   return parsedValue.map((config, index) => ({
     clientId: config.clientId || buildClientId(index + 1),
     barcode_type: config.barcode_type || DEFAULT_ANALYSIS_VALUES.barcode_type,
-    frame_type: normalizeFrameType(config.frame_type) || DEFAULT_ANALYSIS_VALUES.frame_type,
+    frame_type:
+      normalizeFrameType(config.frame_type) ||
+      DEFAULT_ANALYSIS_VALUES.frame_type,
     color_metric: config.color_metric || DEFAULT_ANALYSIS_VALUES.color_metric,
     force_reprocess: Boolean(config.force_reprocess),
   }));
