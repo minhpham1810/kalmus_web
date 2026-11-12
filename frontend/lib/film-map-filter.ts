@@ -28,8 +28,8 @@ export function matchesFilter(f: MapFilm, flt: MapFilter): boolean {
 
 /** Whether the film's lightness (0-1 scaled to 0-100) lies in the inclusive light range. Lightness hides films rather than dimming them. */
 export function inLightRange(f: MapFilm, flt: MapFilter): boolean {
-  const l = f.lightness * 100;
-  return l >= flt.light[0] && l <= flt.light[1];
+  // Compare in 0-1 (bound / 100), not lightness * 100: 0.57 * 100 is 56.999..., which would miss a bound of 57
+  return f.lightness >= flt.light[0] / 100 && f.lightness <= flt.light[1] / 100;
 }
 
 /** True when a dimming filter is set; lightness is excluded because it hides instead. */

@@ -3,37 +3,11 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { histOf, type MapFilm } from "@/lib/film-map";
-
-export interface MapFilter {
-  q: string; // title search
-  country: string;
-  director: string;
-  genre: string;
-  from: string; // year range, as typed
-  to: string;
-}
-
-export const NO_FILTER: MapFilter = { q: "", country: "", director: "", genre: "", from: "", to: "" };
-
-const has = (list: string[], typed: string) =>
-  !typed.trim() || list.some((x) => x.toLowerCase().includes(typed.trim().toLowerCase()));
-
-/** Case-insensitive substring match on each filled-in field; films without a year fail a year range. */
-export function matchesFilter(f: MapFilm, flt: MapFilter): boolean {
-  const from = Number(flt.from) || -Infinity;
-  const to = Number(flt.to) || Infinity;
-  return (
-    has([f.title], flt.q) &&
-    has(f.countries, flt.country) &&
-    has(f.directors, flt.director) &&
-    has(f.genres, flt.genre) &&
-    (!(flt.from || flt.to) || (f.year !== null && f.year >= from && f.year <= to))
-  );
-}
-
-export const filterActive = (flt: MapFilter) => Object.values(flt).some((v) => v.trim());
+import { NO_FILTER, filterActive, yearBounds, type MapFilter } from "@/lib/film-map-filter";
+import { RangeSlider } from "./RangeSlider";
 
 const label = (f: MapFilm) => `${f.title}${f.year ? ` (${f.year})` : ""}`;
+const rowLabel = (f: MapFilm) => `${label(f)}${f.edition ? ` · ${f.edition}` : ""}`;
 const uniq = (lists: string[][]) => [...new Set(lists.flat())].sort((a, b) => a.localeCompare(b));
 
 export function FilmMapPanel({
@@ -58,17 +32,34 @@ export function FilmMapPanel({
       country: uniq(films.map((f) => f.countries)),
       director: uniq(films.map((f) => f.directors)),
       genre: uniq(films.map((f) => f.genres)),
-      q: uniq(films.map((f) => [f.title])),
     }),
     [films],
   );
-  const field = (key: keyof MapFilter, placeholder: string, list?: keyof typeof options) => (
+  const bounds = useMemo(() => yearBounds(films), [films]);
+  const [search, setSearch] = useState("");
+  // Checked films first, then by title; the search narrows the list
+  const listed = useMemo(() => {
+    const t = search.trim().toLowerCase();
+    return films
+      .filter((f) => !t || rowLabel(f).toLowerCase().includes(t))
+      .sort((a, b) => {
+        const ca = filter.films.includes(a.job_id) ? 0 : 1;
+        const cb = filter.films.includes(b.job_id) ? 0 : 1;
+        return ca - cb || a.title.localeCompare(b.title);
+      });
+  }, [films, search, filter.films]);
+  const toggle = (id: string) =>
+    setFilter({
+      ...filter,
+      films: filter.films.includes(id) ? filter.films.filter((x) => x !== id) : [...filter.films, id],
+    });
+  const lightActive = filter.light[0] > 0 || filter.light[1] < 100;
+  const field = (key: "country" | "director" | "genre", placeholder: string, list?: keyof typeof options) => (
     <input
       value={filter[key]}
       onChange={(e) => setFilter({ ...filter, [key]: e.target.value })}
       placeholder={placeholder}
       list={list && `map-${list}`}
-      inputMode={key === "from" || key === "to" ? "numeric" : undefined}
       className="kalmus-input w-full min-w-0 px-2 py-1 text-xs"
     />
   );
@@ -87,16 +78,60 @@ export function FilmMapPanel({
 
       <section className="kalmus-surface p-3 flex flex-col gap-1.5">
         <h2 className="font-mono uppercase tracking-[0.22em] kalmus-text-secondary">Filter</h2>
-        {field("q", "Search titlesâ€¦", "q")}
         {field("country", "Country", "country")}
         {field("director", "Filmmaker", "director")}
         {field("genre", "Genre", "genre")}
-        <div className="flex items-center gap-2">
-          {field("from", "From year")}
-          <span className="kalmus-text-muted">â€“</span>
-          {field("to", "To year")}
+        {bounds && bounds[0] < bounds[1] && (
+          <RangeSlider
+            label="Year"
+            min={bounds[0]}
+            max={bounds[1]}
+            value={filter.years ?? bounds}
+            onChange={(v) => setFilter({ ...filter, years: v[0] === bounds[0] && v[1] === bounds[1] ? null : v })}
+          />
+        )}
+        <RangeSlider
+          label="Brightness"
+          min={0}
+          max={100}
+          value={filter.light}
+          onChange={(v) => setFilter({ ...filter, light: v })}
+        />
+
+        <div className="flex flex-col gap-1">
+          <div className="flex justify-between kalmus-text-muted">
+            <span>Films</span>
+            {filter.films.length > 0 && (
+              <button onClick={() => setFilter({ ...filter, films: [] })} className="underline hover:text-[var(--text-primary)]">
+                Clear
+              </button>
+            )}
+          </div>
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search films…"
+            className="kalmus-input w-full min-w-0 px-2 py-1 text-xs"
+          />
+          <ul className="max-h-[15rem] overflow-y-auto flex flex-col">
+            {listed.map((f) => (
+              <li key={f.job_id}>
+                <label className="flex items-start gap-2 py-0.5 cursor-pointer kalmus-text-secondary">
+                  <input
+                    type="checkbox"
+                    checked={filter.films.includes(f.job_id)}
+                    onChange={() => toggle(f.job_id)}
+                    className="mt-0.5 shrink-0"
+                  />
+                  <span className="leading-snug">{rowLabel(f)}</span>
+                </label>
+              </li>
+            ))}
+            {listed.length === 0 && <li className="kalmus-text-muted">No films match.</li>}
+          </ul>
         </div>
-        {filterActive(filter) && (
+
+        {(filterActive(filter) || lightActive) && (
           <div className="flex justify-between kalmus-text-muted">
             <span>
               {matches} of {films.length} films

@@ -8,7 +8,8 @@ import {
   type MapFilm,
   type Variant,
 } from "@/lib/film-map";
-import { FilmMapPanel, NO_FILTER, filterActive, matchesFilter } from "./FilmMapPanel";
+import { NO_FILTER, filterActive, inLightRange, matchesFilter } from "@/lib/film-map-filter";
+import { FilmMapPanel } from "./FilmMapPanel";
 
 interface Node extends MapFilm {
   x: number;
@@ -289,10 +290,14 @@ export function FilmMap({
     return { color, mono, edges: [...colorEdges, ...links(mono, onScreen)] };
   }, [films, lo, hi, variant, byPalette, wheel]);
 
-  const all = [...color, ...mono];
+  const everyone = [...color, ...mono];
+  // Films outside the brightness range are not drawn at all; the layout above still uses every film, so nothing moves
+  const all = everyone.filter((n) => inLightRange(n, filter));
+  const shown = new Set(all.map((n) => n.job_id));
+  const drawnEdges = edges.filter(([a, b]) => shown.has(a.job_id) && shown.has(b.job_id));
   const hover = all.find((n) => n.job_id === focusId) ?? null;
   const near = new Set(
-    edges.flatMap(([a, b]) =>
+    drawnEdges.flatMap(([a, b]) =>
       a.job_id === focusId
         ? [b.job_id]
         : b.job_id === focusId
@@ -301,10 +306,10 @@ export function FilmMap({
     ),
   );
 
-  // Filters dim the films they rule out; a title search also rings what it finds
+  // Filters dim the films they rule out; checked films are also ringed
   const filtering = filterActive(filter);
   const matched = new Set(all.filter((n) => matchesFilter(n, filter)).map((n) => n.job_id));
-  const searching = filter.q.trim() !== "";
+  const checking = filter.films.length > 0;
 
   const toSvg = (x: number, y: number) => toViewBox(svgRef.current!, x, y);
   const clamp = (v: View) => clampView(svgRef.current!, v);
@@ -423,6 +428,21 @@ export function FilmMap({
                 strokeDasharray={`${2 / k} ${4 / k}`}
               />
             ))}
+          {wheel &&
+            [filter.light[0], filter.light[1]]
+              .filter((c, i) => (i === 0 ? c > 0 : c < 100))
+              .map((c) => (
+                <circle
+                  key={c}
+                  cx={CX}
+                  cy={CY}
+                  r={ringR(Math.min(hi, Math.max(lo, c / 100)))}
+                  fill="none"
+                  stroke="currentColor"
+                  strokeOpacity={0.3}
+                  strokeWidth={1 / k}
+                />
+              ))}
           {SHOW_BW && (
             <text
               x={BW_CX}
@@ -436,7 +456,7 @@ export function FilmMap({
             </text>
           )}
 
-          {edges.map(([a, b]) => {
+          {drawnEdges.map(([a, b]) => {
             const lit = a.job_id === focusId || b.job_id === focusId;
             return (
               <line
@@ -486,7 +506,7 @@ export function FilmMap({
                   strokeDasharray={approx ? `${2 / k} ${1.5 / k}` : undefined}
                   filter={glyph ? undefined : "url(#glow)"}
                 />
-                {searching && hit && !hover && (
+                {checking && hit && !hover && (
                   <circle cx={n.x} cy={n.y} r={9 / k} fill="none" stroke="#fff" strokeWidth={1.5 / k} />
                 )}
                 {/* Invisible hit area, so the gaps between petals still hover */}
@@ -556,7 +576,7 @@ export function FilmMap({
         pinned={pinnedId !== null}
         filter={filter}
         setFilter={setFilter}
-        matches={films.filter((f) => matchesFilter(f, filter)).length}
+        matches={films.filter((f) => matchesFilter(f, filter) && inLightRange(f, filter)).length}
       >
         {children}
       </FilmMapPanel>

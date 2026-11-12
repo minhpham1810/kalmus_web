@@ -317,3 +317,48 @@ html {
   color: var(--input-placeholder);
   opacity: 1;
 }
+
+/* RangeSlider: two native range inputs overlaid; only the thumbs take pointer events */
+.kalmus-range {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  margin: 0;
+  background: transparent;
+  pointer-events: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.kalmus-range::-webkit-slider-runnable-track {
+  background: transparent;
+  height: 100%;
+}
+.kalmus-range::-moz-range-track {
+  background: transparent;
+}
+.kalmus-range::-webkit-slider-thumb {
+  pointer-events: auto;
+  -webkit-appearance: none;
+  appearance: none;
+  width: 10px;
+  height: 14px;
+  border-radius: 0;
+  background: var(--input-bg);
+  border: 1px solid var(--input-text);
+  cursor: pointer;
+}
+.kalmus-range::-moz-range-thumb {
+  pointer-events: auto;
+  width: 8px;
+  height: 12px;
+  border-radius: 0;
+  background: var(--input-bg);
+  border: 1px solid var(--input-text);
+  cursor: pointer;
+}
+.kalmus-range:focus-visible::-webkit-slider-thumb {
+  border-color: var(--accent-amber);
+}
+.kalmus-range:focus-visible::-moz-range-thumb {
+  border-color: var(--accent-amber);
+}

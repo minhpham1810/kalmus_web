@@ -54,6 +54,7 @@ test("inLightRange is inclusive at both edges", () => {
   assert.equal(inLightRange(film({ lightness: 0.75 }), flt), true);
   assert.equal(inLightRange(film({ lightness: 0.24 }), flt), false);
   assert.equal(inLightRange(film({ lightness: 0.76 }), flt), false);
+  assert.equal(inLightRange(film({ lightness: 0.57 }), { ...NO_FILTER, light: [57, 100] }), true);
   assert.equal(inLightRange(film({ lightness: 0 }), NO_FILTER), true);
   assert.equal(inLightRange(film({ lightness: 1 }), NO_FILTER), true);
 });
