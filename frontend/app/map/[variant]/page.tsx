@@ -54,16 +54,23 @@ export default async function MapVariantPage({
         >
           ← Back
         </Link>
-        <Image src="/kalmusverse-logo.png" alt="KALMUSverse" width={270} height={40} priority />
+        <Image
+          src="/kalmusverse-logo-v3.png"
+          alt="KALMUSverse"
+          width={270}
+          height={40}
+          priority
+        />
         <p className="kalmus-text-secondary leading-snug">
-          All the films in the KALMUS archive plotted by their dominant color (hue) and lightness. For example, darker
-          films gravitate to the center and brighter films drift to the perimeter. Lines connect films with similar
-          palettes and lightness.
+          All the films in the KALMUS archive plotted by their dominant color
+          (hue) and lightness. For example, darker films gravitate to the center
+          and brighter films drift to the perimeter. Lines connect films with
+          similar palettes and lightness.
         </p>
         {/* The one item that gives way on short screens, so the filter and film card always fit;
             object-contain keeps it square as its box shrinks */}
         <Image
-          src="/hue-lightness.png"
+          src="/hue-viz-v2.png"
           alt="Hue runs round the wheel, lightness outward from the center"
           width={240}
           height={240}
