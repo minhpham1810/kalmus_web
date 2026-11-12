@@ -16,6 +16,8 @@ matplotlib.use('Agg')  # Use non-interactive backend
 import matplotlib.pyplot as plt
 from pathlib import Path
 
+from credits_trim import Timeline
+
 HUE_HISTOGRAM_ACHROMATIC_DELTA = 30
 HUE_HISTOGRAM_BLACK_MAX = 60
 HUE_HISTOGRAM_WHITE_MIN = 195
@@ -120,7 +122,10 @@ def load_barcode_from_json(json_path):
 
     barcode = np.array(data.get('barcode', []))
 
-    return BarcodeData(sequence, metadata, barcode=barcode)
+    result = BarcodeData(sequence, metadata, barcode=barcode)
+    # the credits trim needs the video's real fps and skip_over, which only barcode.json carries
+    result.timeline = Timeline.from_barcode(data)
+    return result
 
 
 def slice_barcode_by_frame_range(barcode_data, start_frame, end_frame):

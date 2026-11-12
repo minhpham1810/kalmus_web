@@ -14,7 +14,7 @@ from pathlib import Path
 # Import the visualizer module
 import kalmus_visualizer as visualizer
 from film_compare import FilmProfile, compare
-from credits_trim import Timeline, job_trim_inputs, keep_slice, keep_window
+from credits_trim import job_trim_inputs, keep_slice, keep_window
 
 
 def barcode_window(barcode, job_id, ranged):
@@ -33,9 +33,7 @@ def barcode_window(barcode, job_id, ranged):
                 con.close()
         except sqlite3.Error:
             year, override = None, None
-    tl = Timeline(n=len(barcode.colors), fps=float(barcode.fps or 0),
-                  rate=int(barcode.sampled_frame_rate or 1), skip_over=int(barcode.skip_over or 0),
-                  length_frames=int(barcode.film_length_in_frames or 0))
+    tl = barcode.timeline
     return keep_slice(tl, keep_window(year, override, tl.length_s()))
 
 
