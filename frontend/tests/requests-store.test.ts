@@ -8,6 +8,7 @@ import {
   ensureSchema,
   getSubscribers,
   linkJob,
+  listArchive,
   listQueue,
   listRequests,
   normalizeEmail,
@@ -110,15 +111,28 @@ test("linkJob moves the request to processing with its job id", () => {
   assert.equal(linked.request.jobId, "job-1");
 });
 
-test("listQueue puts active requests before finished ones", () => {
+test("completed and rejected requests leave the queue and the top list, and land in the archive", () => {
   const db = freshDb();
   const first = addRequest(db, heat, cfg(), "a@x.com", new Date("2026-01-01")).request;
-  addRequest(db, alien, cfg(), "a@x.com", new Date("2026-01-02"));
+  const second = addRequest(db, alien, cfg(), "a@x.com", new Date("2026-01-02")).request;
+  const third = addRequest(db, { ...heat, imdbId: "tt0090605", title: "Aliens" }, cfg(), "a@x.com", new Date("2026-01-03")).request;
   setStatus(db, first.id, "completed", {}, new Date("2026-02-01"));
-  assert.deepEqual(
-    listQueue(db).map((r) => r.title),
-    ["Alien", "Heat"],
-  );
+  setStatus(db, second.id, "rejected", {}, new Date("2026-03-01"));
+
+  assert.deepEqual(listQueue(db).map((r) => r.title), ["Aliens"]);
+  assert.deepEqual(listRequests(db).map((r) => r.title), ["Aliens"]);
+  assert.deepEqual(listArchive(db).map((r) => r.title), ["Alien", "Heat"]);
+  assert.equal(third.status, "ordered");
+});
+
+test("reopening an archived request returns it to the queue", () => {
+  const db = freshDb();
+  const { request } = addRequest(db, heat, cfg(), "a@x.com");
+  setStatus(db, request.id, "completed");
+  assert.equal(listQueue(db).length, 0);
+  setStatus(db, request.id, "accepted");
+  assert.equal(listQueue(db).length, 1);
+  assert.equal(listArchive(db).length, 0);
 });
 
 test("setStatus returns null for an unknown request", () => {
@@ -206,4 +220,18 @@ test("a database from before request configs is migrated with its requests and s
   // The default-config request merges with a new identical request, and new ones still insert
   assert.equal(addRequest(db, heat, cfg(), "b@x.com").created, false);
   assert.equal(addRequest(db, alien, cfg(), "b@x.com").request.id, 2);
+});
+
+test("a stored request using a retired color metric still loads with its config", () => {
+  const db = freshDb();
+  const { request } = addRequest(db, heat, cfg(), "a@x.com");
+  const legacy = JSON.stringify({
+    sampled_rate: 1,
+    analyses: [{ barcode_type: "Color", frame_type: "whole_frame", color_metric: "Weighted-dominant" }],
+  });
+  db.prepare("UPDATE film_requests SET config_json = ? WHERE id = ?").run(legacy, request.id);
+
+  const [loaded] = listQueue(db);
+  assert.ok(loaded.config);
+  assert.equal(loaded.config.analyses[0].color_metric, "Weighted-dominant");
 });

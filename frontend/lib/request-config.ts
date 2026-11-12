@@ -95,6 +95,32 @@ export function parseRequestConfig(raw: unknown): RequestConfig | null {
 }
 
 /**
+ * Reads a config saved earlier. Options retired since it was saved (a removed color metric, say)
+ * fail strict validation, but the row must still load so the queue can show it, so unknown
+ * values are kept as stored.
+ */
+export function parseStoredRequestConfig(raw: unknown): RequestConfig {
+  const strict = parseRequestConfig(raw);
+  if (strict) return strict;
+
+  const input = (raw ?? {}) as Record<string, unknown>;
+  const stored = Array.isArray(input.analyses) ? input.analyses : [];
+  const analyses = stored.map((item) => {
+    const entry = (item ?? {}) as Record<string, unknown>;
+    return {
+      barcode_type: String(entry.barcode_type ?? ""),
+      frame_type: normalizeFrameType(typeof entry.frame_type === "string" ? entry.frame_type : undefined),
+      color_metric: String(entry.color_metric ?? ""),
+    };
+  });
+  const defaults = parseRequestConfig({
+    ...input,
+    analyses: [{ barcode_type: "Color", frame_type: "whole_frame", color_metric: "Average" }],
+  })!;
+  return { ...defaults, analyses };
+}
+
+/**
  * Identifies what is being requested: the edition plus the set of analyses. Sampling settings are
  * left out, matching how the archive decides two analyses are duplicates.
  */

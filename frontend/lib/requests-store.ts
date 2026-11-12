@@ -1,6 +1,6 @@
 import type Database from "better-sqlite3";
 
-import { parseRequestConfig, RequestConfig, requestSignature } from "./request-config";
+import { parseRequestConfig, parseStoredRequestConfig, RequestConfig, requestSignature } from "./request-config";
 
 export const REQUEST_STATUSES = [
   "ordered",
@@ -154,7 +154,7 @@ const REQUEST_SELECT = `
 function toRequest(row: RequestRow): FilmRequest {
   return {
     id: row.id,
-    config: parseRequestConfig(JSON.parse(row.config_json))!,
+    config: parseStoredRequestConfig(JSON.parse(row.config_json)),
     imdbId: row.imdb_id,
     title: row.title,
     year: row.year,
@@ -243,23 +243,33 @@ export function addRequest(
   })();
 }
 
-/** Most requested first, oldest first among ties. */
+const OPEN_STATUS_SQL = OPEN_STATUSES.map((s) => `'${s}'`).join(", ");
+
+/** Open requests only, most requested first, oldest first among ties. */
 export function listRequests(db: Database.Database, limit?: number): FilmRequest[] {
   const rows = db
-    .prepare(`${REQUEST_SELECT} ORDER BY request_count DESC, r.created_at ASC, r.id ASC${limit ? " LIMIT ?" : ""}`)
+    .prepare(
+      `${REQUEST_SELECT} WHERE r.status IN (${OPEN_STATUS_SQL})
+       ORDER BY request_count DESC, r.created_at ASC, r.id ASC${limit ? " LIMIT ?" : ""}`,
+    )
     .all(...(limit ? [limit] : [])) as RequestRow[];
   return rows.map(toRequest);
 }
 
-/** The queue in processing order: active requests oldest first, then finished ones newest first. */
+/** The queue in processing order: open requests only, oldest first. */
 export function listQueue(db: Database.Database): FilmRequest[] {
-  const rows = db.prepare(`${REQUEST_SELECT} ORDER BY r.created_at ASC, r.id ASC`).all() as RequestRow[];
-  const requests = rows.map(toRequest);
-  const active = requests.filter((r) => OPEN_STATUSES.includes(r.status));
-  const finished = requests
-    .filter((r) => !OPEN_STATUSES.includes(r.status))
-    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-  return [...active, ...finished];
+  const rows = db
+    .prepare(`${REQUEST_SELECT} WHERE r.status IN (${OPEN_STATUS_SQL}) ORDER BY r.created_at ASC, r.id ASC`)
+    .all() as RequestRow[];
+  return rows.map(toRequest);
+}
+
+/** Finished (completed or rejected) requests, most recently finished first. */
+export function listArchive(db: Database.Database): FilmRequest[] {
+  const rows = db
+    .prepare(`${REQUEST_SELECT} WHERE r.status NOT IN (${OPEN_STATUS_SQL}) ORDER BY r.updated_at DESC, r.id DESC`)
+    .all() as RequestRow[];
+  return rows.map(toRequest);
 }
 
 export function getSubscribers(db: Database.Database, id: number): string[] {
