@@ -2,6 +2,10 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import BarcodeImagePreview, {
+  type BarcodePixel,
+  type FilmOfDayBarcode,
+} from "@/app/components/admin/BarcodeImagePreview";
 import { useState, useEffect, useRef } from "react";
 
 interface FilmSearchResult {
@@ -48,13 +52,6 @@ interface GroupedFilm {
   }[];
 }
 
-type BarcodePixel = [number, number, number] | number;
-
-interface FilmOfDayBarcode {
-  barcode: BarcodePixel[][];
-  barcodeType: "Color" | "Brightness";
-}
-
 function groupResults(results: FilmSearchResult[]): GroupedFilm[] {
   const map = new Map<string, GroupedFilm>();
   for (const r of results) {
@@ -85,62 +82,6 @@ function groupResults(results: FilmSearchResult[]): GroupedFilm[] {
     });
   }
   return Array.from(map.values());
-}
-
-function BarcodeImagePreview({ data }: { data: FilmOfDayBarcode }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    const barcode = data.barcode;
-    if (!canvas || barcode.length === 0) return;
-
-    const height = barcode.length;
-    const width = barcode[0]?.length || 0;
-    if (width === 0) return;
-
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    canvas.width = width;
-    canvas.height = height;
-
-    const imageData = ctx.createImageData(width, height);
-    for (let y = 0; y < height; y++) {
-      for (let x = 0; x < width; x++) {
-        const pixel = barcode[y][x];
-        const idx = (y * width + x) * 4;
-
-        if (data.barcodeType === "Color" && Array.isArray(pixel)) {
-          imageData.data[idx] = pixel[0];
-          imageData.data[idx + 1] = pixel[1];
-          imageData.data[idx + 2] = pixel[2];
-        } else {
-          const gray = typeof pixel === "number" ? pixel : pixel[0] || 0;
-          imageData.data[idx] = gray;
-          imageData.data[idx + 1] = gray;
-          imageData.data[idx + 2] = gray;
-        }
-        imageData.data[idx + 3] = 255;
-      }
-    }
-
-    ctx.putImageData(imageData, 0, 0);
-  }, [data]);
-
-  return (
-    <div className="pt-5">
-      <canvas
-        ref={canvasRef}
-        aria-label="Film of the Day barcode preview"
-        className="block w-full h-auto"
-        style={{
-          border: "1px solid rgba(100,100,100,0.25)",
-          imageRendering: "auto",
-        }}
-      />
-    </div>
-  );
 }
 
 function FilmCardBarcode({ jobId }: { jobId: string }) {
@@ -721,36 +662,36 @@ export default function Home() {
             </button>
           </div>
 
-          {/* Upload CTA */}
-          <div className="text-center mb-14">
-            <Link
-              href="/upload"
-              className="inline-flex items-center gap-2 px-5 py-2 font-mono text-xs tracking-[0.22em] uppercase transition-all"
-              style={{
-                color: "var(--accent-amber)",
-                border: "1px solid var(--accent-amber)",
-                borderRadius: 0,
-                opacity: 0.85,
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
-              onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.85")}
-            >
-              <svg
-                className="w-3 h-3"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 4v16m8-8H4"
-                />
-              </svg>
-              Upload New Video
-            </Link>
-          </div>
+          {/*/!* Upload CTA *!/*/}
+          {/*<div className="text-center mb-14">*/}
+          {/*  <Link*/}
+          {/*    href="/upload"*/}
+          {/*    className="inline-flex items-center gap-2 px-5 py-2 font-mono text-xs tracking-[0.22em] uppercase transition-all"*/}
+          {/*    style={{*/}
+          {/*      color: "var(--accent-amber)",*/}
+          {/*      border: "1px solid var(--accent-amber)",*/}
+          {/*      borderRadius: 0,*/}
+          {/*      opacity: 0.85,*/}
+          {/*    }}*/}
+          {/*    onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}*/}
+          {/*    onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.85")}*/}
+          {/*  >*/}
+          {/*    <svg*/}
+          {/*      className="w-3 h-3"*/}
+          {/*      fill="none"*/}
+          {/*      stroke="currentColor"*/}
+          {/*      viewBox="0 0 24 24"*/}
+          {/*    >*/}
+          {/*      <path*/}
+          {/*        strokeLinecap="round"*/}
+          {/*        strokeLinejoin="round"*/}
+          {/*        strokeWidth={2}*/}
+          {/*        d="M12 4v16m8-8H4"*/}
+          {/*      />*/}
+          {/*    </svg>*/}
+          {/*    Upload New Video*/}
+          {/*  </Link>*/}
+          {/*</div>*/}
 
           {showFilmOfDay && (
             <section className="mb-14 kalmus-surface px-4 py-5 sm:px-6 sm:py-6">
@@ -769,7 +710,7 @@ export default function Home() {
                 <FilmResultCard film={filmOfDay} hideBarcode />
               </div>
               {!filmOfDayBarcodeLoading && filmOfDayBarcode && (
-                <BarcodeImagePreview data={filmOfDayBarcode} />
+                <BarcodeImagePreview data={filmOfDayBarcode} framed />
               )}
             </section>
           )}

@@ -16,9 +16,12 @@ export interface FilmOfDayBarcode {
 export default function BarcodeImagePreview({
   data,
   fixed,
+  framed,
 }: {
   data: FilmOfDayBarcode;
   fixed?: boolean;
+  /** Render in a fixed-proportion frame so any film length fills the same band. */
+  framed?: boolean;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -60,13 +63,16 @@ export default function BarcodeImagePreview({
   }, [data]);
 
   return (
-    <div className="pt-5">
+    <div
+      className="pt-5"
+      style={framed ? { aspectRatio: "6 / 1", minHeight: 160 } : undefined}
+    >
       <canvas
         ref={canvasRef}
         aria-label="Film of the Day barcode preview"
-        className={fixed ? "block" : "block w-full h-auto"}
+        className={fixed || framed ? "block" : "block w-full h-auto"}
         style={{
-          ...(fixed ? { width: "100%", height: "100%" } : {}),
+          ...(fixed || framed ? { width: "100%", height: "100%" } : {}),
           border: "1px solid rgba(100,100,100,0.25)",
           imageRendering: "auto",
         }}
