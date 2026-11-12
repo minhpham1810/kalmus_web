@@ -70,3 +70,15 @@ test("filterActive reflects films, text and years but not lightness", () => {
 test("yearBounds ignores null years", () => {
   assert.deepEqual(yearBounds([film({ year: 2001 }), film({ year: null }), film({ year: 1950 })]), [1950, 2001]);
 });
+
+test("yearBounds is null with no films", () => {
+  assert.equal(yearBounds([]), null);
+});
+
+test("films, text and years conditions combine with AND", () => {
+  const flt = { ...NO_FILTER, films: ["a"], country: "france", years: [1990, 2000] as [number, number] };
+  assert.equal(matchesFilter(film(), flt), true);
+  assert.equal(matchesFilter(film({ job_id: "b" }), flt), false);
+  assert.equal(matchesFilter(film({ countries: ["Japan"] }), flt), false);
+  assert.equal(matchesFilter(film({ year: 2010 }), flt), false);
+});
