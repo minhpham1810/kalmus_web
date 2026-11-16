@@ -176,6 +176,11 @@ export async function PUT(
             )
             .get(jobId) as {film_id: number; imdb_id: string | null; poster: string | null; edition_key: string} | undefined;
             if (!job) return null;
+            // The old film + key's trim, read before any write: moving the job can delete the old film and, with it, this row.
+            // Used below to warn only when the admin actually edited the trim.
+            const oldRow = db
+                .prepare("SELECT film_start_s, credits_start_s FROM credits_override WHERE film_id = ? AND edition_key = ?")
+                .get(job.film_id, job.edition_key) as Override | undefined;
 
             let filmId = job.film_id;
             if (newImdbId !== job.imdb_id) {
@@ -246,10 +251,6 @@ export async function PUT(
             // The override belongs to a film + edition. Only when this save leaves both alone is it written;
             // otherwise the job just picks up whatever its new film + edition already has, and no row is touched.
             const sameTarget = filmId === job.film_id && newKey === job.edition_key;
-            // Warn only when the admin actually edited the trim: the sent values differ from the old film + key's row
-            const oldRow = db
-                .prepare("SELECT film_start_s, credits_start_s FROM credits_override WHERE film_id = ? AND edition_key = ?")
-                .get(job.film_id, job.edition_key) as Override | undefined;
             const overrideIgnored = overrideSent && !sameTarget
                 && ((oldRow?.film_start_s ?? null) !== newOverride.film_start_s
                     || (oldRow?.credits_start_s ?? null) !== newOverride.credits_start_s);
