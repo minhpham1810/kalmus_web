@@ -311,10 +311,9 @@ export function FilmMap({
     [drawnEdges, focusId],
   );
 
-  // Filters dim the films they rule out; checked films are also ringed
+  // Filters dim the films they rule out
   const filtering = filterActive(filter);
   const matched = useMemo(() => new Set(all.filter((n) => matchesFilter(n, filter)).map((n) => n.job_id)), [all, filter]);
-  const checking = filter.films.length > 0;
 
   const toSvg = (x: number, y: number) => toViewBox(svgRef.current!, x, y);
   const clamp = (v: View) => clampView(svgRef.current!, v);
@@ -531,9 +530,6 @@ export function FilmMap({
                   strokeDasharray={approx ? `${2 / k} ${1.5 / k}` : undefined}
                   filter={glyph ? undefined : "url(#glow)"}
                 />
-                {checking && hit && !hover && (
-                  <circle cx={n.x} cy={n.y} r={9 / k} fill="none" stroke="#fff" strokeWidth={1.5 / k} />
-                )}
                 {/* Invisible hit area, so the gaps between petals still hover */}
                 {glyph && (
                   <circle cx={n.x} cy={n.y} r={14 / k} fill="transparent" />
