@@ -152,9 +152,11 @@ def compute_most_vivid_color(image, top_ratio=0.01, min_group_ratio=0.25, n_hue_
 
     :param image: RGB uint8 image, shape (h, w, 3) or (n, 1, 3)
     :type image: numpy.ndarray
-    :param max_side: frames whose longer side exceeds this are shrunk (INTER_AREA) before the analysis;     (n, 1, 3) inputs with more than max_side**2 pixels are subsampled with a regular stride
+    :param max_side: frames whose longer side exceeds this are shrunk (INTER_AREA) before the analysis;
+        (n, 1, 3) inputs with more than max_side**2 pixels are subsampled with a regular stride
     :type max_side: int
-    :param min_area_ratio: minimum share of the frame (pixels in the group's hue bin with chroma of at least     half the group's median chroma) for a group to count
+    :param min_area_ratio: minimum share of the frame (pixels in the group's hue bin with chroma of at least
+        half the group's median chroma) for a group to count
     :type min_area_ratio: float
     :param min_lightness: minimum median Lab L* (0-100) of the group's pixels
     :type min_lightness: float
