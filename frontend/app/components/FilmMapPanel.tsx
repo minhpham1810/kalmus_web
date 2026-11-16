@@ -79,7 +79,7 @@ export function FilmMapPanel({
     <aside className="fixed top-5 left-6 bottom-6 z-50 flex w-64 flex-col gap-2 text-xs pointer-events-none *:pointer-events-auto">
       {children}
 
-      <section className="kalmus-surface p-3 flex flex-col gap-1.5 min-h-0">
+      <section className="kalmus-surface p-3 flex flex-col gap-1.5 min-h-0 overflow-y-auto">
         <h2 className="font-mono uppercase tracking-[0.22em] kalmus-text-secondary">Filter</h2>
         <label className="flex items-center justify-between gap-2 cursor-pointer kalmus-text-secondary">
           <span>Show titles</span>
@@ -118,38 +118,43 @@ export function FilmMapPanel({
           />
         )}
 
-        <div className="flex flex-col gap-1 flex-1 min-h-0">
-          <div className="flex justify-between kalmus-text-muted">
+        <details className="group flex flex-col gap-1 min-h-0">
+          <summary className="kalmus-input px-2 py-1 cursor-pointer flex items-center justify-between gap-2 list-none [&::-webkit-details-marker]:hidden">
             <span>Films</span>
+            <span className="kalmus-text-muted">{filter.films.length > 0 ? `${filter.films.length} selected` : "All"}</span>
+          </summary>
+          <div className="mt-1 flex flex-col gap-1 min-h-0">
             {filter.films.length > 0 && (
-              <button onClick={() => setFilter({ ...filter, films: [] })} className="underline hover:text-[var(--text-primary)]">
-                Clear
-              </button>
+              <div className="flex justify-end kalmus-text-muted">
+                <button onClick={() => setFilter({ ...filter, films: [] })} className="underline hover:text-[var(--text-primary)]">
+                  Clear
+                </button>
+              </div>
             )}
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search films…"
+              className="kalmus-input w-full min-w-0 px-2 py-1 text-xs"
+            />
+            <ul className="max-h-[15rem] overflow-y-auto flex flex-col">
+              {listed.map((f) => (
+                <li key={f.job_id}>
+                  <label className="flex items-start gap-2 py-0.5 cursor-pointer kalmus-text-secondary">
+                    <input
+                      type="checkbox"
+                      checked={filter.films.includes(f.job_id)}
+                      onChange={() => toggle(f.job_id)}
+                      className="mt-0.5 shrink-0"
+                    />
+                    <span className="leading-snug">{rowLabel(f)}</span>
+                  </label>
+                </li>
+              ))}
+              {listed.length === 0 && <li className="kalmus-text-muted">No films match.</li>}
+            </ul>
           </div>
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search films…"
-            className="kalmus-input w-full min-w-0 px-2 py-1 text-xs"
-          />
-          <ul className="max-h-[15rem] flex-1 min-h-0 overflow-y-auto flex flex-col">
-            {listed.map((f) => (
-              <li key={f.job_id}>
-                <label className="flex items-start gap-2 py-0.5 cursor-pointer kalmus-text-secondary">
-                  <input
-                    type="checkbox"
-                    checked={filter.films.includes(f.job_id)}
-                    onChange={() => toggle(f.job_id)}
-                    className="mt-0.5 shrink-0"
-                  />
-                  <span className="leading-snug">{rowLabel(f)}</span>
-                </label>
-              </li>
-            ))}
-            {listed.length === 0 && <li className="kalmus-text-muted">No films match.</li>}
-          </ul>
-        </div>
+        </details>
 
         {(filterActive(filter) || lightActive) && (
           <div className="flex justify-between kalmus-text-muted">
