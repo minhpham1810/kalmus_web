@@ -30,11 +30,12 @@ GAP = 6
 SHRINK = 256
 
 
-def read_frames(video, every):
+def read_colors(video, every):
+    """Read the video and return, per sampled frame, its 11 colors: mean, old most-vivid, then the 3x3 grid."""
     cap = cv2.VideoCapture(str(video))
     if not cap.isOpened():
         sys.exit(f"Cannot open video: {video}")
-    frames = []
+    colors = []
     i = 0
     while True:
         ok, frame = cap.read()
@@ -46,10 +47,14 @@ def read_frames(video, every):
             if scale < 1:
                 rgb = cv2.resize(rgb, (max(1, round(rgb.shape[1] * scale)), max(1, round(rgb.shape[0] * scale))),
                                  interpolation=cv2.INTER_AREA)
-            frames.append(rgb)
+            row = [compute_mean_color(rgb), compute_most_vivid_color(rgb, min_area_ratio=0, min_lightness=0)]
+            for area in AREAS:
+                for light in LIGHTNESSES:
+                    row.append(compute_most_vivid_color(rgb, min_area_ratio=area, min_lightness=light))
+            colors.append(row)
         i += 1
     cap.release()
-    return frames
+    return colors
 
 
 def label_row(strip, text):
@@ -67,21 +72,20 @@ def main():
     args = parser.parse_args()
     if args.every < 1:
         sys.exit("--every must be at least 1")
+    if args.width < 1:
+        sys.exit("--width must be at least 1")
 
-    frames = read_frames(args.video, args.every)
-    if not frames:
+    frame_colors = read_colors(args.video, args.every)
+    if not frame_colors:
         sys.exit(f"No frames were read from {args.video} (every {args.every}); check the path and --every")
 
-    rows = [("average", [compute_mean_color(f) for f in frames]),
-            ("most-vivid (old)", [compute_most_vivid_color(f, min_area_ratio=0, min_lightness=0) for f in frames])]
+    labels = ["average", "most-vivid (old)"] + [f"area {a * 100:.0f}% L {l}" for a in AREAS for l in LIGHTNESSES]
+    columns = list(zip(*frame_colors))
+    rows = list(zip(labels, columns))
     fallback = []
-    for area in AREAS:
-        for light in LIGHTNESSES:
-            colors = [compute_most_vivid_color(f, min_area_ratio=area, min_lightness=light) for f in frames]
-            rows.append((f"area {area * 100:.0f}% L {light}", colors))
-            means = [compute_mean_color(f) for f in frames]
-            share = np.mean([np.array_equal(c, m) for c, m in zip(colors, means)])
-            fallback.append((rows[-1][0], share))
+    for text, colors in rows[2:]:
+        share = np.mean([np.array_equal(c, m) for c, m in zip(colors, columns[0])])
+        fallback.append((text, share))
 
     strips = []
     for text, colors in rows:
@@ -99,7 +103,7 @@ def main():
     if not cv2.imwrite(str(args.out), cv2.cvtColor(sheet, cv2.COLOR_RGB2BGR)):
         sys.exit(f"Cannot write {args.out}")
 
-    print(f"{len(frames)} frames sampled, sheet {sheet.shape[1]}x{sheet.shape[0]} written to {args.out}")
+    print(f"{len(frame_colors)} frames sampled, sheet {sheet.shape[1]}x{sheet.shape[0]} written to {args.out}")
     print("Share of frames that fell back to average:")
     for text, share in fallback:
         print(f"  {text:<14} {share * 100:5.1f}%")
