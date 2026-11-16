@@ -187,7 +187,8 @@ export function FilmMapPanel({
               placeholder="Search films…"
               className="kalmus-input w-full min-w-0 shrink-0 px-2 py-1 text-xs"
             />
-            <ul className="min-h-16 max-h-[15rem] overflow-y-auto flex flex-col">
+            {/* A few films take just their own height; a longer list can shrink to 4rem */}
+            <ul className={`${listed.length > 3 ? "min-h-16" : "shrink-0"} max-h-[15rem] overflow-y-auto flex flex-col`}>
               {listed.map((f) => (
                 <li key={f.job_id}>
                   <label className="flex items-start gap-2 py-0.5 cursor-pointer kalmus-text-secondary">
