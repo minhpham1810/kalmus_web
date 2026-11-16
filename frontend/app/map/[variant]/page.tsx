@@ -61,21 +61,23 @@ export default async function MapVariantPage({
           height={40}
           priority
         />
-        <p className="kalmus-text-secondary leading-snug">
-          All the films in the KALMUS archive plotted by their dominant color
-          (hue) and lightness. For example, darker films gravitate to the center
-          and brighter films drift to the perimeter. Lines connect films with
-          similar palettes and lightness.
-        </p>
-        {/* The one item that gives way on short screens, so the filter and film card always fit;
-            object-contain keeps it square as its box shrinks */}
-        <Image
-          src="/hue-viz-v2.png"
-          alt="Hue runs round the wheel, lightness outward from the center"
-          width={240}
-          height={240}
-          className="size-60 min-h-0 object-contain object-left"
-        />
+        <div className="relative">
+          <p className="kalmus-text-secondary leading-snug">
+            All the films in the KALMUS archive plotted by their dominant color
+            (hue) and lightness. For example, darker films gravitate to the
+            center and brighter films drift to the perimeter. Lines connect
+            films with similar palettes and lightness.
+          </p>
+          {/* Sits beside the column, over the map's corner, so it takes no column height;
+              clicks pass through it to the map */}
+          <Image
+            src="/hue-viz-v2.png"
+            alt="Hue runs round the wheel, lightness outward from the center"
+            width={160}
+            height={160}
+            className="absolute top-0 left-full ml-4 size-40 max-w-none pointer-events-none"
+          />
+        </div>
       </FilmMap>
     </div>
   );
