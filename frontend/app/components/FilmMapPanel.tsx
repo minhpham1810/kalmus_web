@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { histOf, type MapFilm } from "@/lib/film-map";
 import { NO_FILTER, filterActive, lightBounds, yearBounds, type MapFilter } from "@/lib/film-map-filter";
 import { RangeSlider } from "./RangeSlider";
@@ -42,6 +42,24 @@ export function FilmMapPanel({
   const bounds = useMemo(() => yearBounds(films), [films]);
   const lb = useMemo(() => lightBounds(films), [films]);
   const [search, setSearch] = useState("");
+  // The film list closes on a press outside it, or on Escape
+  const [listOpen, setListOpen] = useState(false);
+  const listRef = useRef<HTMLDetailsElement>(null);
+  useEffect(() => {
+    if (!listOpen) return;
+    const onDown = (e: PointerEvent) => {
+      if (!listRef.current?.contains(e.target as Node)) setListOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setListOpen(false);
+    };
+    document.addEventListener("pointerdown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [listOpen]);
   // Checked films first, then by title; the search narrows the list
   const listed = useMemo(() => {
     const t = search.trim().toLowerCase();
@@ -120,7 +138,12 @@ export function FilmMapPanel({
           />
         )}
 
-        <details className="group flex flex-col gap-1 min-h-0">
+        <details
+          ref={listRef}
+          open={listOpen}
+          onToggle={(e) => setListOpen(e.currentTarget.open)}
+          className="group flex flex-col gap-1 min-h-0"
+        >
           <summary className="kalmus-input px-2 py-1 cursor-pointer flex items-center justify-between gap-2 list-none [&::-webkit-details-marker]:hidden">
             <span>Films</span>
             <span className="flex items-center">
