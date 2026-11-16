@@ -142,7 +142,7 @@ def compute_median_color(image):
 
 
 def compute_most_vivid_color(image, top_ratio=0.01, min_group_ratio=0.25, n_hue_bins=12, max_side=256,
-                             min_area_ratio=0.03, min_lightness=20.0, min_chroma=30.0):
+                             min_area_ratio=0.03, min_lightness=20.0, min_chroma=40.0):
     """
     Compute the most vivid color of an RGB image: the median color of the most chromatic hue group
     among the top `top_ratio` most chromatic (Lab) pixels. Hue groups smaller than `min_group_ratio`
