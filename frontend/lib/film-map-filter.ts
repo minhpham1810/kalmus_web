@@ -37,14 +37,14 @@ export function inLightRange(f: MapFilm, flt: MapFilter): boolean {
 export const filterActive = (flt: MapFilter) =>
   flt.films.length > 0 || flt.years !== null || [flt.country, flt.director, flt.genre].some((v) => v.trim());
 
-/** Slider limits for brightness: one step (5) outside the darkest and brightest film, rounded outward to a multiple of 5 within 0-100; null for no films. */
+/** Slider limits for brightness: the darkest and brightest film, rounded outward to a multiple of 5 within 0-100; null for no films. */
 export function lightBounds(films: MapFilm[]): [number, number] | null {
   if (!films.length) return null;
   // Round to 6 decimals first: 0.57 * 100 is 56.999...
   const r = (x: number) => Math.round(x * 100 * 1e6) / 1e6;
   const lo = Math.min(...films.map((f) => r(f.lightness)));
   const hi = Math.max(...films.map((f) => r(f.lightness)));
-  return [Math.max(0, Math.floor((lo - 5) / 5) * 5), Math.min(100, Math.ceil((hi + 5) / 5) * 5)];
+  return [Math.max(0, Math.floor(lo / 5) * 5), Math.min(100, Math.ceil(hi / 5) * 5)];
 }
 
 /** [min, max] of the films' non-null years, or null when none have a year. */

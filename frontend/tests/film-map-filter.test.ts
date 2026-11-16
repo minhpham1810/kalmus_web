@@ -61,11 +61,11 @@ test("inLightRange is inclusive at both edges", () => {
   assert.equal(inLightRange(film({ lightness: 1 }), NO_FILTER), true);
 });
 
-test("lightBounds sits one step outside the films, in multiples of 5", () => {
+test("lightBounds rounds out to the multiples of 5 around the films", () => {
   const l = (...v: number[]) => lightBounds(v.map((lightness) => film({ lightness })));
-  assert.deepEqual(l(0.22, 0.48), [15, 55]);
+  assert.deepEqual(l(0.22, 0.48), [20, 50]);
   assert.deepEqual(l(0.04, 0.97), [0, 100]);
-  assert.deepEqual(l(0.25, 0.5), [20, 55]);
+  assert.deepEqual(l(0.25, 0.5), [25, 50]);
   assert.equal(lightBounds([]), null);
 });
 
