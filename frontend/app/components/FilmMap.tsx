@@ -499,7 +499,7 @@ export function FilmMap({
 
           {all.map((n) => {
             const hit = matched.has(n.job_id);
-            const filteredOut = filtering && !hit && hover !== n && n.job_id !== hoverId;
+            const filteredOut = filtering && !hit && hover !== n && n.job_id !== hoverId && !(hover && near.has(n.job_id));
             const dim = hover !== null && hover !== n && !near.has(n.job_id) && n.job_id !== hoverId;
             const glyph = variant === "glyphs" && n.hue !== null;
             // Dashed: no palette data, so palette variants fall back to the dominant hue alone
