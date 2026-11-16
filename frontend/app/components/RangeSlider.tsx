@@ -8,6 +8,7 @@ export function RangeSlider({
   step = 1,
   value,
   onChange,
+  showValue = true,
 }: {
   label: string;
   min: number;
@@ -15,6 +16,8 @@ export function RangeSlider({
   step?: number;
   value: [number, number];
   onChange: (v: [number, number]) => void;
+  /** Show the "lo – hi" readout beside the label. */
+  showValue?: boolean;
 }) {
   const [lo, hi] = value;
   const span = max - min || 1;
@@ -23,9 +26,11 @@ export function RangeSlider({
     <div className="flex flex-col gap-1">
       <div className="flex justify-between">
         <span className="kalmus-text-muted">{label}</span>
-        <span className="kalmus-text-secondary tabular-nums">
-          {lo} – {hi}
-        </span>
+        {showValue && (
+          <span className="kalmus-text-secondary tabular-nums">
+            {lo} – {hi}
+          </span>
+        )}
       </div>
       <div className="kalmus-input relative h-5">
         <div className="absolute top-1/2 h-px bg-[var(--input-text)] opacity-60" style={{ left: `${pct(lo)}%`, right: `${100 - pct(hi)}%` }} />

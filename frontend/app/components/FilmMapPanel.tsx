@@ -114,6 +114,7 @@ export function FilmMapPanel({
             min={lb[0]}
             max={lb[1]}
             step={5}
+            showValue={false}
             value={filter.light ?? lb}
             onChange={(v) => setFilter({ ...filter, light: v[0] === lb[0] && v[1] === lb[1] ? null : v })}
           />
