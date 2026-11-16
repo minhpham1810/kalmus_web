@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { histOf, type MapFilm } from "@/lib/film-map";
-import { NO_FILTER, filterActive, lightBounds, yearBounds, type MapFilter } from "@/lib/film-map-filter";
+import { NO_FILTER, filterActive, inLightRange, lightBounds, matchesFilter, yearBounds, type MapFilter } from "@/lib/film-map-filter";
 import { RangeSlider } from "./RangeSlider";
 
 const label = (f: MapFilm) => `${f.title}${f.year ? ` (${f.year})` : ""}`;
@@ -60,17 +60,20 @@ export function FilmMapPanel({
       document.removeEventListener("keydown", onKey);
     };
   }, [listOpen]);
+  // Only films the other filters keep, plus checked ones so they can be unchecked.
   // Checked films first, then by title; the search narrows the list
   const listed = useMemo(() => {
     const t = search.trim().toLowerCase();
+    const others = { ...filter, films: [] };
     return films
+      .filter((f) => filter.films.includes(f.job_id) || (matchesFilter(f, others) && inLightRange(f, others)))
       .filter((f) => !t || rowLabel(f).toLowerCase().includes(t))
       .sort((a, b) => {
         const ca = filter.films.includes(a.job_id) ? 0 : 1;
         const cb = filter.films.includes(b.job_id) ? 0 : 1;
         return ca - cb || a.title.localeCompare(b.title);
       });
-  }, [films, search, filter.films]);
+  }, [films, search, filter]);
   const toggle = (id: string) =>
     setFilter({
       ...filter,
