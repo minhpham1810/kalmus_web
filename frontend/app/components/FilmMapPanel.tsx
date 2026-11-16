@@ -59,8 +59,9 @@ export function FilmMapPanel({
       films: filter.films.includes(id) ? filter.films.filter((x) => x !== id) : [...filter.films, id],
     });
   const lightActive = filter.light !== null;
-  const select = (key: "country" | "director" | "genre", any: string) => (
+  const select = (key: "country" | "director" | "genre", any: string, label: string) => (
     <select
+      aria-label={label}
       value={filter[key]}
       onChange={(e) => setFilter({ ...filter, [key]: e.target.value })}
       className="kalmus-input w-full min-w-0 px-2 py-1 text-xs"
@@ -95,9 +96,9 @@ export function FilmMapPanel({
             className="relative h-4 w-7 shrink-0 rounded-full bg-[var(--input-border)] transition-colors peer-checked:bg-[var(--text-primary)] peer-focus-visible:outline peer-focus-visible:outline-1 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[var(--text-primary)] after:absolute after:left-0.5 after:top-0.5 after:h-3 after:w-3 after:rounded-full after:bg-[var(--surface-bg)] after:transition-transform peer-checked:after:translate-x-3"
           />
         </label>
-        {select("country", "Any country")}
-        {select("director", "Any filmmaker")}
-        {select("genre", "Any genre")}
+        {select("country", "Any country", "Country")}
+        {select("director", "Any filmmaker", "Filmmaker")}
+        {select("genre", "Any genre", "Genre")}
         {bounds && bounds[0] < bounds[1] && (
           <RangeSlider
             label="Year"
@@ -121,7 +122,14 @@ export function FilmMapPanel({
         <details className="group flex flex-col gap-1 min-h-0">
           <summary className="kalmus-input px-2 py-1 cursor-pointer flex items-center justify-between gap-2 list-none [&::-webkit-details-marker]:hidden">
             <span>Films</span>
-            <span className="kalmus-text-muted">{filter.films.length > 0 ? `${filter.films.length} selected` : "All"}</span>
+            <span className="flex items-center">
+              <span className="kalmus-text-muted [-webkit-text-fill-color:currentColor]">
+                {filter.films.length > 0 ? `${filter.films.length} selected` : "All"}
+              </span>
+              <span aria-hidden="true" className="ml-2 transition-transform group-open:rotate-180">
+                ▾
+              </span>
+            </span>
           </summary>
           <div className="mt-1 flex flex-col gap-1 min-h-0">
             {filter.films.length > 0 && (
