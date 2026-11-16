@@ -4,6 +4,7 @@ const nextConfig: NextConfig = {
   /* config options here */
   allowedDevOrigins: ['10.200.19.9'],
   experimental: {
+    agentUpgrade: 'security',
     // Increase body size limit for large video uploads (5GB)
     serverActions: {
       bodySizeLimit: '5gb',
