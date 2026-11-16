@@ -99,7 +99,19 @@ export function FilmMapPanel({
       {children}
 
       <section className="kalmus-surface p-3 flex flex-col gap-1.5 min-h-0 overflow-y-auto">
-        <h2 className="font-mono uppercase tracking-[0.22em] kalmus-text-secondary">Filter</h2>
+        <div className="flex items-baseline justify-between gap-2">
+          <h2 className="font-mono uppercase tracking-[0.22em] kalmus-text-secondary">Filter</h2>
+          {(filterActive(filter) || lightActive) && (
+            <span className="flex gap-2 kalmus-text-muted">
+              <span>
+                {matches} of {films.length} films
+              </span>
+              <button onClick={() => setFilter(NO_FILTER)} className="underline hover:text-[var(--text-primary)]">
+                Clear
+              </button>
+            </span>
+          )}
+        </div>
         <label className="flex items-center justify-between gap-2 cursor-pointer kalmus-text-secondary">
           <span>Show titles</span>
           <input
@@ -187,17 +199,6 @@ export function FilmMapPanel({
             </ul>
           </div>
         </details>
-
-        {(filterActive(filter) || lightActive) && (
-          <div className="flex justify-between kalmus-text-muted">
-            <span>
-              {matches} of {films.length} films
-            </span>
-            <button onClick={() => setFilter(NO_FILTER)} className="underline hover:text-[var(--text-primary)]">
-              Clear
-            </button>
-          </div>
-        )}
       </section>
 
       <section className="kalmus-surface p-3 flex flex-col gap-2 mt-auto relative">
