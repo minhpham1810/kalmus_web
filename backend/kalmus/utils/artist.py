@@ -141,19 +141,27 @@ def compute_median_color(image):
     return median_color
 
 
-def compute_most_vivid_color(image, top_ratio=0.01, min_group_ratio=0.25, n_hue_bins=12, max_side=256):
+def compute_most_vivid_color(image, top_ratio=0.01, min_group_ratio=0.25, n_hue_bins=12, max_side=256,
+                             min_area_ratio=0.03, min_lightness=35.0):
     """
     Compute the most vivid color of an RGB image: the median color of the most chromatic hue group
     among the top `top_ratio` most chromatic (Lab) pixels. Hue groups smaller than `min_group_ratio`
-    of the kept pixels are ignored (so single-pixel glints cannot win).
+    of the kept pixels are ignored (so single-pixel glints cannot win). Groups are tried from most to
+    least chromatic; the first one that covers at least `min_area_ratio` of the frame and has a median
+    Lab lightness of at least `min_lightness` wins. If none does, the mean color of the image is returned.
 
     :param image: RGB uint8 image, shape (h, w, 3) or (n, 1, 3)
     :type image: numpy.ndarray
     :param max_side: frames whose longer side exceeds this are shrunk (INTER_AREA) before the analysis;     (n, 1, 3) inputs with more than max_side**2 pixels are subsampled with a regular stride
     :type max_side: int
-    :return: The median RGB color of the chosen group, shape==(3,)
+    :param min_area_ratio: minimum share of the frame (pixels in the group's hue bin with chroma of at least     half the group's median chroma) for a group to count
+    :type min_area_ratio: float
+    :param min_lightness: minimum median Lab L* (0-100) of the group's pixels
+    :type min_lightness: float
+    :return: The median RGB color of the chosen group, or the mean color if no group passes, shape==(3,)
     :rtype: numpy.ndarray
     """
+    original = image
     if image.ndim == 3:
         h, w = image.shape[:2]
         if h > 1 and w > 1 and max(h, w) > max_side:
@@ -163,20 +171,32 @@ def compute_most_vivid_color(image, top_ratio=0.01, min_group_ratio=0.25, n_hue_
         elif w == 1 and h > max_side * max_side:
             image = image[::int(np.ceil(h / max_side ** 2))]
     image = flatten_image(image)
+    n = len(image)
     lab = cv2.cvtColor(image.reshape(-1, 1, 3).astype(np.float32) / 255, cv2.COLOR_RGB2Lab).reshape(-1, 3)
     chroma = np.hypot(lab[:, 1], lab[:, 2])
     hue = np.arctan2(lab[:, 2], lab[:, 1])
-    n_keep = max(1, int(np.ceil(top_ratio * len(image))))
+    all_bins = np.floor((hue + np.pi) / (2 * np.pi) * n_hue_bins).astype(int) % n_hue_bins
+    n_keep = max(1, int(np.ceil(top_ratio * n)))
     kept = np.argpartition(chroma, -n_keep)[-n_keep:]
-    bins = np.floor((hue[kept] + np.pi) / (2 * np.pi) * n_hue_bins).astype(int) % n_hue_bins
-    chosen, best = kept, -1.0
+    bins = all_bins[kept]
+    candidates = []
     for b in range(n_hue_bins):
         members = kept[bins == b]
         if len(members) >= min_group_ratio * n_keep and len(members) > 0:
-            med = np.median(chroma[members])
-            if med > best:
-                best, chosen = med, members
-    return np.median(image[chosen], axis=0)
+            candidates.append((np.median(chroma[members]), b, members))
+    candidates.sort(key=lambda c: -c[0])
+    if not candidates:
+        candidates = [(np.median(chroma[kept]), None, kept)]
+    for med, b, members in candidates:
+        in_group = chroma >= 0.5 * med
+        if b is not None:
+            in_group &= all_bins == b
+        if np.count_nonzero(in_group) < min_area_ratio * n:
+            continue
+        if np.median(lab[members, 0]) < min_lightness:
+            continue
+        return np.median(image[members], axis=0)
+    return compute_mean_color(original)
 
 
 def compute_brightest_color_and_brightness(grey_image, color_image, return_min=False,
