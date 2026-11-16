@@ -13,6 +13,7 @@ from dataclasses import dataclass
 import numpy as np
 
 AUTO_LAST_WHOLE_YEAR = 1975
+MIN_PLAUSIBLE_YEAR = 1800
 AUTO_START_S = 60.0
 AUTO_END_S = 300.0
 MIN_KEEP_FRACTION = 0.5
@@ -102,6 +103,8 @@ def job_trim_inputs(con: sqlite3.Connection, job_id: str) -> tuple[int | None, O
     if row is None:
         return None, None
     year, film_id, edition_key = row
+    if year is not None and year < MIN_PLAUSIBLE_YEAR:
+        year = None  # e.g. a digits-only "released" is read as a Julian day by the generated column
     try:
         o = con.execute(
             "SELECT film_start_s, credits_start_s FROM credits_override WHERE film_id = ? AND edition_key = ?",

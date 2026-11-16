@@ -78,3 +78,10 @@ def test_job_trim_inputs():
     assert job_trim_inputs(con, "b") == (1999, None)
     assert job_trim_inputs(con, "c") == (1999, None)
     assert job_trim_inputs(_db(with_override=False), "a") == (1999, None)
+
+
+def test_implausible_year_is_missing():
+    con = _db()
+    con.execute("UPDATE films SET released_year = -4707 WHERE id = 1")
+    assert job_trim_inputs(con, "a") == (None, (12.0, None))
+    assert job_trim_inputs(con, "b") == (None, None)
