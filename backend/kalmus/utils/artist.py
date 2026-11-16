@@ -142,13 +142,14 @@ def compute_median_color(image):
 
 
 def compute_most_vivid_color(image, top_ratio=0.01, min_group_ratio=0.25, n_hue_bins=12, max_side=256,
-                             min_area_ratio=0.03, min_lightness=35.0):
+                             min_area_ratio=0.03, min_lightness=20.0, min_chroma=30.0):
     """
     Compute the most vivid color of an RGB image: the median color of the most chromatic hue group
     among the top `top_ratio` most chromatic (Lab) pixels. Hue groups smaller than `min_group_ratio`
     of the kept pixels are ignored (so single-pixel glints cannot win). Groups are tried from most to
-    least chromatic; the first one that covers at least `min_area_ratio` of the frame and has a median
-    Lab lightness of at least `min_lightness` wins. If none does, the mean color of the image is returned.
+    least chromatic; the first one that has a median Lab chroma of at least `min_chroma`, covers at least
+    `min_area_ratio` of the frame and has a median Lab lightness of at least `min_lightness` wins. If none
+    does, the mean color of the image is returned.
 
     :param image: RGB uint8 image, shape (h, w, 3) or (n, 1, 3)
     :type image: numpy.ndarray
@@ -160,6 +161,9 @@ def compute_most_vivid_color(image, top_ratio=0.01, min_group_ratio=0.25, n_hue_
     :type min_area_ratio: float
     :param min_lightness: minimum median Lab L* (0-100) of the group's pixels
     :type min_lightness: float
+    :param min_chroma: minimum median Lab chroma (0 is grey, about 130 is the most saturated sRGB color)
+        of the group's pixels
+    :type min_chroma: float
     :return: The median RGB color of the chosen group, or the mean color if no group passes, shape==(3,)
     :rtype: numpy.ndarray
     """
@@ -190,6 +194,8 @@ def compute_most_vivid_color(image, top_ratio=0.01, min_group_ratio=0.25, n_hue_
     if not candidates:
         candidates = [(np.median(chroma[kept]), None, kept)]
     for med, b, members in candidates:
+        if med < min_chroma:
+            break
         in_group = chroma >= 0.5 * med
         if b is not None:
             in_group &= all_bins == b

@@ -47,7 +47,7 @@ def read_colors(video, every):
             if scale < 1:
                 rgb = cv2.resize(rgb, (max(1, round(rgb.shape[1] * scale)), max(1, round(rgb.shape[0] * scale))),
                                  interpolation=cv2.INTER_AREA)
-            row = [compute_mean_color(rgb), compute_most_vivid_color(rgb, min_area_ratio=0, min_lightness=0)]
+            row = [compute_mean_color(rgb), compute_most_vivid_color(rgb, min_area_ratio=0, min_lightness=0, min_chroma=0)]
             for area in AREAS:
                 for light in LIGHTNESSES:
                     row.append(compute_most_vivid_color(rgb, min_area_ratio=area, min_lightness=light))

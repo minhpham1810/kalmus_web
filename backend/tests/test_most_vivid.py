@@ -96,6 +96,26 @@ def test_thresholds_off_keeps_old_behavior():
     assert c[0] > 200 and c[1] < 60 and c[2] < 60
 
 
+def test_saturated_blue_passes_lightness_floor():
+    f = frame()
+    f[:30, :30] = (0, 0, 255)
+    c = compute_most_vivid_color(f)
+    assert c[0] < 30 and c[1] < 30 and c[2] > 225
+
+
+def test_low_chroma_patch_falls_back_to_average():
+    f = frame()
+    f[:30, :30] = (150, 140, 100)
+    assert np.allclose(compute_most_vivid_color(f), f.reshape(-1, 3).mean(axis=0), atol=1)
+
+
+def test_chroma_floor_off_returns_low_chroma_patch():
+    f = frame()
+    f[:30, :30] = (150, 140, 100)
+    c = compute_most_vivid_color(f, min_chroma=0)
+    assert np.allclose(c, (150, 140, 100), atol=12)
+
+
 def test_black_frame_returns_black():
     c = compute_most_vivid_color(np.zeros((100, 100, 3), dtype=np.uint8))
     assert np.all(c <= 1)
