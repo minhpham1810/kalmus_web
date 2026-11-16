@@ -131,7 +131,7 @@ export default async function AboutPage({
             <section className="space-y-4">
               <p className="underline uppercase mb-2.5">Background</p>
               <p>
-                Kalmus was developed at Bucknell University by Film/Media
+                KALMUS was developed at Bucknell University by Film/Media
                 Studies professor Eric Faden. Collaborating with
                 Mathematician and colleague Nathan Ryan, they conceptualized
                 the software&apos;s features and parameters. Undergraduate
@@ -140,12 +140,12 @@ export default async function AboutPage({
               </p>
               <p>
                 In 2024, Bucknell students Laura Ozoria and Jackson
-                Rubiano took over from Chen and expanded Kalmus&apos;
+                Rubiano took over from Chen and expanded KALMUS&apos;
                 visualizations. In addition, they migrated the Python code
                 to a server and website. In 2025, undergraduate Minh Pham
                 joined the team to build the website&apos;s front end. In
                 summer 2026, Ozoria rejoined the project focusing on
-                Kalmus&apos; database as well as developing several new
+                KALMUS&apos; database as well as developing several new
                 visualizations and outputs.
               </p>
             </section>
