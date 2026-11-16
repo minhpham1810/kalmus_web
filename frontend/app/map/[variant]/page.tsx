@@ -54,14 +54,15 @@ export default async function MapVariantPage({
         >
           ← Back
         </Link>
-        <Image
-          src="/kalmusverse-logo-v3.png"
-          alt="KALMUSverse"
-          width={270}
-          height={40}
-          priority
-        />
-        <div className="relative">
+        {/* Logo and intro share a box so the key can line up with the logo's top */}
+        <div className="relative flex flex-col gap-2">
+          <Image
+            src="/kalmusverse-logo-v3.png"
+            alt="KALMUSverse"
+            width={270}
+            height={40}
+            priority
+          />
           <p className="kalmus-text-secondary leading-snug">
             All the films in the KALMUS archive plotted by their dominant color
             (hue) and lightness. For example, darker films gravitate to the
