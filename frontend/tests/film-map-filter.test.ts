@@ -24,10 +24,12 @@ test("NO_FILTER matches everything and is inactive", () => {
   assert.equal(filterActive(NO_FILTER), false);
 });
 
-test("text fields match case-insensitive substrings", () => {
-  assert.equal(matchesFilter(film(), { ...NO_FILTER, country: "fran" }), true);
-  assert.equal(matchesFilter(film(), { ...NO_FILTER, director: "VARDA" }), true);
+test("dropdown fields match a whole name, case-insensitive", () => {
+  assert.equal(matchesFilter(film(), { ...NO_FILTER, country: "france" }), true);
+  assert.equal(matchesFilter(film(), { ...NO_FILTER, country: "fran" }), false);
+  assert.equal(matchesFilter(film(), { ...NO_FILTER, director: "AGNES VARDA" }), true);
   assert.equal(matchesFilter(film(), { ...NO_FILTER, genre: "comedy" }), false);
+  assert.equal(matchesFilter(film(), { ...NO_FILTER, country: "" }), true);
 });
 
 test("checked films restrict by job_id", () => {

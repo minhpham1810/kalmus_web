@@ -12,10 +12,10 @@ export interface MapFilter {
 
 export const NO_FILTER: MapFilter = { films: [], country: "", director: "", genre: "", years: null, light: [0, 100] };
 
-const has = (list: string[], typed: string) =>
-  !typed.trim() || list.some((x) => x.toLowerCase().includes(typed.trim().toLowerCase()));
+const has = (list: string[], chosen: string) =>
+  !chosen.trim() || list.some((x) => x.trim().toLowerCase() === chosen.trim().toLowerCase());
 
-/** Checked films, substring match on each filled-in text field, inclusive year range (films without a year fail it). Ignores lightness. */
+/** Checked films, whole-name match (case-insensitive) on each chosen dropdown field, inclusive year range (films without a year fail it). Ignores lightness. */
 export function matchesFilter(f: MapFilm, flt: MapFilter): boolean {
   return (
     (flt.films.length === 0 || flt.films.includes(f.job_id)) &&

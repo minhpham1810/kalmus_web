@@ -58,27 +58,25 @@ export function FilmMapPanel({
       films: filter.films.includes(id) ? filter.films.filter((x) => x !== id) : [...filter.films, id],
     });
   const lightActive = filter.light[0] > 0 || filter.light[1] < 100;
-  const field = (key: "country" | "director" | "genre", placeholder: string, list?: keyof typeof options) => (
-    <input
+  const select = (key: "country" | "director" | "genre", any: string) => (
+    <select
       value={filter[key]}
       onChange={(e) => setFilter({ ...filter, [key]: e.target.value })}
-      placeholder={placeholder}
-      list={list && `map-${list}`}
       className="kalmus-input w-full min-w-0 px-2 py-1 text-xs"
-    />
+    >
+      <option value="">{any}</option>
+      {options[key].map((v) => (
+        <option key={v} value={v}>
+          {v}
+        </option>
+      ))}
+    </select>
   );
 
   return (
     // Clicks pass through the empty space between the boxes to the map; the boxes take them back
     <aside className="fixed top-5 left-6 bottom-6 z-50 flex w-64 flex-col gap-2 text-xs pointer-events-none *:pointer-events-auto">
       {children}
-      {Object.entries(options).map(([k, values]) => (
-        <datalist key={k} id={`map-${k}`}>
-          {values.map((v) => (
-            <option key={v} value={v} />
-          ))}
-        </datalist>
-      ))}
 
       <section className="kalmus-surface p-3 flex flex-col gap-1.5 min-h-0">
         <h2 className="font-mono uppercase tracking-[0.22em] kalmus-text-secondary">Filter</h2>
@@ -96,9 +94,9 @@ export function FilmMapPanel({
             className="relative h-4 w-7 shrink-0 rounded-full bg-[var(--input-border)] transition-colors peer-checked:bg-[var(--text-primary)] peer-focus-visible:outline peer-focus-visible:outline-1 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[var(--text-primary)] after:absolute after:left-0.5 after:top-0.5 after:h-3 after:w-3 after:rounded-full after:bg-[var(--surface-bg)] after:transition-transform peer-checked:after:translate-x-3"
           />
         </label>
-        {field("country", "Country", "country")}
-        {field("director", "Filmmaker", "director")}
-        {field("genre", "Genre", "genre")}
+        {select("country", "Any country")}
+        {select("director", "Any filmmaker")}
+        {select("genre", "Any genre")}
         {bounds && bounds[0] < bounds[1] && (
           <RangeSlider
             label="Year"
