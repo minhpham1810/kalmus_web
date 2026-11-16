@@ -44,7 +44,7 @@ export function FilmMapPanel({
   const [search, setSearch] = useState("");
   // The film list closes on a press outside it, or on Escape
   const [listOpen, setListOpen] = useState(false);
-  const listRef = useRef<HTMLDetailsElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!listOpen) return;
     const onDown = (e: PointerEvent) => {
@@ -153,26 +153,29 @@ export function FilmMapPanel({
           />
         )}
 
-        <details
-          ref={listRef}
-          open={listOpen}
-          onToggle={(e) => setListOpen(e.currentTarget.open)}
-          className="group flex flex-col gap-1 min-h-0"
-        >
-          <summary className="kalmus-input px-2 py-1 cursor-pointer flex items-center justify-between gap-2 list-none [&::-webkit-details-marker]:hidden">
+        {/* The film list is the part that gives way: it shrinks and scrolls so the box doesn't.
+            The box itself scrolls only once the list is down to its minimum height */}
+        <div ref={listRef} className="flex flex-col gap-1 min-h-0">
+          <button
+            type="button"
+            aria-expanded={listOpen}
+            onClick={() => setListOpen(!listOpen)}
+            className="kalmus-input w-full shrink-0 px-2 py-1 cursor-pointer flex items-center justify-between gap-2 text-left"
+          >
             <span>Films</span>
             <span className="flex items-center">
               <span className="kalmus-text-muted [-webkit-text-fill-color:currentColor]">
                 {filter.films.length > 0 ? `${filter.films.length} selected` : "All"}
               </span>
-              <span aria-hidden="true" className="ml-2 transition-transform group-open:rotate-180">
+              <span aria-hidden="true" className={`ml-2 transition-transform ${listOpen ? "rotate-180" : ""}`}>
                 ▾
               </span>
             </span>
-          </summary>
+          </button>
+          {listOpen && (
           <div className="mt-1 flex flex-col gap-1 min-h-0">
             {filter.films.length > 0 && (
-              <div className="flex justify-end kalmus-text-muted">
+              <div className="flex shrink-0 justify-end kalmus-text-muted">
                 <button onClick={() => setFilter({ ...filter, films: [] })} className="underline hover:text-[var(--text-primary)]">
                   Clear
                 </button>
@@ -182,9 +185,9 @@ export function FilmMapPanel({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search films…"
-              className="kalmus-input w-full min-w-0 px-2 py-1 text-xs"
+              className="kalmus-input w-full min-w-0 shrink-0 px-2 py-1 text-xs"
             />
-            <ul className="max-h-[15rem] overflow-y-auto flex flex-col">
+            <ul className="min-h-16 max-h-[15rem] overflow-y-auto flex flex-col">
               {listed.map((f) => (
                 <li key={f.job_id}>
                   <label className="flex items-start gap-2 py-0.5 cursor-pointer kalmus-text-secondary">
@@ -201,7 +204,8 @@ export function FilmMapPanel({
               {listed.length === 0 && <li className="kalmus-text-muted">No films match.</li>}
             </ul>
           </div>
-        </details>
+          )}
+        </div>
       </section>
 
       <section className="kalmus-surface p-3 flex flex-col gap-2 mt-auto relative">
