@@ -453,6 +453,7 @@ export function FilmMap({
               />
             ))}
           {wheel &&
+            filter.light &&
             [filter.light[0], filter.light[1]]
               .filter((c, i) => (i === 0 ? c / 100 > lo : c / 100 < hi))
               .map((c, i) => (

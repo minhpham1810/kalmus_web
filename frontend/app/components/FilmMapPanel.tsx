@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { histOf, type MapFilm } from "@/lib/film-map";
-import { NO_FILTER, filterActive, yearBounds, type MapFilter } from "@/lib/film-map-filter";
+import { NO_FILTER, filterActive, lightBounds, yearBounds, type MapFilter } from "@/lib/film-map-filter";
 import { RangeSlider } from "./RangeSlider";
 
 const label = (f: MapFilm) => `${f.title}${f.year ? ` (${f.year})` : ""}`;
@@ -40,6 +40,7 @@ export function FilmMapPanel({
     [films],
   );
   const bounds = useMemo(() => yearBounds(films), [films]);
+  const lb = useMemo(() => lightBounds(films), [films]);
   const [search, setSearch] = useState("");
   // Checked films first, then by title; the search narrows the list
   const listed = useMemo(() => {
@@ -57,7 +58,7 @@ export function FilmMapPanel({
       ...filter,
       films: filter.films.includes(id) ? filter.films.filter((x) => x !== id) : [...filter.films, id],
     });
-  const lightActive = filter.light[0] > 0 || filter.light[1] < 100;
+  const lightActive = filter.light !== null;
   const select = (key: "country" | "director" | "genre", any: string) => (
     <select
       value={filter[key]}
@@ -106,13 +107,16 @@ export function FilmMapPanel({
             onChange={(v) => setFilter({ ...filter, years: v[0] === bounds[0] && v[1] === bounds[1] ? null : v })}
           />
         )}
-        <RangeSlider
-          label="Brightness"
-          min={0}
-          max={100}
-          value={filter.light}
-          onChange={(v) => setFilter({ ...filter, light: v })}
-        />
+        {lb && (
+          <RangeSlider
+            label="Brightness"
+            min={lb[0]}
+            max={lb[1]}
+            step={5}
+            value={filter.light ?? lb}
+            onChange={(v) => setFilter({ ...filter, light: v[0] === lb[0] && v[1] === lb[1] ? null : v })}
+          />
+        )}
 
         <div className="flex flex-col gap-1 flex-1 min-h-0">
           <div className="flex justify-between kalmus-text-muted">

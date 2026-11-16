@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { NO_FILTER, filterActive, inLightRange, matchesFilter, yearBounds } from "../lib/film-map-filter";
+import { NO_FILTER, filterActive, inLightRange, lightBounds, matchesFilter, yearBounds } from "../lib/film-map-filter";
 import type { MapFilm } from "../lib/film-map";
 
 const film = (over: Partial<MapFilm> = {}): MapFilm => ({
@@ -59,6 +59,14 @@ test("inLightRange is inclusive at both edges", () => {
   assert.equal(inLightRange(film({ lightness: 0.57 }), { ...NO_FILTER, light: [57, 100] }), true);
   assert.equal(inLightRange(film({ lightness: 0 }), NO_FILTER), true);
   assert.equal(inLightRange(film({ lightness: 1 }), NO_FILTER), true);
+});
+
+test("lightBounds sits one step outside the films, in multiples of 5", () => {
+  const l = (...v: number[]) => lightBounds(v.map((lightness) => film({ lightness })));
+  assert.deepEqual(l(0.22, 0.48), [15, 55]);
+  assert.deepEqual(l(0.04, 0.97), [0, 100]);
+  assert.deepEqual(l(0.25, 0.5), [20, 55]);
+  assert.equal(lightBounds([]), null);
 });
 
 test("filterActive reflects films, text and years but not lightness", () => {
