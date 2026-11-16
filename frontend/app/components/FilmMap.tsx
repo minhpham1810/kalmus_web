@@ -405,8 +405,8 @@ export function FilmMap({
           </filter>
           {/* Faint hue wheel behind the color universe */}
           <radialGradient id="fade">
-            <stop offset="0%" stopColor="#000" stopOpacity="0.9" />
-            <stop offset="100%" stopColor="#000" stopOpacity="0" />
+            <stop offset="0%" style={{ stopColor: "var(--background)" }} stopOpacity="0.9" />
+            <stop offset="100%" style={{ stopColor: "var(--background)" }} stopOpacity="0" />
           </radialGradient>
         </defs>
 
