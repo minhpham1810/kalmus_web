@@ -222,7 +222,7 @@ export default function FilmEditor({
     if (year !== null && year <= AUTO_LAST_WHOLE_YEAR) return `Auto: whole film (${AUTO_LAST_WHOLE_YEAR} or earlier)`;
     const [from, until] = autoWindow(year, film.length_s);
     if (from === 0 && until === film.length_s) return "Auto: whole film";
-    return `Auto: ${formatTime(from)} to ${formatTime(until)}`;
+    return `Auto: ${formatTime(Math.round(from))} to ${formatTime(Math.round(until))}`;
   })();
 
   const handleSave = async () => {

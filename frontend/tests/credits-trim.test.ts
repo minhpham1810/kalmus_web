@@ -19,6 +19,12 @@ test("formatTime renders h:mm:ss", () => {
   assert.equal(formatTime(6730), "1:52:10");
 });
 
+test("formatTime keeps fractional seconds and parseTime round-trips them", () => {
+  assert.equal(formatTime(40.5), "0:00:40.5");
+  assert.equal(formatTime(40.1 + 0.2), "0:00:40.3");
+  assert.equal(parseTime("0:00:40.5"), 40.5);
+});
+
 test("autoWindow follows the release-year rule and fallback", () => {
   assert.deepEqual(autoWindow(1976, 6000), [60, 5700]);
   assert.deepEqual(autoWindow(1975, 6000), [0, 6000]);

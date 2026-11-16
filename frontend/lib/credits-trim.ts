@@ -19,12 +19,16 @@ export function parseTime(s: string): number | null {
   return nums.reduce((acc, n) => acc * 60 + n, 0);
 }
 
+/** h:mm:ss; a non-whole value keeps up to 3 decimals (no trailing zeros), so a stored override round-trips. */
 export function formatTime(s: number): string {
-  const total = Math.max(0, Math.round(s));
+  const ms = Math.max(0, Math.round(s * 1000));
+  const total = Math.floor(ms / 1000);
+  const frac = ms % 1000;
   const h = Math.floor(total / 3600);
   const m = Math.floor((total % 3600) / 60);
   const sec = total % 60;
-  return `${h}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
+  const decimals = frac === 0 ? "" : `.${String(frac).padStart(3, "0").replace(/0+$/, "")}`;
+  return `${h}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}${decimals}`;
 }
 
 /** Same as keep_window(year, None, lengthS) in credits_trim.py. */
@@ -50,7 +54,7 @@ export function validateOverride(
   if (creditsStartS !== null && creditsStartS <= start) return "End credits must begin after the film starts.";
   if (lengthS !== null) {
     if (start > lengthS || (creditsStartS !== null && creditsStartS > lengthS)) {
-      return `That's past the end of the video (${formatTime(lengthS)}).`;
+      return `That's past the end of the video (${formatTime(Math.round(lengthS))}).`;
     }
     const end = creditsStartS ?? lengthS;
     if (end - start < MIN_KEEP_FRACTION * lengthS) return "That keeps less than half the film.";
