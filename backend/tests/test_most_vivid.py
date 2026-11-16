@@ -52,5 +52,22 @@ def test_n_by_1_shape_works():
     assert c[0] > 200 and c[1] < 60 and c[2] < 60
 
 
+def big_frame():
+    f = np.empty((1080, 1920, 3), dtype=np.uint8)
+    f[:] = BEIGE
+    f[:300, :300] = (230, 20, 20)
+    return f
+
+
+def test_large_frame_matches_small():
+    c = compute_most_vivid_color(big_frame())
+    assert c[0] > 200 and c[1] < 60 and c[2] < 60
+
+
+def test_large_masked_shape_works():
+    c = compute_most_vivid_color(big_frame().reshape(-1, 1, 3))
+    assert c[0] > 200 and c[1] < 60 and c[2] < 60
+
+
 def test_metric_registered():
     assert "most_vivid" in ColorMetric.color_metric_types

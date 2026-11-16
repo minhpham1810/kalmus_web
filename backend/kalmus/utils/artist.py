@@ -141,7 +141,7 @@ def compute_median_color(image):
     return median_color
 
 
-def compute_most_vivid_color(image, top_ratio=0.01, min_group_ratio=0.25, n_hue_bins=12):
+def compute_most_vivid_color(image, top_ratio=0.01, min_group_ratio=0.25, n_hue_bins=12, max_side=256):
     """
     Compute the most vivid color of an RGB image: the median color of the most chromatic hue group
     among the top `top_ratio` most chromatic (Lab) pixels. Hue groups smaller than `min_group_ratio`
@@ -149,15 +149,25 @@ def compute_most_vivid_color(image, top_ratio=0.01, min_group_ratio=0.25, n_hue_
 
     :param image: RGB uint8 image, shape (h, w, 3) or (n, 1, 3)
     :type image: numpy.ndarray
+    :param max_side: frames whose longer side exceeds this are shrunk (INTER_AREA) before the analysis;     (n, 1, 3) inputs with more than max_side**2 pixels are subsampled with a regular stride
+    :type max_side: int
     :return: The median RGB color of the chosen group, shape==(3,)
     :rtype: numpy.ndarray
     """
+    if image.ndim == 3:
+        h, w = image.shape[:2]
+        if h > 1 and w > 1 and max(h, w) > max_side:
+            scale = max_side / max(h, w)
+            new_size = (max(1, int(round(w * scale))), max(1, int(round(h * scale))))
+            image = cv2.resize(image, new_size, interpolation=cv2.INTER_AREA)
+        elif w == 1 and h > max_side * max_side:
+            image = image[::int(np.ceil(h / max_side ** 2))]
     image = flatten_image(image)
     lab = cv2.cvtColor(image.reshape(-1, 1, 3).astype(np.float32) / 255, cv2.COLOR_RGB2Lab).reshape(-1, 3)
     chroma = np.hypot(lab[:, 1], lab[:, 2])
     hue = np.arctan2(lab[:, 2], lab[:, 1])
     n_keep = max(1, int(np.ceil(top_ratio * len(image))))
-    kept = np.argsort(chroma, kind="stable")[-n_keep:]
+    kept = np.argpartition(chroma, -n_keep)[-n_keep:]
     bins = np.floor((hue[kept] + np.pi) / (2 * np.pi) * n_hue_bins).astype(int) % n_hue_bins
     chosen, best = kept, -1.0
     for b in range(n_hue_bins):
