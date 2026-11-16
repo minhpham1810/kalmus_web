@@ -49,7 +49,7 @@ function sourceLengthS(db: Database.Database, jobId: string): number | null {
 async function recomputeFilm(filmId: number, editionKeys: string[]) {
     const script = path.join(process.cwd(), "..", "backend", "film_map.py");
     const args = [script, "--film-id", String(filmId)];
-    for (const key of editionKeys) args.push("--edition-key", key); // the key is user text, may be ""
+    for (const key of editionKeys) args.push(`--edition-key=${key}`); // user text: may be "" or start with "-", so one argument
     try {
         await execFileAsync(SLURM_CONFIG.pythonBin, args, {env: process.env, timeout: 300_000});
     } catch (e) {
