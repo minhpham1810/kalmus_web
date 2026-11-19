@@ -648,6 +648,7 @@ interface VisualizationPanelProps {
   videoFilename?: string;
   compareJobId?: string;
   movie?: VisualizationMovieMetadata | null;
+  fromAdmin?: boolean;
 }
 
 type CompareViz = "histogram" | "scatter";
@@ -845,6 +846,7 @@ export default function VisualizationPanel({
   videoFilename = "Video",
   compareJobId: initialCompareJobId,
   movie = null,
+  fromAdmin  = false,
 }: VisualizationPanelProps) {
   const [activeTab, setActiveTab] = useState<VisualizationTab>("histogram");
   const [barcodeData, setBarcodeData] = useState<LoadedBarcodeData | null>(null);
@@ -1054,18 +1056,20 @@ export default function VisualizationPanel({
     [compareData?.colors, compareData?.brightness, compareSecondaryRange]
   );
 
-  const tabs: Array<{ id: VisualizationTab; label: string; icon: string; colorOnly?: boolean }> = [
+  const tabs: Array<{ id: VisualizationTab; label: string; icon: string; colorOnly?: boolean, adminOnly?: boolean}> = [
     { id: "histogram", label: isColorBarcode ? "Hue Histogram" : "Brightness Histogram", icon: "M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" },
     // { id: "colorcube", label: "RGB Cube", icon: "M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4", colorOnly: true },
     { id: "huelightscatter", label: "Hue/Light Scatter", icon: "M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01", colorOnly: true },
     { id: "huelight3d", label: "Hue/Light 3D", icon: "M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5", colorOnly: true },
-    { id: "framesscatter", label: "Frames Scatter", icon: "M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4z", colorOnly: true },
+    { id: "framesscatter", label: "Frames Scatter", icon: "M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4z", colorOnly: true, adminOnly: true },
     { id: "canvaszoom", label: "Canvas Zoom", icon: "M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16zM11 8v6m-3-3h6", colorOnly: true },
     { id: "stats", label: "Statistics", icon: "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" },
     { id: "comparison", label: "Compare", icon: "M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18" },
   ];
 
-  const availableTabs = tabs.filter((tab) => !tab.colorOnly || isColorBarcode);
+  const availableTabs = tabs.filter(
+    (tab) => (!tab.colorOnly || isColorBarcode) && (!tab.adminOnly || fromAdmin),
+    );
 
   const handlePreviewChange = useCallback((preview: BarcodePreviewData | null) => {
     setPreviewData((current) => (previewPinned ? current : preview));
