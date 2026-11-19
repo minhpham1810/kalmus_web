@@ -6,7 +6,7 @@ from pathlib import Path
 
 from PIL import Image
 
-RESULTS = Path("/home/kalmus/kalmus/results")
+RESULTS = Path("/results")
 
 LIGHTNESS_MIN = 0.25
 LIGHTNESS_MAX = 0.75
