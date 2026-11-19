@@ -14,6 +14,7 @@ LIGHTNESS_MAX = 0.75
 # same as CZ
 HUE_BIN = 2.5
 LIGHTNESS_BIN = 0.1
+SATURATION_MIN = 0.15
 
 def load_job(job_id: str):
     """
@@ -61,7 +62,7 @@ def select_frames(job_id: str):
 
         r, g, b = colors[i]
         h, s, v = colorsys.rgb_to_hsv(r / 255, g / 255, b / 255)
-        if LIGHTNESS_MIN < v < LIGHTNESS_MAX:
+        if LIGHTNESS_MIN < v < LIGHTNESS_MAX and s > SATURATION_MIN:
             frames_kept.append({"thumbnail": thumb, "hue": h * 360, "value": v})
 
     return sorted(frames_kept, key = color_sort)
