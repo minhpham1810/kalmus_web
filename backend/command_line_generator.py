@@ -15,6 +15,7 @@ from datetime import datetime
 from pathlib import Path
 
 from database import FilmsDb
+from poster import resize_poster
 
 try:
     from kalmus.barcodes.BarcodeGenerator import BarcodeGenerator
@@ -138,7 +139,7 @@ def write_duplicate_marker(output_dir: str, existing_job_id: str):
 
 
 def download_poster(url: str | None, save_dir: str) -> str:
-    """Helper function to download a poster image from a URL and save it to the specified directory. Returns the path to the saved poster or an empty string if download fails."""
+    """Helper function to download a poster image from a URL and save it to the specified directory, resized to 80x120. Returns the path to the saved poster or an empty string if download fails."""
     if not url:
         return ""
 
@@ -154,6 +155,7 @@ def download_poster(url: str | None, save_dir: str) -> str:
             for chunk in r.iter_content(chunk_size=8192):
                 f.write(chunk)
 
+    resize_poster(output_path)
     return output_path
 
 
