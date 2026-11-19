@@ -9,11 +9,15 @@ export const dynamic = "force-dynamic";
 
 export default async function MapVariantPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ variant: string }>;
+  searchParams?: Promise<{ from?: string }>;
 }) {
   const { variant } = await params;
+  const { from } = (await searchParams) ?? {};
   if (!SHOWN_VARIANTS.includes(variant as Variant)) notFound();
+  const fromAdmin = from === "admin";
 
   // A film's linked names, unit-separator joined (names can contain commas)
   const names = (table: string, col: string) =>
@@ -49,7 +53,7 @@ export default async function MapVariantPage({
       {/* Heads the map's left column, above the filter */}
       <FilmMap films={films} variant={variant as Variant}>
         <Link
-          href="/"
+          href= {fromAdmin ? "/admin" : "/"}
           className="self-start text-base kalmus-text-secondary hover:text-[var(--text-primary)] transition-colors"
         >
           ← Back
