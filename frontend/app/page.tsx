@@ -2,10 +2,6 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import BarcodeImagePreview, {
-  type BarcodePixel,
-  type FilmOfDayBarcode,
-} from "@/app/components/admin/BarcodeImagePreview";
 import { useState, useEffect, useRef } from "react";
 
 interface FilmSearchResult {
@@ -52,6 +48,13 @@ interface GroupedFilm {
   }[];
 }
 
+type BarcodePixel = [number, number, number] | number;
+
+interface FilmOfDayBarcode {
+  barcode: BarcodePixel[][];
+  barcodeType: "Color" | "Brightness";
+}
+
 function groupResults(results: FilmSearchResult[]): GroupedFilm[] {
   const map = new Map<string, GroupedFilm>();
   for (const r of results) {
@@ -82,6 +85,62 @@ function groupResults(results: FilmSearchResult[]): GroupedFilm[] {
     });
   }
   return Array.from(map.values());
+}
+
+function BarcodeImagePreview({ data }: { data: FilmOfDayBarcode }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const barcode = data.barcode;
+    if (!canvas || barcode.length === 0) return;
+
+    const height = barcode.length;
+    const width = barcode[0]?.length || 0;
+    if (width === 0) return;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    canvas.width = width;
+    canvas.height = height;
+
+    const imageData = ctx.createImageData(width, height);
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const pixel = barcode[y][x];
+        const idx = (y * width + x) * 4;
+
+        if (data.barcodeType === "Color" && Array.isArray(pixel)) {
+          imageData.data[idx] = pixel[0];
+          imageData.data[idx + 1] = pixel[1];
+          imageData.data[idx + 2] = pixel[2];
+        } else {
+          const gray = typeof pixel === "number" ? pixel : pixel[0] || 0;
+          imageData.data[idx] = gray;
+          imageData.data[idx + 1] = gray;
+          imageData.data[idx + 2] = gray;
+        }
+        imageData.data[idx + 3] = 255;
+      }
+    }
+
+    ctx.putImageData(imageData, 0, 0);
+  }, [data]);
+
+  return (
+    <div className="pt-5">
+      <canvas
+        ref={canvasRef}
+        aria-label="Film of the Day barcode preview"
+        className="block w-full h-auto"
+        style={{
+          border: "1px solid rgba(100,100,100,0.25)",
+          imageRendering: "auto",
+        }}
+      />
+    </div>
+  );
 }
 
 function FilmCardBarcode({ jobId }: { jobId: string }) {
@@ -417,31 +476,36 @@ export default function Home() {
   return (
     <div className="min-h-screen flex flex-col gap-5">
       {/* About link */}
+
       <div className="fixed top-6.5 right-24 z-50 flex items-center gap-5">
-        <Link
-          href="/requests"
-          className="font-mono text-xs tracking-[0.22em] uppercase kalmus-text-secondary hover:text-[var(--text-primary)] transition-colors"
-        >
-          Requests
-        </Link>
-        <Link
-          href="/map"
-          className="font-mono text-xs tracking-[0.22em] uppercase kalmus-text-secondary hover:text-[var(--text-primary)] transition-colors"
-        >
-          Map
-        </Link>
-        <Link
-          href="/tutorials"
-          className="font-mono text-xs tracking-[0.22em] uppercase kalmus-text-secondary hover:text-[var(--text-primary)] transition-colors"
-        >
-          Tutorials
-        </Link>
         <Link
           href="/about"
           className="font-mono text-xs tracking-[0.22em] uppercase kalmus-text-secondary hover:text-[var(--text-primary)] transition-colors"
         >
           About
         </Link>
+        <Link
+          href="/map"
+          className="font-mono text-xs tracking-[0.22em] uppercase kalmus-text-secondary hover:text-[var(--text-primary)] transition-colors"
+        >
+          Kalmusverse
+        </Link>
+
+        <Link
+          href="/tutorials"
+          className="font-mono text-xs tracking-[0.22em] uppercase kalmus-text-secondary hover:text-[var(--text-primary)] transition-colors"
+        >
+          Tutorials
+        </Link>
+
+        <Link
+          href="/requests"
+          className="font-mono text-xs tracking-[0.22em] uppercase kalmus-text-secondary hover:text-[var(--text-primary)] transition-colors"
+        >
+          Request
+        </Link>
+
+
       </div>
 
       <main className="flex-1 flex flex-col items-center px-4 py-16">
@@ -710,7 +774,7 @@ export default function Home() {
                 <FilmResultCard film={filmOfDay} hideBarcode />
               </div>
               {!filmOfDayBarcodeLoading && filmOfDayBarcode && (
-                <BarcodeImagePreview data={filmOfDayBarcode} framed />
+                <BarcodeImagePreview data={filmOfDayBarcode} />
               )}
             </section>
           )}
