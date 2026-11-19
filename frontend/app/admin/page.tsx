@@ -230,14 +230,16 @@ export default function AdminPage() {
 
       {/* top-right nav links */}
       <div className="fixed top-6.5 right-24 z-50 flex items-center gap-5">
+        <Link href="/about?from=admin" className="font-mono text-xs tracking-[0.22em] uppercase kalmus-text-secondary hover:text-[var(--text-primary)] transition-colors">
+          About</Link>
+        <Link href="/map?from=admin" className="font-mono text-xs tracking-[0.22em] uppercase kalmus-text-secondary hover:text-[var(--text-primary)] transition-colors">
+          Kalmusverse</Link>
+        <Link href="/tutorials?from=admin" className="font-mono text-xs tracking-[0.22em] uppercase kalmus-text-secondary hover:text-[var(--text-primary)] transition-colors">
+          Tutorials</Link>
         <Link href="/admin/requests" className="font-mono text-xs tracking-[0.22em] uppercase kalmus-text-secondary hover:text-[var(--text-primary)] transition-colors">
           Requests</Link>
         <Link href="/admin/dashboard" className="font-mono text-xs tracking-[0.22em] uppercase kalmus-text-secondary hover:text-[var(--text-primary)] transition-colors">
           Dashboard</Link>
-        <Link href="/tutorials?from=admin" className="font-mono text-xs tracking-[0.22em] uppercase kalmus-text-secondary hover:text-[var(--text-primary)] transition-colors">
-          Tutorials</Link>
-        <Link href="/about?from=admin" className="font-mono text-xs tracking-[0.22em] uppercase kalmus-text-secondary hover:text-[var(--text-primary)] transition-colors">
-          About</Link>
       </div>
 
       <main className="flex-1 flex flex-col items-center px-4 py-16">
