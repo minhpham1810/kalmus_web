@@ -159,7 +159,7 @@ function RequestsContent() {
               requests={queue}
               emptyText="The queue is empty."
               renderActions={(request) =>
-                (request.status === "ordered" || request.status === "accepted" || request.status === "processing") && (
+                (request.status === "requested" || request.status === "accepted" || request.status === "processing") && (
                   <button
                     onClick={() => remindMe(request)}
                     disabled={!emailValid}
