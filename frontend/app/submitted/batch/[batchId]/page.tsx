@@ -2,9 +2,8 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-
 import { SubmissionBatchRecord } from "@/lib/submission-batches";
 
 interface BatchResponse {
@@ -17,6 +16,8 @@ export default function SubmittedBatchPage() {
   const params = useParams();
   const batchId = params.batchId as string;
 
+  const searchParams = useSearchParams();
+  const fromAdmin = searchParams.get("from") === "admin";
   const [batch, setBatch] = useState<SubmissionBatchRecord | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -117,7 +118,7 @@ export default function SubmittedBatchPage() {
       <main className="container mx-auto px-4 py-12">
         <div className="max-w-4xl mx-auto">
           <header className="mb-8">
-            <Link href="/" className="inline-block mb-3">
+            <Link href= {fromAdmin ? "/admin" : "/"} className="inline-block mb-3">
               <Image
                 src="/kalmus-logo.png"
                 alt="KALMUS"
@@ -190,7 +191,7 @@ export default function SubmittedBatchPage() {
                     </div>
 
                     <Link
-                      href={href}
+                      href= {fromAdmin ? "/admin" : "/"}
                       className="kalmus-button-filled inline-flex items-center justify-center px-4 py-2 font-mono text-xs tracking-[0.18em] uppercase transition-all hover:brightness-90"
                     >
                       {job.status === "duplicate" ? "Open Result" : "Track Job"}

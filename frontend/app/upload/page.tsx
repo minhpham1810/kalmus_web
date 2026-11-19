@@ -16,7 +16,7 @@ function UploadPageContent() {
       <main className="container mx-auto px-4 py-12">
         <div className="max-w-3xl mx-auto">
           <header className="mb-8">
-            <Link href = {backHref} className="inline-block mb-3">
+            <Link href = {fromAdmin ? "/admin" : "/"} className="inline-block mb-3">
               <Image
                 src="/kalmus-logo.png"
                 alt="KALMUS"
@@ -38,7 +38,7 @@ function UploadPageContent() {
             </Link>
           </header>
 
-          <BarcodeGenerator />
+          <BarcodeGenerator fromAdmin={fromAdmin}/>
         </div>
       </main>
 

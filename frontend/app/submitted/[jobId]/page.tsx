@@ -1,6 +1,6 @@
 "use client";
 
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 interface JobStatusResponse {
@@ -13,6 +13,9 @@ export default function SubmittedPage() {
   const params = useParams();
   const router = useRouter();
   const jobId = params.jobId as string;
+
+  const searchParams = useSearchParams();
+  const fromAdmin = searchParams.get("from") === "admin"
 
   const [copied, setCopied] = useState(false);
   const [jobStatus, setJobStatus] = useState<JobStatusResponse | null>(null);
@@ -168,7 +171,7 @@ export default function SubmittedPage() {
           {/* Actions */}
           <div className="flex flex-col sm:flex-row gap-3">
             <button
-              onClick={() => router.push("/")}
+              onClick={() => router.push(fromAdmin ? "/admin" : "/")}
               className="flex-1 inline-flex items-center justify-center gap-2 px-5 py-2.5 font-mono text-xs tracking-[0.18em] uppercase transition-all kalmus-text-secondary border border-[var(--accent-crimson)] hover:bg-[var(--surface-bg-strong)] hover:text-[var(--text-primary)] hover:shadow-sm"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

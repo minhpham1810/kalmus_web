@@ -72,7 +72,7 @@ export default function AdminRequestsPage() {
     const busy = busyId === request.id;
     return (
       <div className="flex items-center gap-3 flex-shrink-0">
-        {request.status === "ordered" && (
+        {request.status === "requested" && (
           <>
             <button disabled={busy} className={actionClass} onClick={() => update(request, "accepted")}>
               Accept
@@ -118,7 +118,7 @@ export default function AdminRequestsPage() {
               className="inline-flex items-center font-mono text-xs tracking-[0.18em] uppercase kalmus-text-secondary hover:text-[var(--text-primary)] transition-colors"
             >
               <span aria-hidden="true">&larr;</span>
-              <span className="ml-1">Back to Admin</span>
+              <span className="ml-1">Back</span>
             </Link>
             <h1 className="font-mono text-xs tracking-[0.35em] uppercase kalmus-text-secondary mt-4">▸ Film requests</h1>
             <p className="font-mono text-xs kalmus-text-muted mt-2">

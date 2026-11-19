@@ -49,6 +49,8 @@ interface BatchSubmitResponse {
 }
 
 interface BarcodeGeneratorProps {
+  fromAdmin?: boolean;
+
   /**
    * "upload" submits jobs with a video. "request" has no video: the same form is saved as a
    * film request for an admin to approve.
@@ -56,7 +58,8 @@ interface BarcodeGeneratorProps {
   mode?: "upload" | "request";
 }
 
-export default function BarcodeGenerator({ mode = "upload" }: BarcodeGeneratorProps) {
+export default function BarcodeGenerator({ mode = "upload", fromAdmin = false }: BarcodeGeneratorProps) {
+  const adminSuffix = fromAdmin ? "?from=admin" : "";
   const isRequestMode = mode === "request";
   const searchParams = useSearchParams();
   // Set when an admin opens the upload form from a request, to prefill and later link its job
@@ -410,7 +413,7 @@ export default function BarcodeGenerator({ mode = "upload" }: BarcodeGeneratorPr
       }
 
       const notice = data.closed ? "closed" : data.alreadySubscribed ? "already" : "requested";
-      router.push(`/requests?notice=${notice}`);
+      router.push(`/requests?notice=${notice}${fromAdmin ? "&from=admin" : ""}`);
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "An error occurred");
     } finally {
@@ -579,7 +582,7 @@ export default function BarcodeGenerator({ mode = "upload" }: BarcodeGeneratorPr
           throw new Error("Batch submission did not return a batch id");
         }
 
-        router.push(`/submitted/batch/${data.batchId}`);
+        router.push(`/submitted/batch/${data.batchId}${adminSuffix}`);
         return;
       }
 
@@ -628,7 +631,7 @@ export default function BarcodeGenerator({ mode = "upload" }: BarcodeGeneratorPr
               return;
             }
 
-            router.push(`/submitted/batch/${data.batchId}`);
+            router.push(`/submitted/batch/${data.batchId}${adminSuffix}`);
             resolve();
           } catch {
             reject(new Error("Invalid response from server"));
@@ -811,7 +814,7 @@ export default function BarcodeGenerator({ mode = "upload" }: BarcodeGeneratorPr
                           <div className="flex gap-2 shrink-0">
                             <button
                               onClick={() =>
-                                router.push(`/results/${exactDuplicate.job_id}`)
+                                router.push(`/results/${exactDuplicate.job_id}${adminSuffix}`)
                               }
                               className="px-3 py-1.5 font-mono text-xs tracking-[0.12em] uppercase transition-all hover:opacity-90"
                               style={{
@@ -878,7 +881,7 @@ export default function BarcodeGenerator({ mode = "upload" }: BarcodeGeneratorPr
                                 </span>
                                 <button
                                   onClick={() =>
-                                    router.push(`/results/${analysis.job_id}`)
+                                    router.push(`/results/${analysis.job_id}${adminSuffix}`)
                                   }
                                   className="underline transition-colors hover:text-[var(--text-primary)]"
                                   style={{
@@ -897,6 +900,38 @@ export default function BarcodeGenerator({ mode = "upload" }: BarcodeGeneratorPr
                     </div>
                   );
                 })}
+
+              {isSubmitting && uploadProgress > 0 && uploadProgress < 100 && (
+                <div
+                  role="alert"
+                  className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center p-4"
+                >
+                  <div
+                    className="max-w-md px-8 py-6 text-center shadow-2xl"
+                    style={{
+                      background: "var(--surface-bg-strong)",
+                      border: "2px solid var(--accent-amber)",
+                    }}
+                  >
+                    <div
+                      className="text-6xl leading-none"
+                      style={{ color: "var(--accent-amber)" }}
+                      aria-hidden="true"
+                    >
+                      ⚠
+                    </div>
+                    <p
+                      className="mt-3 font-mono text-lg font-bold tracking-[0.18em] uppercase"
+                      style={{ color: "var(--accent-amber)" }}
+                    >
+                      Upload in progress
+                    </p>
+                    <p className="mt-2 font-mono text-sm kalmus-text-primary">
+                      Do not close or leave this page until the upload finishes.
+                    </p>
+                  </div>
+                </div>
+              )}
 
               {isSubmitting && uploadProgress > 0 && (
                 <div
